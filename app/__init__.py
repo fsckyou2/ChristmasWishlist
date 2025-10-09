@@ -5,9 +5,14 @@ from flask_mail import Mail
 from dotenv import load_dotenv
 from werkzeug.middleware.proxy_fix import ProxyFix
 import os
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
+
+# Version tracking
+_version_file = Path(__file__).parent.parent / "VERSION"
+__version__ = _version_file.read_text().strip() if _version_file.exists() else "0.0.0"
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -65,6 +70,11 @@ def create_app(config_name="default"):
     app.register_blueprint(main.bp)
     app.register_blueprint(scraper.bp)
     app.register_blueprint(passkey.bp)
+
+    # Add version to template context
+    @app.context_processor
+    def inject_version():
+        return {"app_version": __version__}
 
     # Create database tables
     with app.app_context():

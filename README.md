@@ -207,6 +207,70 @@ docker exec christmas-wishlist pytest
 docker exec christmas-wishlist pytest --cov=app --cov-report=html
 ```
 
+## 🚢 CI/CD & Deployment
+
+This project includes automated continuous integration and deployment via GitHub Actions.
+
+### Automated Version Bumping
+
+Versions are automatically bumped when you merge to the `main` branch:
+
+**Workflow:**
+```bash
+# Work on development branch
+git checkout development
+git commit -m "feat: add new feature"  # Use conventional commits!
+git push
+
+# Merge to main
+git checkout main
+git merge development
+git push
+
+# GitHub Actions automatically:
+# 1. Analyzes commit messages
+# 2. Bumps version (e.g., 1.0.0 → 1.1.0)
+# 3. Updates CHANGELOG.md
+# 4. Creates git tag v1.1.0
+# 5. Builds and pushes Docker image to Docker Hub
+```
+
+**Commit Message Conventions:**
+- `feat:` → MINOR version bump (1.0.0 → 1.1.0)
+- `fix:` → PATCH version bump (1.0.0 → 1.0.1)
+- `BREAKING CHANGE:` or `feat!:` → MAJOR version bump (1.0.0 → 2.0.0)
+
+### Docker Hub Deployment
+
+Docker images are automatically built and pushed to Docker Hub when:
+- Code is pushed to `main` branch
+- Version tags are created (e.g., `v1.2.3`)
+
+**Setup Required:**
+1. Add GitHub secrets:
+   - `DOCKERHUB_USERNAME` - Your Docker Hub username
+   - `DOCKERHUB_TOKEN` - Docker Hub access token
+2. See `DOCKER_HUB_SETUP.md` for detailed instructions
+
+**Pull the latest image:**
+```bash
+docker pull <your-username>/christmas-wishlist:latest
+```
+
+### CI Pipeline
+
+GitHub Actions automatically runs on every push/PR:
+- ✅ **Tests** - pytest on Python 3.11, 3.12, 3.13
+- ✅ **Code Quality** - Black formatting and Flake8 linting
+- ✅ **Docker Build** - Verifies container builds successfully
+
+See `.github/workflows/` for workflow definitions.
+
+**Documentation:**
+- `VERSIONING.md` - Complete versioning guide
+- `DOCKER_HUB_SETUP.md` - Docker Hub deployment setup
+- `.github/workflows/README.md` - CI/CD workflow documentation
+
 ## 🏗️ Project Structure
 
 ```
