@@ -1,4 +1,4 @@
-from flask import current_app, render_template
+from flask import current_app
 from flask_mail import Message
 from app import mail, db
 from threading import Thread
@@ -65,7 +65,6 @@ def send_welcome_email(user):
     """Send welcome email to new users with magic login link"""
     token = user.generate_magic_link_token()
     login_url = f"{current_app.config['APP_URL']}/auth/magic-login/{token}"
-    app_url = current_app.config['APP_URL']
 
     send_email(
         subject=f'Welcome to {current_app.config["APP_NAME"]}!',
@@ -112,12 +111,16 @@ Best regards,
     <p>To get started, click the button below to log in to your account:</p>
 
     <p>
-        <a href="{login_url}" style="display: inline-block; background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 0;">
+        <a href="{login_url}"
+           style="display: inline-block; background-color: #dc2626; color: white;
+                  padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 0;">
             Log In to Your Account
         </a>
     </p>
 
-    <p style="color: #666; font-size: 14px;">This link will expire in {current_app.config['MAGIC_LINK_TOKEN_EXPIRY'] // 60} minutes.</p>
+    <p style="color: #666; font-size: 14px;">
+        This link will expire in {current_app.config['MAGIC_LINK_TOKEN_EXPIRY'] // 60} minutes.
+    </p>
 
     <p>If you have any questions or need assistance, feel free to reach out.</p>
 
@@ -147,7 +150,7 @@ def send_daily_wishlist_digest():
         changes = WishlistChange.query.filter(
             WishlistChange.user_id != recipient_user.id,
             WishlistChange.created_at >= yesterday,
-            WishlistChange.notified == False
+            WishlistChange.notified == False  # noqa: E712
         ).order_by(WishlistChange.created_at.desc()).all()
 
         if not changes:
@@ -198,7 +201,9 @@ def send_daily_wishlist_digest():
 
         html_body_parts.append(f'''
         <p>
-            <a href="{app_url}" style="display: inline-block; background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+            <a href="{app_url}"
+               style="display: inline-block; background-color: #dc2626; color: white;
+                      padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
                 View All Wishlists
             </a>
         </p>
@@ -229,6 +234,6 @@ def send_daily_wishlist_digest():
     # Mark all changes as notified
     WishlistChange.query.filter(
         WishlistChange.created_at >= yesterday,
-        WishlistChange.notified == False
+        WishlistChange.notified == False  # noqa: E712
     ).update({WishlistChange.notified: True})
     db.session.commit()

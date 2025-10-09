@@ -91,7 +91,7 @@ def edit_user(user_id):
         user.email = new_email
         db.session.commit()
 
-        flash(f'User details updated successfully.', 'success')
+        flash('User details updated successfully.', 'success')
         return redirect(url_for('admin.view_user', user_id=user_id))
 
     return render_template('admin/edit_user.html', user=user)

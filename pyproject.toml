@@ -1,0 +1,40 @@
+[tool.black]
+line-length = 120
+target-version = ['py311', 'py312', 'py313']
+exclude = '''
+/(
+    \.git
+  | \.pytest_cache
+  | __pycache__
+  | venv
+  | instance
+  | htmlcov
+  | \.egg-info
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+pythonpath = ["."]
+addopts = "-v --cov=app --cov-report=html --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+    "*/__pycache__/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
