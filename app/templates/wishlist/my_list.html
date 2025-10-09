@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}My Wishlist{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-4xl font-bold">My Wishlist</h1>
+        <a href="{{ url_for('wishlist.add_item') }}" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700">
+            + Add Item
+        </a>
+    </div>
+
+    {% if items %}
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for item in items %}
+                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden {% if item.is_fully_purchased %}purchased{% endif %}">
+                    {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-full h-48 object-cover">
+                    {% else %}
+                        <div class="w-full h-48 bg-gray-600 flex items-center justify-center text-6xl">🎁</div>
+                    {% endif %}
+
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold mb-2">{{ item.name }}</h3>
+                        {% if item.description %}
+                            <p class="text-gray-400 text-sm mb-3 line-clamp-2">{{ item.description }}</p>
+                        {% endif %}
+
+                        <div class="flex justify-between items-center mb-3">
+                            {% if item.price %}
+                                <span class="text-lg font-semibold text-green-600">${{ "%.2f"|format(item.price) }}</span>
+                            {% else %}
+                                <span class="text-gray-400">No price</span>
+                            {% endif %}
+                            <span class="text-sm text-gray-400">Qty: {{ item.quantity }}</span>
+                        </div>
+
+                        {% if item.is_fully_purchased %}
+                            <div class="bg-green-100 text-green-800 px-3 py-2 rounded text-center mb-3">
+                                ✓ Fully Purchased
+                            </div>
+                        {% elif item.total_purchased > 0 %}
+                            <div class="bg-yellow-100 text-yellow-800 px-3 py-2 rounded text-center mb-3">
+                                {{ item.total_purchased }}/{{ item.quantity }} Purchased
+                            </div>
+                        {% endif %}
+
+                        <div class="flex gap-2">
+                            {% if item.url %}
+                                <a href="{{ item.url }}" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
+                                    View
+                                </a>
+                            {% endif %}
+                            <a href="{{ url_for('wishlist.edit_item', item_id=item.id) }}" class="flex-1 bg-gray-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-gray-700">
+                                Edit
+                            </a>
+                            <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="flex-1">
+                                <button type="submit" onclick="return confirm('Delete this item?')" class="w-full bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
+            <div class="text-6xl mb-4">📝</div>
+            <h2 class="text-2xl font-bold mb-4">Your wishlist is empty</h2>
+            <p class="text-gray-400 mb-6">Start adding items to let others know what you'd like!</p>
+            <a href="{{ url_for('wishlist.add_item') }}" class="inline-block bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700">
+                Add Your First Item
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

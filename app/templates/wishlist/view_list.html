@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.name }}'s Wishlist{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8">{{ user.name }}'s Wishlist</h1>
+
+    {% if items %}
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for item in items %}
+                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden {% if item.is_fully_purchased %}purchased{% endif %}">
+                    {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-full h-48 object-cover">
+                    {% else %}
+                        <div class="w-full h-48 bg-gray-600 flex items-center justify-center text-6xl">🎁</div>
+                    {% endif %}
+
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold mb-2">{{ item.name }}</h3>
+                        {% if item.description %}
+                            <p class="text-gray-400 text-sm mb-3">{{ item.description[:100] }}{% if item.description|length > 100 %}...{% endif %}</p>
+                        {% endif %}
+
+                        <div class="flex justify-between items-center mb-3">
+                            {% if item.price %}
+                                <span class="text-lg font-semibold text-green-600">${{ "%.2f"|format(item.price) }}</span>
+                            {% else %}
+                                <span class="text-gray-400">No price</span>
+                            {% endif %}
+                            <span class="text-sm text-gray-400">Qty: {{ item.quantity }}</span>
+                        </div>
+
+                        {% if item.is_fully_purchased %}
+                            <div class="bg-green-100 text-green-800 px-3 py-2 rounded text-center mb-3">
+                                ✓ Fully Purchased
+                            </div>
+                        {% elif item.total_purchased > 0 %}
+                            <div class="bg-yellow-100 text-yellow-800 px-3 py-2 rounded text-center mb-3">
+                                {{ item.total_purchased }}/{{ item.quantity }} Purchased
+                            </div>
+                        {% endif %}
+
+                        <div class="flex gap-2">
+                            {% if item.url %}
+                                <a href="{{ item.url }}" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
+                                    View Product
+                                </a>
+                            {% endif %}
+                            {% if not item.is_fully_purchased %}
+                                <a href="{{ url_for('wishlist.purchase_item', item_id=item.id) }}" class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-green-700">
+                                    Mark Purchased
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
+            <div class="text-6xl mb-4">📝</div>
+            <h2 class="text-2xl font-bold mb-4">No items on this wishlist yet</h2>
+        </div>
+    {% endif %}
+
+    <div class="mt-8">
+        <a href="{{ url_for('wishlist.all_users') }}" class="text-red-600 hover:underline">← Back to All Users</a>
+    </div>
+</div>
+{% endblock %}

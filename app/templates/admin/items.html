@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}All Items{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8">All Wishlist Items</h1>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for item in items %}
+            <div class="bg-gray-800 rounded-lg shadow p-4">
+                <h3 class="font-bold text-lg mb-2">{{ item.name }}</h3>
+                <p class="text-sm text-gray-400 mb-2">Owner: {{ item.user.name }}</p>
+                {% if item.price %}<p class="text-green-600 font-semibold mb-2">${{ "%.2f"|format(item.price) }}</p>{% endif %}
+                <form method="POST" action="{{ url_for('admin.delete_item', item_id=item.id) }}">
+                    <button type="submit" onclick="return confirm('Delete this item?')" class="text-red-600 hover:underline text-sm">
+                        Delete
+                    </button>
+                </form>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

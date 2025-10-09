@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Item{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8">Edit Wishlist Item</h1>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-8">
+        <form method="POST" class="space-y-4">
+            {{ form.hidden_tag() }}
+
+            <div>
+                {{ form.url.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.url(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600") }}
+                {% if form.url.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.url.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                {{ form.name.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.name(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600", required=true) }}
+                {% if form.name.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.name.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                {{ form.description.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.description(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600", rows=3) }}
+                {% if form.description.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.description.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    {{ form.price.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ form.price(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600", step="0.01") }}
+                    {% if form.price.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ form.price.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    {{ form.quantity.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ form.quantity(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600") }}
+                    {% if form.quantity.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ form.quantity.errors[0] }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div>
+                {{ form.image_url.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.image_url(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600") }}
+                {% if form.image_url.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.image_url.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="flex gap-4">
+                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
+                <a href="{{ url_for('wishlist.my_list') }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

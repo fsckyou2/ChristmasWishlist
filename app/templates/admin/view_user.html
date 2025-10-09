@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}User Details{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-4xl font-bold">User Details</h1>
+        <a href="{{ url_for('admin.users') }}" class="text-red-600 hover:underline">← Back to Users</a>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4">{{ user.name }}</h2>
+        <div class="grid md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-gray-400"><strong>Email:</strong> {{ user.email }}</p>
+                <p class="text-gray-400"><strong>Admin:</strong> {% if user.is_admin %}Yes{% else %}No{% endif %}</p>
+                <p class="text-gray-400"><strong>Joined:</strong> {{ user.created_at.strftime('%Y-%m-%d') }}</p>
+            </div>
+            <div>
+                <p class="text-gray-400"><strong>Wishlist Items:</strong> {{ wishlist_items|length }}</p>
+                <p class="text-gray-400"><strong>Purchases Made:</strong> {{ purchases|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold mb-4">Wishlist Items</h3>
+        {% if wishlist_items %}
+            <div class="space-y-2">
+                {% for item in wishlist_items %}
+                    <div class="p-3 bg-gray-700 rounded">
+                        <p class="font-semibold">{{ item.name }}</p>
+                        {% if item.price %}<p class="text-sm text-gray-400">${{ "%.2f"|format(item.price) }}</p>{% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-400">No items</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

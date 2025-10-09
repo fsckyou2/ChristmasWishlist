@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}All Purchases{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8">All Purchases</h1>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-700">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Item</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Owner</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Purchased By</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Quantity</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Date</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for purchase in purchases %}
+                    <tr class="hover:bg-gray-700">
+                        <td class="px-6 py-4">{{ purchase.wishlist_item.name }}</td>
+                        <td class="px-6 py-4">{{ purchase.wishlist_item.user.name }}</td>
+                        <td class="px-6 py-4">{{ purchase.purchased_by.name }}</td>
+                        <td class="px-6 py-4">{{ purchase.quantity }}</td>
+                        <td class="px-6 py-4">{{ purchase.created_at.strftime('%Y-%m-%d') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

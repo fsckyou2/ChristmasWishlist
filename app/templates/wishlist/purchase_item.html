@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Purchase Item{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8">Mark as Purchased</h1>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-8 mb-6">
+        <div class="flex gap-6 mb-6">
+            {% if item.image_url %}
+                <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-32 h-32 object-cover rounded">
+            {% else %}
+                <div class="w-32 h-32 bg-gray-600 flex items-center justify-center text-4xl rounded">🎁</div>
+            {% endif %}
+
+            <div>
+                <h2 class="text-2xl font-bold mb-2">{{ item.name }}</h2>
+                {% if item.price %}
+                    <p class="text-xl text-green-600 font-semibold mb-2">${{ "%.2f"|format(item.price) }}</p>
+                {% endif %}
+                <p class="text-gray-400">Wanted: {{ item.quantity }}</p>
+                <p class="text-gray-400">Already purchased: {{ item.total_purchased }}</p>
+                <p class="text-gray-400 font-semibold">Remaining: {{ remaining }}</p>
+            </div>
+        </div>
+
+        <div class="bg-blue-900 p-4 rounded mb-6">
+            <p class="text-sm text-gray-200">
+                <strong>Note:</strong> {{ item.user.name }} will be able to see that {{ remaining }} of this item has been purchased, but they won't know who purchased it. This keeps the surprise!
+            </p>
+        </div>
+
+        <form method="POST" class="space-y-4">
+            {{ form.hidden_tag() }}
+
+            <div>
+                {{ form.quantity.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.quantity(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600", max=remaining) }}
+                <p class="text-sm text-gray-400 mt-1">Maximum: {{ remaining }}</p>
+                {% if form.quantity.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.quantity.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="flex gap-4">
+                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
+                <a href="{{ url_for('wishlist.view_user_list', user_id=item.user_id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
