@@ -1,0 +1,125 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'VERSION'
+      - 'CHANGELOG.md'
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    # Prevent infinite loops - only run if VERSION wasn't just updated
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version bump type
+        id: bump_type
+        run: |
+          # Check commit messages since last tag to determine bump type
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            # No tags yet, use all commits
+            COMMITS=$(git log --pretty=format:"%s" origin/main)
+          else
+            # Get commits since last tag
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s")
+          fi
+
+          # Determine bump type based on conventional commits
+          # BREAKING CHANGE or feat!: -> major
+          # feat: -> minor
+          # fix: or anything else -> patch
+
+          BUMP_TYPE="patch"
+
+          if echo "$COMMITS" | grep -qiE "^(BREAKING CHANGE|.*!:)"; then
+            BUMP_TYPE="major"
+          elif echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:"; then
+            BUMP_TYPE="minor"
+          fi
+
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "Detected bump type: $BUMP_TYPE"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bump version
+        id: bump
+        run: |
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          python scripts/bump_version.py $BUMP_TYPE
+
+          NEW_VERSION=$(cat VERSION)
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Bumped to version: $NEW_VERSION"
+
+      - name: Update CHANGELOG
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          TODAY=$(date +%Y-%m-%d)
+
+          # Create a temporary file with the updated changelog
+          cat > /tmp/changelog_update.md << 'EOF'
+          # Changelog
+
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          ## [Unreleased]
+
+          EOF
+
+          # Extract the content after the first ## [Unreleased] from the current CHANGELOG
+          # and add it under a new version section
+          if [ -f CHANGELOG.md ]; then
+            # Get unreleased content
+            UNRELEASED=$(sed -n '/## \[Unreleased\]/,/## \[/p' CHANGELOG.md | sed '1d;$d')
+
+            if [ -n "$UNRELEASED" ]; then
+              echo "" >> /tmp/changelog_update.md
+              echo "## [$NEW_VERSION] - $TODAY" >> /tmp/changelog_update.md
+              echo "" >> /tmp/changelog_update.md
+              echo "$UNRELEASED" >> /tmp/changelog_update.md
+
+              # Get the rest of the changelog (previous versions)
+              sed -n '/## \[[0-9]/,$p' CHANGELOG.md >> /tmp/changelog_update.md
+
+              mv /tmp/changelog_update.md CHANGELOG.md
+            fi
+          fi
+
+      - name: Commit version bump
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+
+          git add VERSION CHANGELOG.md
+          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+          git push
+
+      - name: Create and push tag
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+
+          git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
+          git push origin "v$NEW_VERSION"

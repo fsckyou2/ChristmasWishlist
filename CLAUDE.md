@@ -279,3 +279,45 @@ Automated Docker image deployment to Docker Hub on push to main branch (e.g., wh
 ```bash
 docker pull <your-username>/christmas-wishlist:latest
 ```
+
+## Semantic Versioning
+
+The project follows semantic versioning (MAJOR.MINOR.PATCH) with **automated version bumping**:
+
+- **Current Version**: Tracked in `VERSION` file (currently 1.0.0)
+- **Auto-Bump Workflow**: `.github/workflows/version-bump.yml` automatically bumps version on merge to main
+- **Version Endpoint**: `GET /version` returns JSON with current version
+- **Template Display**: Version shown in footer of all pages via `app_version` context variable
+
+**Automated Release Workflow**:
+```bash
+# Work on development branch
+git checkout development
+git commit -m "feat: add new feature"  # Use conventional commits
+git push
+
+# Merge to main - triggers auto version bump
+git checkout main
+git merge development
+git push
+
+# GitHub Actions automatically:
+# 1. Bumps version based on commit messages
+# 2. Updates VERSION and CHANGELOG.md
+# 3. Creates git tag (e.g., v1.1.0)
+# 4. Triggers Docker Hub deployment
+```
+
+**Commit Message Convention** (for auto-bumping):
+- `feat:` or `feat():` → MINOR version bump (1.0.0 → 1.1.0)
+- `fix:` or other messages → PATCH version bump (1.0.0 → 1.0.1)
+- `BREAKING CHANGE:` or `feat!:` → MAJOR version bump (1.0.0 → 2.0.0)
+
+**Manual Bump** (if needed):
+```bash
+python scripts/bump_version.py [major|minor|patch]
+```
+
+**Documentation**:
+- See `VERSIONING.md` for detailed versioning guide
+- See `CHANGELOG.md` for version history and changes
