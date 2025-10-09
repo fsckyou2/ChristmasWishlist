@@ -1,5 +1,9 @@
 import pytest
-from app.email import send_magic_link_email, send_welcome_email, send_daily_wishlist_digest
+from app.email import (
+    send_magic_link_email,
+    send_welcome_email,
+    send_daily_wishlist_digest,
+)
 from app.models import User, WishlistChange
 from app import db, mail
 from flask import current_app
@@ -60,10 +64,10 @@ class TestEmailFunctions:
             # Create a change from admin (not from user themselves)
             change = WishlistChange(
                 user_id=admin_user.id,
-                change_type='added',
-                item_name='Test Item',
+                change_type="added",
+                item_name="Test Item",
                 item_id=1,
-                notified=False
+                notified=False,
             )
             db.session.add(change)
             db.session.commit()
@@ -86,9 +90,9 @@ class TestEmailFunctions:
         with app.app_context():
             change = WishlistChange(
                 user_id=admin_user.id,
-                change_type='added',
-                item_name='Test Item',
-                notified=False
+                change_type="added",
+                item_name="Test Item",
+                notified=False,
             )
             db.session.add(change)
             db.session.commit()
@@ -109,9 +113,9 @@ class TestEmailFunctions:
             # User creates their own change
             change = WishlistChange(
                 user_id=user.id,
-                change_type='added',
-                item_name='My Item',
-                notified=False
+                change_type="added",
+                item_name="My Item",
+                notified=False,
             )
             db.session.add(change)
             db.session.commit()
@@ -133,16 +137,16 @@ class TestEmailFunctions:
             assert len(token) > 20
 
             # Verify token contains expiry time
-            expiry_minutes = current_app.config['MAGIC_LINK_TOKEN_EXPIRY'] // 60
+            expiry_minutes = current_app.config["MAGIC_LINK_TOKEN_EXPIRY"] // 60
             print(f"\n🔑 Generated token with {expiry_minutes} minute expiry")
             print(f"✅ Token generation working correctly")
 
     def test_email_configuration_valid(self, app):
         """Test that email configuration is valid"""
         with app.app_context():
-            app_name = current_app.config['APP_NAME']
-            mail_server = current_app.config['MAIL_SERVER']
-            mail_sender = current_app.config['MAIL_DEFAULT_SENDER']
+            app_name = current_app.config["APP_NAME"]
+            mail_server = current_app.config["MAIL_SERVER"]
+            mail_sender = current_app.config["MAIL_DEFAULT_SENDER"]
 
             assert app_name is not None
             assert mail_server is not None
@@ -161,14 +165,15 @@ class TestEmailConfiguration:
     def test_mail_configured(self, app):
         """Test that mail is properly configured"""
         with app.app_context():
-            assert current_app.config['MAIL_SERVER'] is not None
-            assert current_app.config['MAIL_DEFAULT_SENDER'] is not None
+            assert current_app.config["MAIL_SERVER"] is not None
+            assert current_app.config["MAIL_DEFAULT_SENDER"] is not None
             print("\n✅ Mail server and sender configured correctly")
 
     def test_async_email_sending(self, app, user):
         """Test that emails are sent asynchronously without blocking"""
         with app.app_context():
             import time
+
             start_time = time.time()
 
             # The send_email function uses threading

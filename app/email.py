@@ -16,16 +16,13 @@ def send_email(subject, recipients, text_body, html_body):
     msg = Message(
         subject=subject,
         recipients=recipients if isinstance(recipients, list) else [recipients],
-        sender=current_app.config['MAIL_DEFAULT_SENDER']
+        sender=current_app.config["MAIL_DEFAULT_SENDER"],
     )
     msg.body = text_body
     msg.html = html_body
 
     # Send email in background thread
-    Thread(
-        target=send_async_email,
-        args=(current_app._get_current_object(), msg)
-    ).start()
+    Thread(target=send_async_email, args=(current_app._get_current_object(), msg)).start()
 
 
 def send_magic_link_email(user):
@@ -34,9 +31,9 @@ def send_magic_link_email(user):
     login_url = f"{current_app.config['APP_URL']}/auth/magic-login/{token}"
 
     send_email(
-        subject='Your Login Link',
+        subject="Your Login Link",
         recipients=user.email,
-        text_body=f'''Dear {user.name},
+        text_body=f"""Dear {user.name},
 
 To log in to your account, please click the following link:
 
@@ -48,8 +45,8 @@ If you did not request this login link, please ignore this email.
 
 Best regards,
 {current_app.config['APP_NAME']} Team
-''',
-        html_body=f'''
+""",
+        html_body=f"""
 <p>Dear {user.name},</p>
 <p>To log in to your account, please click the following link:</p>
 <p><a href="{login_url}">Log In</a></p>
@@ -57,7 +54,7 @@ Best regards,
 <p>If you did not request this login link, please ignore this email.</p>
 <p>Best regards,<br>
 {current_app.config['APP_NAME']} Team</p>
-'''
+""",
     )
 
 
@@ -69,7 +66,7 @@ def send_welcome_email(user):
     send_email(
         subject=f'Welcome to {current_app.config["APP_NAME"]}!',
         recipients=user.email,
-        text_body=f'''Dear {user.name},
+        text_body=f"""Dear {user.name},
 
 Welcome to {current_app.config["APP_NAME"]}! 🎁
 
@@ -92,8 +89,8 @@ Happy holidays!
 
 Best regards,
 {current_app.config['APP_NAME']} Team
-''',
-        html_body=f'''
+""",
+        html_body=f"""
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
     <h2 style="color: #dc2626;">Welcome to {current_app.config["APP_NAME"]}! 🎁</h2>
 
@@ -131,7 +128,7 @@ Best regards,
         {current_app.config['APP_NAME']} Team
     </p>
 </div>
-'''
+""",
     )
 
 
@@ -147,11 +144,15 @@ def send_daily_wishlist_digest():
 
     for recipient_user in all_users:
         # Get changes from OTHER users (not the recipient themselves) since yesterday
-        changes = WishlistChange.query.filter(
-            WishlistChange.user_id != recipient_user.id,
-            WishlistChange.created_at >= yesterday,
-            WishlistChange.notified == False  # noqa: E712
-        ).order_by(WishlistChange.created_at.desc()).all()
+        changes = (
+            WishlistChange.query.filter(
+                WishlistChange.user_id != recipient_user.id,
+                WishlistChange.created_at >= yesterday,
+                WishlistChange.notified == False,  # noqa: E712
+            )
+            .order_by(WishlistChange.created_at.desc())
+            .all()
+        )
 
         if not changes:
             # No changes to notify this user about
@@ -165,41 +166,42 @@ def send_daily_wishlist_digest():
             changes_by_user[change.user_id].append(change)
 
         # Build email content
-        text_body_lines = [f'Dear {recipient_user.name},\n']
-        text_body_lines.append('Here\'s what\'s new with wishlists from your family:\n')
+        text_body_lines = [f"Dear {recipient_user.name},\n"]
+        text_body_lines.append("Here's what's new with wishlists from your family:\n")
 
-        html_body_parts = [f'<p>Dear {recipient_user.name},</p>']
-        html_body_parts.append('<p>Here\'s what\'s new with wishlists from your family:</p>')
+        html_body_parts = [f"<p>Dear {recipient_user.name},</p>"]
+        html_body_parts.append("<p>Here's what's new with wishlists from your family:</p>")
 
         for user_id, user_changes in changes_by_user.items():
             changer_user = User.query.get(user_id)
             if not changer_user:
                 continue
 
-            text_body_lines.append(f'\n{changer_user.name}:')
+            text_body_lines.append(f"\n{changer_user.name}:")
             html_body_parts.append(f'<h3 style="color: #dc2626; margin-top: 20px;">{changer_user.name}:</h3>')
-            html_body_parts.append('<ul>')
+            html_body_parts.append("<ul>")
 
             for change in user_changes:
-                if change.change_type == 'added':
+                if change.change_type == "added":
                     text_body_lines.append(f'  • Added "{change.item_name}" to their wishlist')
-                    html_body_parts.append(f'<li>Added <strong>{change.item_name}</strong> to their wishlist</li>')
-                elif change.change_type == 'updated':
+                    html_body_parts.append(f"<li>Added <strong>{change.item_name}</strong> to their wishlist</li>")
+                elif change.change_type == "updated":
                     text_body_lines.append(f'  • Updated "{change.item_name}" on their wishlist')
-                    html_body_parts.append(f'<li>Updated <strong>{change.item_name}</strong> on their wishlist</li>')
-                elif change.change_type == 'deleted':
+                    html_body_parts.append(f"<li>Updated <strong>{change.item_name}</strong> on their wishlist</li>")
+                elif change.change_type == "deleted":
                     text_body_lines.append(f'  • Removed "{change.item_name}" from their wishlist')
-                    html_body_parts.append(f'<li>Removed <strong>{change.item_name}</strong> from their wishlist</li>')
+                    html_body_parts.append(f"<li>Removed <strong>{change.item_name}</strong> from their wishlist</li>")
 
-            html_body_parts.append('</ul>')
+            html_body_parts.append("</ul>")
 
         # Add footer
-        app_url = current_app.config['APP_URL']
-        text_body_lines.append(f'\nVisit {app_url} to see all wishlists.\n')
-        text_body_lines.append('Happy holidays!\n')
+        app_url = current_app.config["APP_URL"]
+        text_body_lines.append(f"\nVisit {app_url} to see all wishlists.\n")
+        text_body_lines.append("Happy holidays!\n")
         text_body_lines.append(f'\nBest regards,\n{current_app.config["APP_NAME"]} Team')
 
-        html_body_parts.append(f'''
+        html_body_parts.append(
+            f"""
         <p>
             <a href="{app_url}"
                style="display: inline-block; background-color: #dc2626; color: white;
@@ -212,28 +214,28 @@ def send_daily_wishlist_digest():
             Best regards,<br>
             {current_app.config["APP_NAME"]} Team
         </p>
-        ''')
+        """
+        )
 
         # Wrap HTML in div
-        html_body = f'''
+        html_body = f"""
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             {''.join(html_body_parts)}
         </div>
-        '''
+        """
 
-        text_body = '\n'.join(text_body_lines)
+        text_body = "\n".join(text_body_lines)
 
         # Send the email
         send_email(
-            subject='Wishlist Updates from Your Family',
+            subject="Wishlist Updates from Your Family",
             recipients=recipient_user.email,
             text_body=text_body,
-            html_body=html_body
+            html_body=html_body,
         )
 
     # Mark all changes as notified
     WishlistChange.query.filter(
-        WishlistChange.created_at >= yesterday,
-        WishlistChange.notified == False  # noqa: E712
+        WishlistChange.created_at >= yesterday, WishlistChange.notified == False  # noqa: E712
     ).update({WishlistChange.notified: True})
     db.session.commit()

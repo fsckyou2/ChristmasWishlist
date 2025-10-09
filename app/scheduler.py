@@ -1,6 +1,7 @@
 """
 Scheduler for running periodic tasks like daily wishlist digest emails
 """
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import logging
@@ -25,15 +26,15 @@ def init_scheduler(app):
     scheduler = BackgroundScheduler()
 
     # Get the hour to send emails from config (default to 9 AM)
-    digest_hour = app.config.get('DAILY_DIGEST_HOUR', 9)
+    digest_hour = app.config.get("DAILY_DIGEST_HOUR", 9)
 
     # Schedule daily digest to run at the specified hour every day
     scheduler.add_job(
         func=send_daily_digest_job,
         trigger=CronTrigger(hour=digest_hour, minute=0),
-        id='daily_wishlist_digest',
-        name='Send daily wishlist digest emails',
-        replace_existing=True
+        id="daily_wishlist_digest",
+        name="Send daily wishlist digest emails",
+        replace_existing=True,
     )
 
     scheduler.start()

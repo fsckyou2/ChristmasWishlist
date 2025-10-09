@@ -9,14 +9,15 @@ from datetime import datetime
 def load_user(user_id):
     """Load user for Flask-Login - supports impersonation"""
     # Check if admin is impersonating another user
-    if 'impersonate_user_id' in session:
-        return User.query.get(int(session['impersonate_user_id']))
+    if "impersonate_user_id" in session:
+        return User.query.get(int(session["impersonate_user_id"]))
     return User.query.get(int(user_id))
 
 
 class User(UserMixin, db.Model):
     """User model - Passwordless authentication via magic links and passkeys"""
-    __tablename__ = 'users'
+
+    __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
@@ -26,49 +27,47 @@ class User(UserMixin, db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    wishlist_items = db.relationship('WishlistItem', backref='user', lazy='dynamic',
-                                     cascade='all, delete-orphan')
-    purchases = db.relationship('Purchase', backref='purchased_by', lazy='dynamic',
-                               cascade='all, delete-orphan')
+    wishlist_items = db.relationship("WishlistItem", backref="user", lazy="dynamic", cascade="all, delete-orphan")
+    purchases = db.relationship("Purchase", backref="purchased_by", lazy="dynamic", cascade="all, delete-orphan")
     # claims is an alias for purchases (view-only for convenience)
-    claims = db.relationship('Purchase', lazy='dynamic',
-                            foreign_keys='Purchase.purchased_by_id',
-                            viewonly=True, overlaps="purchases,purchased_by")
-    passkeys = db.relationship('Passkey', backref='user', lazy='dynamic',
-                              cascade='all, delete-orphan')
+    claims = db.relationship(
+        "Purchase",
+        lazy="dynamic",
+        foreign_keys="Purchase.purchased_by_id",
+        viewonly=True,
+        overlaps="purchases,purchased_by",
+    )
+    passkeys = db.relationship("Passkey", backref="user", lazy="dynamic", cascade="all, delete-orphan")
 
     def generate_magic_link_token(self):
         """Generate magic link login token"""
-        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-        return serializer.dumps(self.email, salt='magic-link-salt')
+        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+        return serializer.dumps(self.email, salt="magic-link-salt")
 
     @staticmethod
     def verify_magic_link_token(token, expiration=None):
         """Verify magic link token and return user"""
         if expiration is None:
-            expiration = current_app.config['MAGIC_LINK_TOKEN_EXPIRY']
+            expiration = current_app.config["MAGIC_LINK_TOKEN_EXPIRY"]
 
-        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
         try:
-            email = serializer.loads(
-                token,
-                salt='magic-link-salt',
-                max_age=expiration
-            )
+            email = serializer.loads(token, salt="magic-link-salt", max_age=expiration)
         except Exception:
             return None
         return User.query.filter_by(email=email).first()
 
     def __repr__(self):
-        return f'<User {self.email}>'
+        return f"<User {self.email}>"
 
 
 class WishlistItem(db.Model):
     """Wishlist item model"""
-    __tablename__ = 'wishlist_items'
+
+    __tablename__ = "wishlist_items"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     name = db.Column(db.String(200), nullable=False)
     url = db.Column(db.String(500))
     description = db.Column(db.Text)
@@ -79,8 +78,7 @@ class WishlistItem(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    purchases = db.relationship('Purchase', backref='wishlist_item', lazy='dynamic',
-                               cascade='all, delete-orphan')
+    purchases = db.relationship("Purchase", backref="wishlist_item", lazy="dynamic", cascade="all, delete-orphan")
 
     @property
     def total_purchased(self):
@@ -93,32 +91,34 @@ class WishlistItem(db.Model):
         return self.total_purchased >= self.quantity
 
     def __repr__(self):
-        return f'<WishlistItem {self.name}>'
+        return f"<WishlistItem {self.name}>"
 
 
 class Purchase(db.Model):
     """Gift claim tracking model - tracks items users have claimed to gift to others"""
-    __tablename__ = 'purchases'
+
+    __tablename__ = "purchases"
 
     id = db.Column(db.Integer, primary_key=True)
-    wishlist_item_id = db.Column(db.Integer, db.ForeignKey('wishlist_items.id'), nullable=False)
-    purchased_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    wishlist_item_id = db.Column(db.Integer, db.ForeignKey("wishlist_items.id"), nullable=False)
+    purchased_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     acquired = db.Column(db.Boolean, default=False)  # Has the gift been purchased/obtained?
-    wrapped = db.Column(db.Boolean, default=False)    # Has the gift been wrapped?
+    wrapped = db.Column(db.Boolean, default=False)  # Has the gift been wrapped?
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
-        return f'<Purchase item={self.wishlist_item_id} by={self.purchased_by_id} qty={self.quantity}>'
+        return f"<Purchase item={self.wishlist_item_id} by={self.purchased_by_id} qty={self.quantity}>"
 
 
 class WishlistChange(db.Model):
     """Track changes to wishlists for daily digest emails"""
-    __tablename__ = 'wishlist_changes'
+
+    __tablename__ = "wishlist_changes"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     change_type = db.Column(db.String(50), nullable=False)  # 'added', 'updated', 'deleted'
     item_name = db.Column(db.String(200), nullable=False)
     item_id = db.Column(db.Integer)  # May be null if item was deleted
@@ -126,18 +126,19 @@ class WishlistChange(db.Model):
     notified = db.Column(db.Boolean, default=False, index=True)
 
     # Relationship
-    user = db.relationship('User', backref='wishlist_changes')
+    user = db.relationship("User", backref="wishlist_changes")
 
     def __repr__(self):
-        return f'<WishlistChange user={self.user_id} type={self.change_type} item={self.item_name}>'
+        return f"<WishlistChange user={self.user_id} type={self.change_type} item={self.item_name}>"
 
 
 class Passkey(db.Model):
     """WebAuthn/Passkey credentials for passwordless authentication"""
-    __tablename__ = 'passkeys'
+
+    __tablename__ = "passkeys"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     credential_id = db.Column(db.LargeBinary, nullable=False, unique=True, index=True)
     public_key = db.Column(db.LargeBinary, nullable=False)
     sign_count = db.Column(db.Integer, default=0)
@@ -146,4 +147,4 @@ class Passkey(db.Model):
     last_used = db.Column(db.DateTime)
 
     def __repr__(self):
-        return f'<Passkey user={self.user_id} device={self.device_name}>'
+        return f"<Passkey user={self.user_id} device={self.device_name}>"

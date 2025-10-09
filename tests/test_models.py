@@ -8,13 +8,13 @@ class TestUserModel:
 
     def test_create_user(self, app):
         """Test creating a user"""
-        user = User(email='newuser@example.com', name='New User')
+        user = User(email="newuser@example.com", name="New User")
         db.session.add(user)
         db.session.commit()
 
         assert user.id is not None
-        assert user.email == 'newuser@example.com'
-        assert user.name == 'New User'
+        assert user.email == "newuser@example.com"
+        assert user.name == "New User"
         assert user.is_admin is False
 
     def test_generate_magic_link_token(self, app, user):
@@ -38,26 +38,26 @@ class TestWishlistItemModel:
         """Test creating a wishlist item"""
         item = WishlistItem(
             user_id=user.id,
-            name='Product Name',
-            url='https://example.com/product',
-            description='Product description',
+            name="Product Name",
+            url="https://example.com/product",
+            description="Product description",
             price=19.99,
-            image_url='https://example.com/image.jpg',
-            quantity=1
+            image_url="https://example.com/image.jpg",
+            quantity=1,
         )
         db.session.add(item)
         db.session.commit()
 
         assert item.id is not None
         assert item.user_id == user.id
-        assert item.name == 'Product Name'
+        assert item.name == "Product Name"
         assert item.price == 19.99
         assert item.quantity == 1
 
     def test_wishlist_item_relationship(self, app, user):
         """Test relationship between User and WishlistItem"""
-        item1 = WishlistItem(user_id=user.id, name='Item 1', quantity=1)
-        item2 = WishlistItem(user_id=user.id, name='Item 2', quantity=2)
+        item1 = WishlistItem(user_id=user.id, name="Item 1", quantity=1)
+        item2 = WishlistItem(user_id=user.id, name="Item 2", quantity=2)
         db.session.add_all([item1, item2])
         db.session.commit()
 
@@ -69,11 +69,7 @@ class TestWishlistItemModel:
         """Test total_purchased property"""
         assert wishlist_item.total_purchased == 0
 
-        purchase = Purchase(
-            wishlist_item_id=wishlist_item.id,
-            purchased_by_id=user.id,
-            quantity=1
-        )
+        purchase = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=1)
         db.session.add(purchase)
         db.session.commit()
 
@@ -86,11 +82,7 @@ class TestWishlistItemModel:
 
         assert wishlist_item.is_fully_purchased is False
 
-        purchase = Purchase(
-            wishlist_item_id=wishlist_item.id,
-            purchased_by_id=user.id,
-            quantity=2
-        )
+        purchase = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=2)
         db.session.add(purchase)
         db.session.commit()
 
@@ -102,11 +94,7 @@ class TestPurchaseModel:
 
     def test_create_purchase(self, app, user, wishlist_item):
         """Test creating a purchase"""
-        purchase = Purchase(
-            wishlist_item_id=wishlist_item.id,
-            purchased_by_id=user.id,
-            quantity=1
-        )
+        purchase = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=1)
         db.session.add(purchase)
         db.session.commit()
 
@@ -117,11 +105,7 @@ class TestPurchaseModel:
 
     def test_purchase_relationships(self, app, user, wishlist_item):
         """Test relationships in Purchase model"""
-        purchase = Purchase(
-            wishlist_item_id=wishlist_item.id,
-            purchased_by_id=user.id,
-            quantity=1
-        )
+        purchase = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=1)
         db.session.add(purchase)
         db.session.commit()
 
@@ -134,16 +118,8 @@ class TestPurchaseModel:
         wishlist_item.quantity = 5
         db.session.commit()
 
-        purchase1 = Purchase(
-            wishlist_item_id=wishlist_item.id,
-            purchased_by_id=user.id,
-            quantity=2
-        )
-        purchase2 = Purchase(
-            wishlist_item_id=wishlist_item.id,
-            purchased_by_id=admin_user.id,
-            quantity=3
-        )
+        purchase1 = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=2)
+        purchase2 = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=admin_user.id, quantity=3)
         db.session.add_all([purchase1, purchase2])
         db.session.commit()
 
