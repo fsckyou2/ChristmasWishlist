@@ -3,10 +3,10 @@ from app import create_app, db
 from app.models import User, WishlistItem, Purchase
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def app():
     """Create application for testing"""
-    app = create_app('testing')
+    app = create_app("testing")
     with app.app_context():
         db.create_all()
         yield app
@@ -14,13 +14,13 @@ def app():
         db.drop_all()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def client(app):
     """Create test client"""
     return app.test_client()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def runner(app):
     """Create test CLI runner"""
     return app.test_cli_runner()
@@ -29,11 +29,7 @@ def runner(app):
 @pytest.fixture
 def user(app):
     """Create a test user"""
-    user = User(
-        email='test@example.com',
-        name='Test User',
-        is_admin=False
-    )
+    user = User(email="test@example.com", name="Test User", is_admin=False)
     db.session.add(user)
     db.session.commit()
     return user
@@ -42,11 +38,7 @@ def user(app):
 @pytest.fixture
 def admin_user(app):
     """Create an admin user"""
-    admin = User(
-        email='admin@example.com',
-        name='Admin User',
-        is_admin=True
-    )
+    admin = User(email="admin@example.com", name="Admin User", is_admin=True)
     db.session.add(admin)
     db.session.commit()
     return admin
@@ -57,12 +49,12 @@ def wishlist_item(app, user):
     """Create a test wishlist item"""
     item = WishlistItem(
         user_id=user.id,
-        name='Test Product',
-        url='https://example.com/product',
-        description='A test product',
+        name="Test Product",
+        url="https://example.com/product",
+        description="A test product",
         price=29.99,
-        image_url='https://example.com/image.jpg',
-        quantity=2
+        image_url="https://example.com/image.jpg",
+        quantity=2,
     )
     db.session.add(item)
     db.session.commit()

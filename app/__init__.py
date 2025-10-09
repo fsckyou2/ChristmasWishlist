@@ -15,35 +15,36 @@ login_manager = LoginManager()
 mail = Mail()
 
 
-def create_app(config_name='default'):
+def create_app(config_name="default"):
     """Application factory pattern"""
     app = Flask(__name__)
 
     # Load configuration from config.py
     from config import config
+
     app.config.from_object(config[config_name])
 
     # Configure for reverse proxy support
     # This handles X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host headers
     app.wsgi_app = ProxyFix(
         app.wsgi_app,
-        x_for=1,      # Number of proxy servers in front (X-Forwarded-For)
-        x_proto=1,    # Trust X-Forwarded-Proto
-        x_host=1,     # Trust X-Forwarded-Host
-        x_prefix=1    # Trust X-Forwarded-Prefix (for subpath deployments)
+        x_for=1,  # Number of proxy servers in front (X-Forwarded-For)
+        x_proto=1,  # Trust X-Forwarded-Proto
+        x_host=1,  # Trust X-Forwarded-Host
+        x_prefix=1,  # Trust X-Forwarded-Prefix (for subpath deployments)
     )
 
     # Session cookie security for HTTPS behind reverse proxy (only if not testing)
-    if not app.config.get('TESTING'):
-        app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
-        app.config['SESSION_COOKIE_HTTPONLY'] = True
-        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    if not app.config.get("TESTING"):
+        app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE", "False").lower() == "true"
+        app.config["SESSION_COOKIE_HTTPONLY"] = True
+        app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
     # Prefer X-Forwarded-Proto for URL generation
-    app.config['PREFERRED_URL_SCHEME'] = os.getenv('PREFERRED_URL_SCHEME', 'http')
+    app.config["PREFERRED_URL_SCHEME"] = os.getenv("PREFERRED_URL_SCHEME", "http")
 
     # WebAuthn configuration
-    app.config['WEBAUTHN_RP_ID'] = os.getenv('WEBAUTHN_RP_ID', 'localhost')
+    app.config["WEBAUTHN_RP_ID"] = os.getenv("WEBAUTHN_RP_ID", "localhost")
 
     # Initialize extensions with app
     db.init_app(app)
@@ -51,12 +52,13 @@ def create_app(config_name='default'):
     mail.init_app(app)
 
     # Configure login manager
-    login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Please log in to access this page.'
-    login_manager.login_message_category = 'info'
+    login_manager.login_view = "auth.login"
+    login_manager.login_message = "Please log in to access this page."
+    login_manager.login_message_category = "info"
 
     # Import and register blueprints
     from app.routes import auth, wishlist, admin, main, scraper, passkey
+
     app.register_blueprint(auth.bp)
     app.register_blueprint(wishlist.bp)
     app.register_blueprint(admin.bp)
@@ -69,25 +71,24 @@ def create_app(config_name='default'):
         db.create_all()
         # Create admin user if it doesn't exist (passwordless)
         from app.models import User
-        admin_email = os.getenv('ADMIN_EMAIL')
-        admin_name = os.getenv('ADMIN_NAME')
+
+        admin_email = os.getenv("ADMIN_EMAIL")
+        admin_name = os.getenv("ADMIN_NAME")
         if admin_email:
             admin = User.query.filter_by(email=admin_email).first()
             if not admin:
-                admin = User(
-                    email=admin_email,
-                    name=admin_name,
-                    is_admin=True
-                )
+                admin = User(email=admin_email, name=admin_name, is_admin=True)
                 db.session.add(admin)
                 db.session.commit()
 
         # Initialize scheduler for daily digest emails
         from app.scheduler import init_scheduler
+
         init_scheduler(app)
 
         # Register CLI commands
         from app.cli import init_cli
+
         init_cli(app)
 
     return app
