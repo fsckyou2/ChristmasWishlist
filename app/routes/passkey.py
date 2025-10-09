@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, session, current_app, render_template
 from flask_login import login_required, current_user, login_user
 from app import db
-from app.models import User, Passkey
+from app.models import Passkey
 from webauthn import (
     generate_registration_options,
     verify_registration_response,
@@ -16,7 +16,6 @@ from webauthn.helpers.structs import (
     ResidentKeyRequirement,
 )
 from webauthn.helpers.cose import COSEAlgorithmIdentifier
-import secrets
 
 bp = Blueprint('passkey', __name__, url_prefix='/passkey')
 

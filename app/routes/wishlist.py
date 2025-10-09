@@ -164,7 +164,11 @@ def claim_item(item_id):
             )
             db.session.add(purchase)
             db.session.commit()
-            flash(f'Claimed {quantity} of "{item.name}"! Don\'t forget to mark it as acquired when you buy it.', 'success')
+            flash(
+                f'Claimed {quantity} of "{item.name}"! '
+                "Don't forget to mark it as acquired when you buy it.",
+                'success'
+            )
             return redirect(url_for('wishlist.view_user_list', user_id=item.user_id))
 
     # Pre-fill with remaining quantity

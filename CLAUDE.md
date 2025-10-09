@@ -4,6 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
+### Code Quality
+
+```bash
+# Format code with black
+black app/ tests/ config.py run.py
+
+# Check formatting
+black --check --diff app/ tests/ config.py run.py
+
+# Lint with flake8
+flake8 app/ tests/ config.py run.py
+
+# Run in Docker
+docker exec christmas-wishlist black app/ tests/ config.py run.py
+docker exec christmas-wishlist flake8 app/ tests/ config.py run.py
+```
+
 ### Docker (Recommended)
 ```bash
 # Build and start container
@@ -222,3 +239,24 @@ This project does not use Flask-Migrate/Alembic. Database schema changes are han
 3. Restart app to recreate tables via `db.create_all()`
 
 For production deployments, consider adding Flask-Migrate for proper migrations.
+
+## Continuous Integration
+
+GitHub Actions CI runs automatically on push/PR to main/master branches:
+
+- **Test Job**: Runs pytest on Python 3.11, 3.12, 3.13 with coverage reporting
+- **Lint Job**: Checks code formatting (black) and quality (flake8)
+- **Docker Job**: Verifies Docker build and container startup
+
+Configuration files:
+- `.github/workflows/ci.yml` - GitHub Actions workflow
+- `.flake8` - Flake8 configuration (max line length 120, ignores E128, W503, W504)
+- `pyproject.toml` - Black, pytest, and coverage configuration
+
+Code quality standards:
+- Max line length: 120 characters
+- Code formatter: Black (automatic formatting)
+- Linter: Flake8 with relaxed rules for test files (allows F401, F841, F541)
+- SQLAlchemy filter comparisons: Use `== False` not `is False` (with `# noqa: E712` comment)
+
+Current test coverage: **75%** (87 tests passing)

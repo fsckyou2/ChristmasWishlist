@@ -1,0 +1,22 @@
+[flake8]
+max-line-length = 120
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    instance,
+    .pytest_cache,
+    htmlcov,
+    *.egg-info
+extend-ignore =
+    # Allow line break before binary operator (black compatibility)
+    W503,
+    # Allow line break after binary operator
+    W504,
+    # Allow continuation line indentation issues (black handles this)
+    E128
+per-file-ignores =
+    # Allow unused imports in __init__.py
+    __init__.py:F401
+    # Tests often have unused imports for fixtures and f-strings for assertions
+    tests/*:F401,F841,F541
