@@ -242,7 +242,7 @@ For production deployments, consider adding Flask-Migrate for proper migrations.
 
 ## Continuous Integration
 
-GitHub Actions CI runs automatically on push/PR to main/master branches:
+GitHub Actions CI runs automatically on push/PR to main/master/development branches:
 
 - **Test Job**: Runs pytest on Python 3.11, 3.12, 3.13 with coverage reporting
 - **Lint Job**: Checks code formatting (black) and quality (flake8)
@@ -259,4 +259,23 @@ Code quality standards:
 - Linter: Flake8 with relaxed rules for test files (allows F401, F841, F541)
 - SQLAlchemy filter comparisons: Use `== False` not `is False` (with `# noqa: E712` comment)
 
-Current test coverage: **75%** (87 tests passing)
+Current test coverage: **76%** (87 tests passing)
+
+## Docker Hub Deployment
+
+Automated Docker image deployment to Docker Hub on push to main branch (e.g., when development is merged):
+
+- **Workflow**: `.github/workflows/docker-publish.yml`
+- **Image Tagging**:
+  - `latest` - Most recent main branch build
+  - `main-<commit-sha>` - Specific commit builds
+  - `v1.2.3`, `v1.2`, `v1` - Semantic version tags (when releases are tagged)
+
+**Setup Required**:
+- GitHub Secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+- See `DOCKER_HUB_SETUP.md` for detailed setup instructions
+
+**Pull Image**:
+```bash
+docker pull <your-username>/christmas-wishlist:latest
+```
