@@ -28,6 +28,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <a href="{{ url_for('admin.view_user', user_id=user.id) }}" class="text-blue-600 hover:underline mr-3">View</a>
+                            <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="text-green-600 hover:underline mr-3">Edit</a>
                             <a href="{{ url_for('admin.impersonate', user_id=user.id) }}" class="text-purple-600 hover:underline mr-3">Impersonate</a>
                             {% if user.id != current_user.id %}
                                 <form method="POST" action="{{ url_for('admin.toggle_admin', user_id=user.id) }}" class="inline">

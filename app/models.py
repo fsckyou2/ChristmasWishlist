@@ -16,13 +16,12 @@ def load_user(user_id):
 
 
 class User(UserMixin, db.Model):
-    """User model"""
+    """User model - Passwordless authentication via magic links and passkeys"""
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False)
-    password_hash = db.Column(db.String(255))
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -32,36 +31,12 @@ class User(UserMixin, db.Model):
                                      cascade='all, delete-orphan')
     purchases = db.relationship('Purchase', backref='purchased_by', lazy='dynamic',
                                cascade='all, delete-orphan')
-
-    def set_password(self, password):
-        """Hash and set password"""
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        """Check if provided password matches hash"""
-        return check_password_hash(self.password_hash, password)
-
-    def generate_reset_token(self):
-        """Generate password reset token"""
-        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-        return serializer.dumps(self.email, salt='password-reset-salt')
-
-    @staticmethod
-    def verify_reset_token(token, expiration=None):
-        """Verify password reset token and return user"""
-        if expiration is None:
-            expiration = current_app.config['PASSWORD_RESET_TOKEN_EXPIRY']
-
-        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-        try:
-            email = serializer.loads(
-                token,
-                salt='password-reset-salt',
-                max_age=expiration
-            )
-        except Exception:
-            return None
-        return User.query.filter_by(email=email).first()
+    # claims is an alias for purchases (view-only for convenience)
+    claims = db.relationship('Purchase', lazy='dynamic',
+                            foreign_keys='Purchase.purchased_by_id',
+                            viewonly=True, overlaps="purchases,purchased_by")
+    passkeys = db.relationship('Passkey', backref='user', lazy='dynamic',
+                              cascade='all, delete-orphan')
 
     def generate_magic_link_token(self):
         """Generate magic link login token"""
@@ -123,14 +98,53 @@ class WishlistItem(db.Model):
 
 
 class Purchase(db.Model):
-    """Purchase tracking model"""
+    """Gift claim tracking model - tracks items users have claimed to gift to others"""
     __tablename__ = 'purchases'
 
     id = db.Column(db.Integer, primary_key=True)
     wishlist_item_id = db.Column(db.Integer, db.ForeignKey('wishlist_items.id'), nullable=False)
     purchased_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
+    acquired = db.Column(db.Boolean, default=False)  # Has the gift been purchased/obtained?
+    wrapped = db.Column(db.Boolean, default=False)    # Has the gift been wrapped?
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         return f'<Purchase item={self.wishlist_item_id} by={self.purchased_by_id} qty={self.quantity}>'
+
+
+class WishlistChange(db.Model):
+    """Track changes to wishlists for daily digest emails"""
+    __tablename__ = 'wishlist_changes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    change_type = db.Column(db.String(50), nullable=False)  # 'added', 'updated', 'deleted'
+    item_name = db.Column(db.String(200), nullable=False)
+    item_id = db.Column(db.Integer)  # May be null if item was deleted
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    notified = db.Column(db.Boolean, default=False, index=True)
+
+    # Relationship
+    user = db.relationship('User', backref='wishlist_changes')
+
+    def __repr__(self):
+        return f'<WishlistChange user={self.user_id} type={self.change_type} item={self.item_name}>'
+
+
+class Passkey(db.Model):
+    """WebAuthn/Passkey credentials for passwordless authentication"""
+    __tablename__ = 'passkeys'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    credential_id = db.Column(db.LargeBinary, nullable=False, unique=True, index=True)
+    public_key = db.Column(db.LargeBinary, nullable=False)
+    sign_count = db.Column(db.Integer, default=0)
+    device_name = db.Column(db.String(100))  # Optional friendly name
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_used = db.Column(db.DateTime)
+
+    def __repr__(self):
+        return f'<Passkey user={self.user_id} device={self.device_name}>'

@@ -62,6 +62,41 @@ def view_user(user_id):
                          wishlist_items=wishlist_items, purchases=purchases)
 
 
+@bp.route('/user/<int:user_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_user(user_id):
+    """Edit user details"""
+    user = User.query.get_or_404(user_id)
+
+    if request.method == 'POST':
+        new_name = request.form.get('name', '').strip()
+        new_email = request.form.get('email', '').strip()
+
+        if not new_name:
+            flash('Name cannot be empty.', 'danger')
+            return redirect(url_for('admin.edit_user', user_id=user_id))
+
+        if not new_email:
+            flash('Email cannot be empty.', 'danger')
+            return redirect(url_for('admin.edit_user', user_id=user_id))
+
+        # Check if email is already taken by another user
+        existing_user = User.query.filter_by(email=new_email).first()
+        if existing_user and existing_user.id != user.id:
+            flash('Email address is already in use.', 'danger')
+            return redirect(url_for('admin.edit_user', user_id=user_id))
+
+        user.name = new_name
+        user.email = new_email
+        db.session.commit()
+
+        flash(f'User details updated successfully.', 'success')
+        return redirect(url_for('admin.view_user', user_id=user_id))
+
+    return render_template('admin/edit_user.html', user=user)
+
+
 @bp.route('/user/<int:user_id>/toggle-admin', methods=['POST'])
 @login_required
 @admin_required
@@ -100,16 +135,16 @@ def delete_user(user_id):
     return redirect(url_for('admin.users'))
 
 
-@bp.route('/user/<int:user_id>/reset-password', methods=['POST'])
+@bp.route('/user/<int:user_id>/send-login-link', methods=['POST'])
 @login_required
 @admin_required
-def reset_user_password(user_id):
-    """Reset user's password"""
+def send_user_login_link(user_id):
+    """Send magic link login email to user"""
     user = User.query.get_or_404(user_id)
-    from app.email import send_password_reset_email
+    from app.email import send_magic_link_email
 
-    send_password_reset_email(user)
-    flash(f'Password reset email sent to {user.email}.', 'success')
+    send_magic_link_email(user)
+    flash(f'Login link sent to {user.email}.', 'success')
     return redirect(url_for('admin.view_user', user_id=user_id))
 
 

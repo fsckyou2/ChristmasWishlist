@@ -1,37 +1,73 @@
 {% extends "base.html" %}
 
-{% block title %}Login - Christmas Wishlist{% endblock %}
+{% block title %}Login - Scimone Christmas Wishlist{% endblock %}
 
 {% block content %}
 <div class="max-w-md mx-auto bg-gray-800 rounded-lg shadow-lg p-8">
     <h1 class="text-3xl font-bold mb-6 text-center">Login</h1>
+
+    <!-- Passkey Login (if supported) -->
+    <div id="passkey-login" class="mb-6" style="display: none;">
+        <button type="button" id="passkey-login-btn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+            </svg>
+            Login with Passkey
+        </button>
+        <div id="passkey-error" class="mt-2 text-red-600 text-sm text-center" style="display: none;"></div>
+        <div class="mt-4 text-center text-gray-400">
+            <span>or</span>
+        </div>
+    </div>
+
+    <!-- Magic Link Login -->
+    <p class="text-gray-400 mb-4 text-center">Enter your email and we'll send you a secure login link.</p>
 
     <form method="POST" class="space-y-4">
         {{ form.hidden_tag() }}
 
         <div>
             {{ form.email.label(class="block text-gray-200 font-semibold mb-2") }}
-            {{ form.email(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600", placeholder="your@email.com") }}
+            {{ form.email(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 placeholder-gray-400", placeholder="your@email.com") }}
             {% if form.email.errors %}
                 <p class="text-red-600 text-sm mt-1">{{ form.email.errors[0] }}</p>
-            {% endif %}
-        </div>
-
-        <div>
-            {{ form.password.label(class="block text-gray-200 font-semibold mb-2") }}
-            {{ form.password(class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-600") }}
-            {% if form.password.errors %}
-                <p class="text-red-600 text-sm mt-1">{{ form.password.errors[0] }}</p>
             {% endif %}
         </div>
 
         {{ form.submit(class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 cursor-pointer") }}
     </form>
 
-    <div class="mt-6 text-center space-y-2">
-        <p><a href="{{ url_for('auth.reset_password_request') }}" class="text-red-600 hover:underline">Forgot Password?</a></p>
-        <p><a href="{{ url_for('auth.magic_link') }}" class="text-red-600 hover:underline">Send me a login link</a></p>
+    <div class="mt-6 text-center">
         <p class="text-gray-400">Don't have an account? <a href="{{ url_for('auth.register') }}" class="text-red-600 hover:underline">Register</a></p>
     </div>
 </div>
+
+<script src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+<script>
+    // Check if passkey is supported
+    if (window.passkey.isSupported()) {
+        document.getElementById('passkey-login').style.display = 'block';
+
+        // Handle passkey login
+        document.getElementById('passkey-login-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('passkey-login-btn');
+            const errorDiv = document.getElementById('passkey-error');
+
+            btn.disabled = true;
+            btn.textContent = 'Authenticating...';
+            errorDiv.style.display = 'none';
+
+            try {
+                const result = await window.passkey.authenticate();
+                // Redirect to home page on success
+                window.location.href = '/';
+            } catch (error) {
+                errorDiv.textContent = error.message || 'Failed to authenticate with passkey';
+                errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg> Login with Passkey';
+            }
+        });
+    }
+</script>
 {% endblock %}

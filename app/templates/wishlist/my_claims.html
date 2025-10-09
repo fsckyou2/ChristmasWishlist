@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}My Claims{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-4xl font-bold">My Gift Claims</h1>
+        <a href="{{ url_for('wishlist.all_users') }}" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
+            Browse Wishlists
+        </a>
+    </div>
+
+    <div class="bg-blue-900 p-4 rounded-lg mb-6">
+        <p class="text-sm text-gray-200">
+            <strong>Tip:</strong> Track your gift-giving progress! Mark items as "Acquired" when you buy them, and "Wrapped" when they're ready to go. The recipients won't see this information.
+        </p>
+    </div>
+
+    {% if claims_by_recipient %}
+        {% for recipient_id, data in claims_by_recipient.items() %}
+            <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold mb-4">Gifts for {{ data.recipient.name }}</h2>
+
+                <div class="space-y-4">
+                    {% for claim in data.claims %}
+                        {% set item = claim.wishlist_item %}
+                        <div class="bg-gray-750 rounded-lg p-4 border border-gray-700">
+                            <div class="flex gap-4">
+                                <!-- Item Image -->
+                                {% if item.image_url %}
+                                    <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-24 h-24 object-cover rounded">
+                                {% else %}
+                                    <div class="w-24 h-24 bg-gray-600 flex items-center justify-center text-4xl rounded">🎁</div>
+                                {% endif %}
+
+                                <!-- Item Details -->
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold mb-1">{{ item.name }}</h3>
+                                    <div class="flex gap-4 text-sm text-gray-400 mb-2">
+                                        {% if item.price %}
+                                            <span class="text-green-600 font-semibold">${{ "%.2f"|format(item.price * claim.quantity) }}</span>
+                                        {% endif %}
+                                        <span>Quantity: {{ claim.quantity }}</span>
+                                        <span class="text-gray-500">Claimed {{ claim.created_at.strftime('%b %d, %Y') }}</span>
+                                    </div>
+                                    {% if item.url %}
+                                        <a href="{{ item.url }}" target="_blank" class="text-blue-400 text-sm hover:underline">View Product →</a>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Status Checkboxes -->
+                                <div class="flex flex-col gap-3">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox"
+                                               class="w-5 h-5 rounded border-gray-600 bg-gray-700 text-green-600 focus:ring-2 focus:ring-green-600 cursor-pointer status-checkbox"
+                                               data-claim-id="{{ claim.id }}"
+                                               data-status="acquired"
+                                               {% if claim.acquired %}checked{% endif %}>
+                                        <span class="text-sm font-semibold {% if claim.acquired %}text-green-600{% else %}text-gray-400{% endif %}">
+                                            📦 Acquired
+                                        </span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox"
+                                               class="w-5 h-5 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-2 focus:ring-purple-600 cursor-pointer status-checkbox"
+                                               data-claim-id="{{ claim.id }}"
+                                               data-status="wrapped"
+                                               {% if claim.wrapped %}checked{% endif %}>
+                                        <span class="text-sm font-semibold {% if claim.wrapped %}text-purple-600{% else %}text-gray-400{% endif %}">
+                                            🎁 Wrapped
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <!-- Unclaim Button -->
+                                <div>
+                                    <form method="POST" action="{{ url_for('wishlist.unclaim_item', purchase_id=claim.id) }}" class="inline" onsubmit="return confirm('Unclaim this item?');">
+                                        <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
+                                            Unclaim
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Summary Stats for Recipient -->
+                <div class="mt-4 flex gap-6 text-sm text-gray-400">
+                    {% set total_claims = data.claims|length %}
+                    {% set acquired_count = data.claims|selectattr('acquired', 'equalto', true)|list|length %}
+                    {% set wrapped_count = data.claims|selectattr('wrapped', 'equalto', true)|list|length %}
+                    <span>Total items: {{ total_claims }}</span>
+                    <span class="text-green-600">Acquired: {{ acquired_count }}/{{ total_claims }}</span>
+                    <span class="text-purple-600">Wrapped: {{ wrapped_count }}/{{ total_claims }}</span>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
+            <div class="text-6xl mb-4">🎁</div>
+            <h2 class="text-2xl font-bold mb-4">You haven't claimed any gifts yet</h2>
+            <p class="text-gray-400 mb-6">Browse wishlists and claim items you'd like to gift!</p>
+            <a href="{{ url_for('wishlist.all_users') }}" class="inline-block bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700">
+                Browse Wishlists
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle status checkbox changes
+    document.querySelectorAll('.status-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', async function() {
+            const claimId = this.dataset.claimId;
+            const status = this.dataset.status;
+            const isChecked = this.checked;
+
+            try {
+                const response = await fetch(`/wishlist/update-claim-status/${claimId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        [status]: isChecked
+                    })
+                });
+
+                if (response.ok) {
+                    // Update label color
+                    const label = this.nextElementSibling;
+                    if (isChecked) {
+                        label.classList.remove('text-gray-400');
+                        label.classList.add(status === 'acquired' ? 'text-green-600' : 'text-purple-600');
+                    } else {
+                        label.classList.add('text-gray-400');
+                        label.classList.remove('text-green-600', 'text-purple-600');
+                    }
+                } else {
+                    // Revert checkbox on error
+                    this.checked = !isChecked;
+                    alert('Error updating status. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                this.checked = !isChecked;
+                alert('Error updating status. Please try again.');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

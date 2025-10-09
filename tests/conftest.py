@@ -34,7 +34,6 @@ def user(app):
         name='Test User',
         is_admin=False
     )
-    user.set_password('password123')
     db.session.add(user)
     db.session.commit()
     return user
@@ -48,7 +47,6 @@ def admin_user(app):
         name='Admin User',
         is_admin=True
     )
-    admin.set_password('admin123')
     db.session.add(admin)
     db.session.commit()
     return admin

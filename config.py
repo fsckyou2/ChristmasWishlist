@@ -22,6 +22,7 @@ class Config:
     APP_URL = os.getenv('APP_URL', 'http://localhost:5000')
     PASSWORD_RESET_TOKEN_EXPIRY = int(os.getenv('PASSWORD_RESET_TOKEN_EXPIRY', 3600))
     MAGIC_LINK_TOKEN_EXPIRY = int(os.getenv('MAGIC_LINK_TOKEN_EXPIRY', 1800))
+    DAILY_DIGEST_HOUR = int(os.getenv('DAILY_DIGEST_HOUR', 9))  # Hour (0-23, UTC) for daily digest emails
 
 
 class DevelopmentConfig(Config):

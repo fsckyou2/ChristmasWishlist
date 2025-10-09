@@ -9,7 +9,6 @@ class TestUserModel:
     def test_create_user(self, app):
         """Test creating a user"""
         user = User(email='newuser@example.com', name='New User')
-        user.set_password('password123')
         db.session.add(user)
         db.session.commit()
 
@@ -17,35 +16,6 @@ class TestUserModel:
         assert user.email == 'newuser@example.com'
         assert user.name == 'New User'
         assert user.is_admin is False
-        assert user.check_password('password123') is True
-        assert user.check_password('wrongpassword') is False
-
-    def test_user_password_hashing(self, app):
-        """Test that passwords are properly hashed"""
-        user = User(email='test@example.com', name='Test')
-        user.set_password('mypassword')
-
-        assert user.password_hash != 'mypassword'
-        assert user.check_password('mypassword')
-        assert not user.check_password('wrongpassword')
-
-    def test_generate_reset_token(self, app, user):
-        """Test generating password reset token"""
-        token = user.generate_reset_token()
-        assert token is not None
-        assert isinstance(token, str)
-
-    def test_verify_reset_token(self, app, user):
-        """Test verifying password reset token"""
-        token = user.generate_reset_token()
-        verified_user = User.verify_reset_token(token)
-        assert verified_user is not None
-        assert verified_user.id == user.id
-
-    def test_verify_invalid_token(self, app):
-        """Test verifying invalid token"""
-        verified_user = User.verify_reset_token('invalid-token')
-        assert verified_user is None
 
     def test_generate_magic_link_token(self, app, user):
         """Test generating magic link token"""
@@ -91,7 +61,7 @@ class TestWishlistItemModel:
         db.session.add_all([item1, item2])
         db.session.commit()
 
-        assert len(user.wishlist_items) == 2
+        assert len(user.wishlist_items.all()) == 2
         assert item1 in user.wishlist_items
         assert item2 in user.wishlist_items
 
@@ -177,6 +147,6 @@ class TestPurchaseModel:
         db.session.add_all([purchase1, purchase2])
         db.session.commit()
 
-        assert len(wishlist_item.purchases) == 2
+        assert len(wishlist_item.purchases.all()) == 2
         assert wishlist_item.total_purchased == 5
         assert wishlist_item.is_fully_purchased is True

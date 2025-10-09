@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}My Wishlist (Table View){% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-4xl font-bold">My Wishlist</h1>
+        <div class="flex gap-3">
+            <a href="{{ url_for('wishlist.my_list') }}" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                Card View
+            </a>
+            <button id="add-row-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                + Add New Row
+            </button>
+        </div>
+    </div>
+
+    <!-- URL Scraper -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-xl font-bold mb-4">Quick Add from URL</h2>
+        <div class="flex gap-3">
+            <input type="url" id="quick-url" placeholder="Paste product URL here..." class="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-green-600">
+            <button id="scrape-btn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
+                Load Product
+            </button>
+        </div>
+        <div id="scrape-status" class="mt-2 text-sm"></div>
+    </div>
+
+    <!-- Wishlist Table -->
+    {% if items %}
+        <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 font-semibold">Item</th>
+                            <th class="px-4 py-3 font-semibold">Description</th>
+                            <th class="px-4 py-3 font-semibold w-24">Price</th>
+                            <th class="px-4 py-3 font-semibold w-20">Qty</th>
+                            <th class="px-4 py-3 font-semibold w-32">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr class="border-t border-gray-700 hover:bg-gray-750" data-item-id="{{ item.id }}">
+                            <td class="px-4 py-3">
+                                <input type="text"
+                                       class="item-field w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-2 py-1 focus:ring-2 focus:ring-blue-600"
+                                       data-field="name"
+                                       value="{{ item.name }}">
+                                {% if item.url %}
+                                <a href="{{ item.url }}" target="_blank" class="text-xs text-blue-400 hover:underline mt-1 block">View URL</a>
+                                {% endif %}
+                                <input type="url"
+                                       class="item-field w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-2 py-1 mt-1 text-xs focus:ring-2 focus:ring-blue-600"
+                                       data-field="url"
+                                       placeholder="Product URL"
+                                       value="{{ item.url or '' }}">
+                            </td>
+                            <td class="px-4 py-3">
+                                <textarea class="item-field w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-600 resize-none"
+                                          data-field="description"
+                                          rows="2"
+                                          placeholder="Description">{{ item.description or '' }}</textarea>
+                            </td>
+                            <td class="px-4 py-3">
+                                <input type="number"
+                                       class="item-field w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-2 py-1 focus:ring-2 focus:ring-blue-600"
+                                       data-field="price"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="0.00"
+                                       value="{{ item.price or '' }}">
+                            </td>
+                            <td class="px-4 py-3">
+                                <input type="number"
+                                       class="item-field w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-2 py-1 focus:ring-2 focus:ring-blue-600"
+                                       data-field="quantity"
+                                       min="1"
+                                       value="{{ item.quantity }}">
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex gap-2">
+                                    <button class="save-btn text-green-600 hover:text-green-700 text-sm font-semibold" data-item-id="{{ item.id }}">
+                                        Save
+                                    </button>
+                                    <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" onsubmit="return confirm('Delete this item?');">
+                                        <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
+            <div class="text-6xl mb-4">📝</div>
+            <h2 class="text-2xl font-bold mb-4">Your wishlist is empty</h2>
+            <p class="text-gray-400 mb-6">Add items using the button above or paste a product URL.</p>
+        </div>
+    {% endif %}
+</div>
+
+<script src="{{ url_for('static', filename='js/scraper.js') }}"></script>
+<script>
+// Import scrapeProduct function from scraper.js
+async function scrapeProductData(url) {
+    try {
+        const response = await fetch('/scraper/scrape', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ url: url })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to scrape product');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Scraping error:', error);
+        throw error;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle adding new row
+    const addRowBtn = document.getElementById('add-row-btn');
+    addRowBtn.addEventListener('click', async () => {
+        addRowBtn.disabled = true;
+        addRowBtn.textContent = 'Adding...';
+
+        try {
+            const response = await fetch('/wishlist/add-empty', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                // Reload to show the new row
+                window.location.reload();
+            } else {
+                throw new Error('Failed to add row');
+            }
+        } catch (error) {
+            alert('Error adding row: ' + error.message);
+        } finally {
+            addRowBtn.disabled = false;
+            addRowBtn.textContent = '+ Add New Row';
+        }
+    });
+
+    // Handle quick URL scraping
+    const scrapeBtn = document.getElementById('scrape-btn');
+    const quickUrl = document.getElementById('quick-url');
+    const scrapeStatus = document.getElementById('scrape-status');
+
+    scrapeBtn.addEventListener('click', async () => {
+        const url = quickUrl.value.trim();
+        if (!url) {
+            scrapeStatus.innerHTML = '<span class="text-red-600">Please enter a URL</span>';
+            return;
+        }
+
+        scrapeBtn.disabled = true;
+        scrapeBtn.textContent = 'Loading...';
+        scrapeStatus.innerHTML = '<span class="text-blue-400">Fetching product details...</span>';
+
+        try {
+            const productData = await scrapeProductData(url);
+
+            // Add the item via JSON API endpoint
+            const response = await fetch('/wishlist/add-item-from-scraped-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: productData.title || 'New Item',
+                    url: url,
+                    description: productData.description || '',
+                    price: productData.price || '',
+                    image_url: productData.image || '',
+                    quantity: '1'
+                })
+            });
+
+            if (response.ok) {
+                scrapeStatus.innerHTML = '<span class="text-green-600">Item added! Refreshing...</span>';
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                throw new Error('Failed to add item');
+            }
+        } catch (error) {
+            scrapeStatus.innerHTML = `<span class="text-red-600">${error.message}</span>`;
+        } finally {
+            scrapeBtn.disabled = false;
+            scrapeBtn.textContent = 'Load Product';
+        }
+    });
+
+    // Handle saving individual items
+    document.querySelectorAll('.save-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const itemId = this.dataset.itemId;
+            const row = this.closest('tr');
+            const fields = row.querySelectorAll('.item-field');
+
+            const data = {};
+            fields.forEach(field => {
+                const fieldName = field.dataset.field;
+                data[fieldName] = field.value;
+            });
+
+            // Show saving state
+            this.textContent = 'Saving...';
+            this.disabled = true;
+
+            try {
+                const response = await fetch(`/wishlist/update-item/${itemId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    this.textContent = 'Saved!';
+                    setTimeout(() => {
+                        this.textContent = 'Save';
+                        this.disabled = false;
+                    }, 1500);
+                } else {
+                    throw new Error('Failed to save');
+                }
+            } catch (error) {
+                alert('Error saving item: ' + error.message);
+                this.textContent = 'Save';
+                this.disabled = false;
+            }
+        });
+    });
+
+    // Auto-save on blur for better UX
+    document.querySelectorAll('.item-field').forEach(field => {
+        field.addEventListener('blur', function() {
+            const row = this.closest('tr');
+            const saveBtn = row.querySelector('.save-btn');
+            if (saveBtn && !saveBtn.disabled) {
+                // Only auto-save if the field value changed
+                if (this.dataset.originalValue !== this.value) {
+                    saveBtn.click();
+                }
+            }
+        });
+
+        // Store original value
+        field.dataset.originalValue = field.value;
+    });
+});
+</script>
+{% endblock %}

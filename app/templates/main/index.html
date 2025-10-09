@@ -3,7 +3,7 @@
 {% block content %}
 <div class="text-center mb-12">
     <h1 class="text-5xl font-bold text-gray-100 mb-4">
-        🎄 Welcome to Christmas Wishlist! 🎄
+        🎄 Welcome to the Scimone Christmas Wishlist! 🎄
     </h1>
     {% if current_user.is_authenticated %}
         <p class="text-xl text-gray-400 mb-8">
@@ -11,7 +11,7 @@
         </p>
     {% else %}
         <p class="text-xl text-gray-400 mb-8">
-            Share your holiday wishes with family and friends!
+            Share your holiday wishes!
         </p>
     {% endif %}
 </div>
@@ -69,7 +69,7 @@
         <div class="text-6xl mb-6">🎅</div>
         <h2 class="text-3xl font-bold mb-4">Get Started Today!</h2>
         <p class="text-gray-400 mb-8 text-lg">
-            Create your free account to start building your Christmas wishlist and see what your family and friends are wishing for.
+            Create your account to start building your Christmas wishlist and to see what others are wishing for.
         </p>
         <div class="flex gap-4 justify-center">
             <a href="{{ url_for('auth.register') }}" class="bg-red-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-red-700">
@@ -91,12 +91,12 @@
             </div>
             <div class="bg-gray-800 rounded-lg shadow p-6 text-center">
                 <div class="text-5xl mb-4">2️⃣</div>
-                <h3 class="text-xl font-bold mb-2">Share With Family</h3>
+                <h3 class="text-xl font-bold mb-2">Share with Family</h3>
                 <p class="text-gray-400">Others can browse your wishlist and see what you want</p>
             </div>
             <div class="bg-gray-800 rounded-lg shadow p-6 text-center">
                 <div class="text-5xl mb-4">3️⃣</div>
-                <h3 class="text-xl font-bold mb-2">Mark as Purchased</h3>
+                <h3 class="text-xl font-bold mb-2">Mark What You're Getting</h3>
                 <p class="text-gray-400">Keep track of gifts without spoiling the surprise</p>
             </div>
         </div>

@@ -1,9 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from app import db
-from app.models import User, WishlistItem, Purchase
+from app.models import User, WishlistItem, Purchase, WishlistChange
 from app.forms import WishlistItemForm, PurchaseForm
-from app.scraper import ProductScraper
 
 bp = Blueprint('wishlist', __name__, url_prefix='/wishlist')
 
@@ -14,6 +13,14 @@ def my_list():
     """View current user's wishlist"""
     items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.created_at.desc()).all()
     return render_template('wishlist/my_list.html', items=items)
+
+
+@bp.route('/my-list/table')
+@login_required
+def my_list_table():
+    """View and edit wishlist as a table"""
+    items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.created_at.desc()).all()
+    return render_template('wishlist/my_list_table.html', items=items)
 
 
 @bp.route('/add', methods=['GET', 'POST'])
@@ -33,7 +40,18 @@ def add_item():
             quantity=form.quantity.data
         )
         db.session.add(item)
+        db.session.flush()  # Get the item ID
+
+        # Track the change
+        change = WishlistChange(
+            user_id=current_user.id,
+            change_type='added',
+            item_name=item.name,
+            item_id=item.id
+        )
+        db.session.add(change)
         db.session.commit()
+
         flash('Item added to your wishlist!', 'success')
         return redirect(url_for('wishlist.my_list'))
 
@@ -60,7 +78,17 @@ def edit_item(item_id):
         item.price = form.price.data
         item.image_url = form.image_url.data
         item.quantity = form.quantity.data
+
+        # Track the change
+        change = WishlistChange(
+            user_id=current_user.id,
+            change_type='updated',
+            item_name=item.name,
+            item_id=item.id
+        )
+        db.session.add(change)
         db.session.commit()
+
         flash('Item updated!', 'success')
         return redirect(url_for('wishlist.my_list'))
 
@@ -78,8 +106,18 @@ def delete_item(item_id):
         flash('You can only delete your own wishlist items.', 'danger')
         return redirect(url_for('wishlist.my_list'))
 
+    # Track the change before deleting
+    item_name = item.name
+    change = WishlistChange(
+        user_id=current_user.id,
+        change_type='deleted',
+        item_name=item_name,
+        item_id=None  # Item will be deleted, so no ID reference
+    )
+    db.session.add(change)
     db.session.delete(item)
     db.session.commit()
+
     flash('Item deleted from your wishlist.', 'success')
     return redirect(url_for('wishlist.my_list'))
 
@@ -93,15 +131,15 @@ def view_user_list(user_id):
     return render_template('wishlist/view_list.html', user=user, items=items)
 
 
-@bp.route('/purchase/<int:item_id>', methods=['GET', 'POST'])
+@bp.route('/claim/<int:item_id>', methods=['GET', 'POST'])
 @login_required
-def purchase_item(item_id):
-    """Mark item as purchased"""
+def claim_item(item_id):
+    """Claim item to gift to another user"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # User cannot purchase their own items
+    # User cannot claim their own items
     if item.user_id == current_user.id:
-        flash('You cannot purchase items from your own wishlist!', 'warning')
+        flash('You cannot claim items from your own wishlist!', 'warning')
         return redirect(url_for('wishlist.my_list'))
 
     form = PurchaseForm()
@@ -109,7 +147,7 @@ def purchase_item(item_id):
     # Set max quantity available
     remaining = item.quantity - item.total_purchased
     if remaining <= 0:
-        flash('This item is already fully purchased.', 'info')
+        flash('This item is already fully claimed.', 'info')
         return redirect(url_for('wishlist.view_user_list', user_id=item.user_id))
 
     if form.validate_on_submit():
@@ -117,7 +155,7 @@ def purchase_item(item_id):
 
         # Validate quantity
         if quantity > remaining:
-            flash(f'Only {remaining} remaining to purchase.', 'warning')
+            flash(f'Only {remaining} remaining to claim.', 'warning')
         else:
             purchase = Purchase(
                 wishlist_item_id=item.id,
@@ -126,28 +164,153 @@ def purchase_item(item_id):
             )
             db.session.add(purchase)
             db.session.commit()
-            flash(f'Marked {quantity} of "{item.name}" as purchased!', 'success')
+            flash(f'Claimed {quantity} of "{item.name}"! Don\'t forget to mark it as acquired when you buy it.', 'success')
             return redirect(url_for('wishlist.view_user_list', user_id=item.user_id))
 
     # Pre-fill with remaining quantity
     form.quantity.data = remaining
 
-    return render_template('wishlist/purchase_item.html', form=form, item=item, remaining=remaining)
+    return render_template('wishlist/claim_item.html', form=form, item=item, remaining=remaining)
 
 
-@bp.route('/api/scrape-url', methods=['POST'])
+# Keep old route for backward compatibility
+@bp.route('/purchase/<int:item_id>', methods=['GET', 'POST'])
 @login_required
-def scrape_url():
-    """API endpoint to scrape product data from URL"""
-    url = request.json.get('url')
-    if not url:
-        return jsonify({'error': 'URL is required'}), 400
+def purchase_item(item_id):
+    """Redirect to claim_item (backward compatibility)"""
+    return claim_item(item_id)
 
-    data = ProductScraper.scrape_url(url)
-    if data:
-        return jsonify(data)
-    else:
-        return jsonify({'error': 'Could not extract product information'}), 400
+
+@bp.route('/unclaim/<int:purchase_id>', methods=['POST'])
+@login_required
+def unclaim_item(purchase_id):
+    """Unclaim item"""
+    purchase = Purchase.query.get_or_404(purchase_id)
+
+    # Only the person who claimed it can unclaim it
+    if purchase.purchased_by_id != current_user.id:
+        flash('You can only unclaim items you claimed.', 'danger')
+        return redirect(url_for('wishlist.all_users'))
+
+    item = purchase.wishlist_item
+    item_name = item.name
+    user_id = item.user_id
+
+    db.session.delete(purchase)
+    db.session.commit()
+
+    flash(f'Unclaimed "{item_name}".', 'success')
+    return redirect(url_for('wishlist.view_user_list', user_id=user_id))
+
+
+# Keep old route for backward compatibility
+@bp.route('/unpurchase/<int:purchase_id>', methods=['POST'])
+@login_required
+def unpurchase_item(purchase_id):
+    """Redirect to unclaim_item (backward compatibility)"""
+    return unclaim_item(purchase_id)
+
+
+@bp.route('/add-empty', methods=['POST'])
+@login_required
+def add_empty_item():
+    """Add empty item for table editing"""
+    item = WishlistItem(
+        user_id=current_user.id,
+        name='New Item',
+        quantity=1
+    )
+    db.session.add(item)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'item_id': item.id,
+        'item': {
+            'id': item.id,
+            'name': item.name,
+            'url': item.url or '',
+            'description': item.description or '',
+            'price': item.price or '',
+            'quantity': item.quantity,
+            'is_fully_purchased': False,
+            'total_purchased': 0
+        }
+    })
+
+
+@bp.route('/update-item/<int:item_id>', methods=['POST'])
+@login_required
+def update_item_quick(item_id):
+    """Quick update item via AJAX"""
+    item = WishlistItem.query.get_or_404(item_id)
+
+    # Check if user owns this item
+    if item.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+
+    # Update fields if provided
+    if 'name' in data:
+        item.name = data['name']
+    if 'url' in data:
+        item.url = data['url']
+    if 'description' in data:
+        item.description = data['description']
+    if 'price' in data:
+        item.price = float(data['price']) if data['price'] else None
+    if 'quantity' in data:
+        item.quantity = int(data['quantity'])
+    if 'image_url' in data:
+        item.image_url = data['image_url']
+
+    # Track the change
+    change = WishlistChange(
+        user_id=current_user.id,
+        change_type='updated',
+        item_name=item.name,
+        item_id=item.id
+    )
+    db.session.add(change)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@bp.route('/add-item-from-scraped-data', methods=['POST'])
+@login_required
+def add_item_from_scraped_data():
+    """Add item from scraped data (used by table view's quick add URL feature)"""
+    data = request.get_json()
+
+    # Create new item with scraped data
+    item = WishlistItem(
+        user_id=current_user.id,
+        name=data.get('name', 'New Item'),
+        url=data.get('url'),
+        description=data.get('description'),
+        price=float(data['price']) if data.get('price') else None,
+        image_url=data.get('image_url'),
+        quantity=int(data.get('quantity', 1))
+    )
+    db.session.add(item)
+    db.session.flush()  # Get the item ID
+
+    # Track the change
+    change = WishlistChange(
+        user_id=current_user.id,
+        change_type='added',
+        item_name=item.name,
+        item_id=item.id
+    )
+    db.session.add(change)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'item_id': item.id
+    })
 
 
 @bp.route('/all-users')
@@ -156,3 +319,50 @@ def all_users():
     """View all users to browse their wishlists"""
     users = User.query.filter(User.id != current_user.id).order_by(User.name).all()
     return render_template('wishlist/all_users.html', users=users)
+
+
+@bp.route('/my-claims')
+@login_required
+def my_claims():
+    """View all items I've claimed to gift to others"""
+    # Get all claims by current user with item and recipient info
+    claims = Purchase.query.filter_by(purchased_by_id=current_user.id).order_by(Purchase.created_at.desc()).all()
+
+    # Group claims by recipient
+    claims_by_recipient = {}
+    for claim in claims:
+        recipient = claim.wishlist_item.user
+        if recipient.id not in claims_by_recipient:
+            claims_by_recipient[recipient.id] = {
+                'recipient': recipient,
+                'claims': []
+            }
+        claims_by_recipient[recipient.id]['claims'].append(claim)
+
+    return render_template('wishlist/my_claims.html', claims_by_recipient=claims_by_recipient)
+
+
+@bp.route('/update-claim-status/<int:claim_id>', methods=['POST'])
+@login_required
+def update_claim_status(claim_id):
+    """Update acquired/wrapped status of a claim"""
+    claim = Purchase.query.get_or_404(claim_id)
+
+    # Only the person who made the claim can update it
+    if claim.purchased_by_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+
+    if 'acquired' in data:
+        claim.acquired = bool(data['acquired'])
+    if 'wrapped' in data:
+        claim.wrapped = bool(data['wrapped'])
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'acquired': claim.acquired,
+        'wrapped': claim.wrapped
+    })

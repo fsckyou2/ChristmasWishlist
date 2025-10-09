@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Purchase Item{% endblock %}
+{% block title %}Claim Item{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Mark as Purchased</h1>
+    <h1 class="text-4xl font-bold mb-8">Claim Gift Item</h1>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8 mb-6">
         <div class="flex gap-6 mb-6">
@@ -20,14 +20,14 @@
                     <p class="text-xl text-green-600 font-semibold mb-2">${{ "%.2f"|format(item.price) }}</p>
                 {% endif %}
                 <p class="text-gray-400">Wanted: {{ item.quantity }}</p>
-                <p class="text-gray-400">Already purchased: {{ item.total_purchased }}</p>
+                <p class="text-gray-400">Already claimed: {{ item.total_purchased }}</p>
                 <p class="text-gray-400 font-semibold">Remaining: {{ remaining }}</p>
             </div>
         </div>
 
         <div class="bg-blue-900 p-4 rounded mb-6">
             <p class="text-sm text-gray-200">
-                <strong>Note:</strong> {{ item.user.name }} will be able to see that this item has been purchased, but nobody will know who purchased it. This keeps the surprise!
+                <strong>Note:</strong> {{ item.user.name }} will see that this item has been claimed, but won't know who claimed it. This keeps the surprise! After claiming, you can track when you've acquired and wrapped the gift in "My Claims".
             </p>
         </div>
 
@@ -44,7 +44,7 @@
             </div>
 
             <div class="flex gap-4">
-                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
+                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer", value="Claim This Gift") }}
                 <a href="{{ url_for('wishlist.view_user_list', user_id=item.user_id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
                     Cancel
                 </a>

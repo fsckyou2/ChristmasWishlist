@@ -1,14 +1,15 @@
 # 🎄 Christmas Wishlist
 
-A modern, user-friendly web application for managing Christmas wishlists. Share your holiday wishes with family and friends, browse others' wishlists, and coordinate gift purchases without spoiling the surprise!
+A modern, user-friendly web application for managing Christmas wishlists. Share your holiday wishes with your loved ones, browse others' wishlists, and coordinate gift purchases without spoiling the surprise!
 
 ## ✨ Features
 
 ### For Users
-- **Easy Wishlist Management**: Add items manually or automatically extract product details from URLs (Amazon, eBay, Walmart, etc.)
+- **Easy Wishlist Management**: Add items manually or automatically extract product details from URLs (Amazon, eBay, Walmart)
 - **Privacy-Focused**: Others can see *what* was purchased but not *who* purchased it
 - **Partial Purchases**: Support for multiple people purchasing partial quantities of items
-- **Simple Interface**: Clean, Christmas-themed UI built with Tailwind CSS
+- **Daily Digest Emails**: Get notified when other users update their wishlists
+- **Simple Interface**: Clean, Christmas-themed dark UI built with Tailwind CSS
 - **Mobile-First**: Fully responsive design with PWA support for mobile installation
 - **Secure Authentication**:
   - Email/password login
@@ -27,11 +28,10 @@ A modern, user-friendly web application for managing Christmas wishlists. Share 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.11+
-- Docker and Docker Compose (for containerized deployment)
+- Docker and Docker Compose
 - Mailgun account (or other SMTP provider) for email functionality
 
-### Method 1: Docker (Recommended)
+### Docker Deployment (Recommended)
 
 1. **Clone the repository**
    ```bash
@@ -39,62 +39,37 @@ A modern, user-friendly web application for managing Christmas wishlists. Share 
    cd ChristmasWishlist
    ```
 
-2. **Create environment file**
+2. **Configure environment**
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` and fill in your configuration values (see Configuration section below)
+   Edit `.env` and configure your settings (see Configuration section below)
 
-3. **Generate templates**
+3. **Build and run**
    ```bash
-   python create_templates.py
-   python create_wishlist_templates.py
-   python create_admin_templates.py
+   docker compose up -d --build
    ```
 
-4. **Build and run with Docker**
-   ```bash
-   docker-compose up -d
-   ```
-
-5. **Access the application**
+4. **Access the application**
    Open your browser to `http://localhost:5000`
 
-### Method 2: Local Development
+### Local Development
 
-1. **Clone and setup**
+1. **Setup environment**
    ```bash
    git clone <repository-url>
    cd ChristmasWishlist
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. **Install dependencies**
-   ```bash
    pip install -r requirements.txt
    ```
 
-3. **Create environment file**
+2. **Configure and run**
    ```bash
    cp .env.example .env
-   ```
-   Edit `.env` with your configuration
-
-4. **Generate templates**
-   ```bash
-   python create_templates.py
-   python create_wishlist_templates.py
-   python create_admin_templates.py
-   ```
-
-5. **Run the application**
-   ```bash
+   # Edit .env with your settings
    python run.py
    ```
-
-6. **Access the application**
-   Open your browser to `http://localhost:5000`
 
 ## ⚙️ Configuration
 
@@ -132,6 +107,9 @@ DATABASE_URL=sqlite:///wishlist.db
 PASSWORD_RESET_TOKEN_EXPIRY=3600
 MAGIC_LINK_TOKEN_EXPIRY=1800
 
+# Daily Digest Configuration
+DAILY_DIGEST_HOUR=9  # Hour (0-23, UTC) to send daily emails
+
 # Application Name
 APP_NAME=Christmas Wishlist
 ```
@@ -156,10 +134,11 @@ APP_NAME=Christmas Wishlist
 ### Adding Items from URLs
 
 The app supports automatic data extraction from:
-- Amazon
-- eBay
-- Walmart
-- Many other sites (generic scraper)
+- **Amazon** ✅
+- **eBay** ✅
+- **Walmart** ✅
+- **Etsy** ❌ (Manual entry required due to bot protection)
+- **Other sites** (Generic scraper attempts to extract data)
 
 Simply paste the product URL and click "Auto-Fill from URL". The app will attempt to extract:
 - Product name
@@ -168,6 +147,15 @@ Simply paste the product URL and click "Auto-Fill from URL". The app will attemp
 - Image
 
 You can always edit these fields manually before saving.
+
+### Daily Digest Emails
+
+Users receive a daily email (at the time configured in `DAILY_DIGEST_HOUR`) when other users make changes to their wishlists. The email includes:
+- Who made changes
+- What items were added, updated, or removed
+- Direct link to view all wishlists
+
+This keeps everyone informed without constant notifications!
 
 ### Password Recovery
 
@@ -191,45 +179,33 @@ If your account has admin privileges, you'll see an "Admin" link in the navigati
 
 ### Admin Features
 
-**Dashboard:**
-- View system statistics
-- See recent user activity
-- Quick access to management features
+- **Dashboard**: View system statistics and recent activity
+- **User Management**: View, edit, delete users, grant/revoke admin privileges
+- **Impersonation**: Log in as any user to troubleshoot issues
+- **Content Management**: View and delete inappropriate wishlist items
+- **Purchase Tracking**: Monitor all gift purchases
 
-**User Management:**
-- View all registered users
-- Grant/revoke admin privileges
-- Delete user accounts
-- Reset user passwords
-- **Impersonate users** to troubleshoot issues
+### Manual Commands
 
-**Impersonation:**
-1. Go to Admin → Manage Users
-2. Click "Impersonate" next to any user
-3. You'll be logged in as that user
-4. Click "Stop Impersonating" to return to your admin account
+Manually trigger the daily digest email (for testing):
+```bash
+docker exec christmas-wishlist flask send-digest
+```
 
-**Content Management:**
-- View all wishlist items
-- Delete inappropriate content
-- Monitor purchase activity
+Run tests:
+```bash
+docker exec christmas-wishlist pytest
+```
 
 ## 🧪 Testing
 
-Run the test suite:
-
 ```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
-
-# Run tests
-pytest
+# Run tests inside Docker container
+docker exec christmas-wishlist pytest
 
 # Run tests with coverage
-pytest --cov=app --cov-report=html
+docker exec christmas-wishlist pytest --cov=app --cov-report=html
 ```
-
-View coverage report by opening `htmlcov/index.html` in your browser.
 
 ## 🏗️ Project Structure
 
@@ -237,16 +213,19 @@ View coverage report by opening `htmlcov/index.html` in your browser.
 ChristmasWishlist/
 ├── app/
 │   ├── __init__.py          # App factory
-│   ├── models.py            # Database models
+│   ├── models.py            # Database models (User, WishlistItem, Purchase, WishlistChange)
 │   ├── forms.py             # WTForms
-│   ├── email.py             # Email utilities
-│   ├── scraper.py           # URL scraping
+│   ├── email.py             # Email utilities (welcome, password reset, daily digest)
+│   ├── scheduler.py         # APScheduler for daily digest
+│   ├── cli.py               # Flask CLI commands
 │   ├── routes/
 │   │   ├── main.py          # Main routes
 │   │   ├── auth.py          # Authentication
 │   │   ├── wishlist.py      # Wishlist CRUD
-│   │   └── admin.py         # Admin panel
+│   │   ├── admin.py         # Admin panel
+│   │   └── scraper.py       # API routes (placeholder)
 │   ├── static/
+│   │   ├── js/scraper.js    # Client-side URL scraping
 │   │   ├── manifest.json    # PWA manifest
 │   │   └── sw.js            # Service worker
 │   └── templates/           # Jinja2 templates
@@ -272,6 +251,7 @@ ChristmasWishlist/
 - **Input Validation**: WTForms validation on all user inputs
 - **SQL Injection Protection**: SQLAlchemy ORM
 - **XSS Protection**: Jinja2 automatic escaping
+- **Dependency Security**: Regular updates to patch vulnerabilities
 
 ## 🌐 Reverse Proxy Deployment
 
@@ -298,50 +278,43 @@ The application is **fully configured** to run behind a reverse proxy (Nginx, Ap
    sudo systemctl reload nginx
    ```
 
-**See `REVERSE_PROXY.md` for complete documentation** including:
-- Nginx, Apache, and Caddy configurations
-- SSL/TLS setup with Let's Encrypt
-- Security headers configuration
-- Troubleshooting guide
-- Performance optimization
+**See `REVERSE_PROXY.md` for complete documentation** including SSL/TLS setup with Let's Encrypt.
 
 ## 🐛 Troubleshooting
-
-### Templates Not Found
-
-Run the template generation scripts:
-```bash
-python create_templates.py
-python create_wishlist_templates.py
-python create_admin_templates.py
-```
 
 ### Email Not Sending
 
 1. Verify Mailgun credentials in `.env`
 2. Check that `MAIL_USE_TLS` is set to `True`
 3. Verify your Mailgun domain is verified
-4. Check application logs for SMTP errors
+4. Check application logs: `docker logs christmas-wishlist`
 
 ### Database Issues
 
-Delete the database and restart (loses all data):
+Reset the database (loses all data):
 ```bash
-rm instance/wishlist.db
-python run.py
+docker compose down
+docker volume rm christmaswishlist_db  # If using named volumes
+docker compose up -d
 ```
 
 ### Port Already in Use
 
-Change the port in `docker-compose.yml` or `run.py`:
+Change the port in `docker-compose.yml`:
 ```yaml
 ports:
   - "8000:5000"  # Use port 8000 instead
 ```
 
+### Daily Digest Not Sending
+
+1. Check logs: `docker logs christmas-wishlist | grep -i digest`
+2. Verify `DAILY_DIGEST_HOUR` is set correctly in `.env` (uses UTC time)
+3. Manually test: `docker exec christmas-wishlist flask send-digest`
+
 ## 📝 Dependencies
 
-All dependencies are mature, well-maintained packages. See `requirements.txt` for versions.
+All dependencies are mature, well-maintained packages with security updates.
 
 ### Core Dependencies
 - **Flask** (3.0.0): Web framework
@@ -351,9 +324,10 @@ All dependencies are mature, well-maintained packages. See `requirements.txt` fo
 - **Flask-WTF** (1.2.1): Form handling and CSRF protection
 - **BeautifulSoup4** (4.12.2): HTML parsing for URL scraping
 - **Requests** (2.31.0): HTTP library
+- **APScheduler** (3.10.4): Task scheduling for daily digest
 - **Gunicorn** (21.2.0): Production WSGI server
 
-All dependencies have been checked for known vulnerabilities. Use `pip-audit` to verify:
+Check for vulnerabilities:
 ```bash
 pip install pip-audit
 pip-audit
@@ -367,13 +341,6 @@ This project is provided as-is for personal and educational use.
 
 Built with ❤️ for making Christmas gift-giving easier and more organized!
 
-## 🤝 Contributing
+---
 
-This is a personal project, but suggestions and bug reports are welcome via issues.
-
-## 📞 Support
-
-For issues or questions:
-1. Check the Troubleshooting section above
-2. Review existing GitHub issues
-3. Create a new issue with detailed information
+**Happy Holidays! 🎄**

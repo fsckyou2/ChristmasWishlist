@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Christmas Wishlist - Share your holiday wishes with family and friends">
+    <meta name="description" content="Scimone Christmas Wishlist - Share your holiday wishes with your family">
     <meta name="theme-color" content="#dc2626">
-    <title>{% block title %}Christmas Wishlist{% endblock %}</title>
+    <title>{% block title %}Scimone Christmas Wishlist{% endblock %}</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,6 +15,8 @@
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+    {% block head %}{% endblock %}
 
     <style>
         .purchased {
@@ -30,7 +32,7 @@
             <div class="flex justify-between items-center py-4">
                 <a href="{{ url_for('main.index') }}" class="text-2xl font-bold flex items-center gap-2">
                     <span class="text-3xl">🎁</span>
-                    Christmas Wishlist
+                    Scimone Christmas Wishlist
                 </a>
 
                 <div class="flex items-center gap-4">
@@ -44,7 +46,9 @@
                             </a>
                         {% else %}
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline">My Wishlist</a>
+                            <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">My Claims</a>
                             <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline">Browse Wishlists</a>
+                            <a href="{{ url_for('passkey.manage') }}" class="hover:underline">Passkeys</a>
                             {% if current_user.is_admin %}
                                 <a href="{{ url_for('admin.dashboard') }}" class="hover:underline">Admin</a>
                             {% endif %}
@@ -82,7 +86,7 @@
     <!-- Footer -->
     <footer class="bg-gray-950 text-gray-300 mt-12 py-6">
         <div class="container mx-auto px-4 text-center">
-            <p>&copy; 2024 Christmas Wishlist. Made with ❤️ for the holidays.</p>
+            <p>&copy; 2025 Scimone Christmas Wishlist. Made with ❤️ for the holidays.</p>
         </div>
     </footer>
 

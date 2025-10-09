@@ -33,11 +33,27 @@
 
                         {% if item.is_fully_purchased %}
                             <div class="bg-green-100 text-green-800 px-3 py-2 rounded text-center mb-3">
-                                ✓ Fully Purchased
+                                ✓ Fully Claimed
                             </div>
                         {% elif item.total_purchased > 0 %}
                             <div class="bg-yellow-100 text-yellow-800 px-3 py-2 rounded text-center mb-3">
-                                {{ item.total_purchased }}/{{ item.quantity }} Purchased
+                                {{ item.total_purchased }}/{{ item.quantity }} Claimed
+                            </div>
+                        {% endif %}
+
+                        <!-- Show claims made by current user -->
+                        {% set my_claims = item.purchases.filter_by(purchased_by_id=current_user.id).all() %}
+                        {% if my_claims %}
+                            <div class="bg-blue-100 text-blue-800 px-3 py-2 rounded mb-3">
+                                <div class="text-sm font-semibold mb-1">Your Claims:</div>
+                                {% for claim in my_claims %}
+                                    <div class="flex justify-between items-center text-xs">
+                                        <span>{{ claim.quantity }} item{% if claim.quantity != 1 %}s{% endif %}</span>
+                                        <form method="POST" action="{{ url_for('wishlist.unclaim_item', purchase_id=claim.id) }}" class="inline">
+                                            <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Unclaim</button>
+                                        </form>
+                                    </div>
+                                {% endfor %}
                             </div>
                         {% endif %}
 
@@ -48,8 +64,8 @@
                                 </a>
                             {% endif %}
                             {% if not item.is_fully_purchased %}
-                                <a href="{{ url_for('wishlist.purchase_item', item_id=item.id) }}" class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-green-700">
-                                    Mark Purchased
+                                <a href="{{ url_for('wishlist.claim_item', item_id=item.id) }}" class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-green-700">
+                                    Claim Gift
                                 </a>
                             {% endif %}
                         </div>

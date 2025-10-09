@@ -6,15 +6,20 @@
 <div class="max-w-6xl mx-auto">
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-4xl font-bold">My Wishlist</h1>
-        <a href="{{ url_for('wishlist.add_item') }}" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700">
-            + Add Item
-        </a>
+        <div class="flex gap-3">
+            <a href="{{ url_for('wishlist.my_list_table') }}" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
+                Table View
+            </a>
+            <a href="{{ url_for('wishlist.add_item') }}" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700">
+                + Add Item
+            </a>
+        </div>
     </div>
 
     {% if items %}
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for item in items %}
-                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden {% if item.is_fully_purchased %}purchased{% endif %}">
+                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
                     {% if item.image_url %}
                         <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-full h-48 object-cover">
                     {% else %}
@@ -35,16 +40,6 @@
                             {% endif %}
                             <span class="text-sm text-gray-400">Qty: {{ item.quantity }}</span>
                         </div>
-
-                        {% if item.is_fully_purchased %}
-                            <div class="bg-green-100 text-green-800 px-3 py-2 rounded text-center mb-3">
-                                ✓ Fully Purchased
-                            </div>
-                        {% elif item.total_purchased > 0 %}
-                            <div class="bg-yellow-100 text-yellow-800 px-3 py-2 rounded text-center mb-3">
-                                {{ item.total_purchased }}/{{ item.quantity }} Purchased
-                            </div>
-                        {% endif %}
 
                         <div class="flex gap-2">
                             {% if item.url %}

@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Passkeys - Scimone Christmas Wishlist{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-4xl font-bold">Manage Passkeys</h1>
+        <a href="{{ url_for('main.index') }}" class="text-red-600 hover:underline">← Back to Home</a>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4">What are Passkeys?</h2>
+        <p class="text-gray-400 mb-4">
+            Passkeys are a more secure and convenient way to log in. They use your device's biometric authentication
+            (like fingerprint or face recognition) or a security key. You'll never need to remember a password again!
+        </p>
+        <p class="text-gray-400">
+            Each passkey is tied to a specific device. You can register multiple passkeys for different devices.
+        </p>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">Your Passkeys</h2>
+            <button id="register-passkey-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                + Add Passkey
+            </button>
+        </div>
+
+        <div id="passkey-list" class="space-y-3">
+            <!-- Passkeys will be loaded here -->
+            <div class="text-center text-gray-400 py-8">
+                <p>Loading passkeys...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registration Modal -->
+    <div id="register-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg p-8 max-w-md w-full mx-4">
+            <h3 class="text-2xl font-bold mb-4">Register New Passkey</h3>
+            <p class="text-gray-400 mb-4">Give this passkey a name to help you identify it later.</p>
+
+            <div class="mb-4">
+                <label class="block text-gray-200 font-semibold mb-2">Device Name</label>
+                <input type="text" id="device-name" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-green-600" placeholder="e.g., My Laptop, iPhone 12">
+            </div>
+
+            <div id="register-error" class="mb-4 text-red-600 text-sm" style="display: none;"></div>
+
+            <div class="flex gap-3">
+                <button id="confirm-register-btn" class="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+                    Register
+                </button>
+                <button id="cancel-register-btn" class="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Not Supported Message -->
+    <div id="not-supported" class="bg-yellow-900 border border-yellow-700 rounded-lg p-6 hidden">
+        <h3 class="text-xl font-bold text-yellow-300 mb-2">Passkeys Not Supported</h3>
+        <p class="text-yellow-200">
+            Your browser or device doesn't support passkeys. Please use a modern browser like Chrome, Safari, or Edge
+            on a device with biometric authentication or a security key.
+        </p>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+<script>
+    // Check if passkey is supported
+    if (!window.passkey.isSupported()) {
+        document.getElementById('not-supported').classList.remove('hidden');
+        document.getElementById('register-passkey-btn').disabled = true;
+    }
+
+    // Load passkeys
+    async function loadPasskeys() {
+        try {
+            const result = await window.passkey.list();
+            const listDiv = document.getElementById('passkey-list');
+
+            if (result.passkeys.length === 0) {
+                listDiv.innerHTML = `
+                    <div class="text-center text-gray-400 py-8">
+                        <p>No passkeys registered yet.</p>
+                        <p class="text-sm mt-2">Click "Add Passkey" to register your first passkey.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listDiv.innerHTML = result.passkeys.map(passkey => {
+                const createdDate = new Date(passkey.created_at).toLocaleDateString();
+                const lastUsed = passkey.last_used ? new Date(passkey.last_used).toLocaleDateString() : 'Never';
+
+                return `
+                    <div class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">${passkey.device_name}</p>
+                            <p class="text-sm text-gray-400">Created: ${createdDate} | Last used: ${lastUsed}</p>
+                        </div>
+                        <button class="delete-passkey-btn text-red-600 hover:text-red-700" data-id="${passkey.id}">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            // Add delete event listeners
+            document.querySelectorAll('.delete-passkey-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const passkeyId = e.currentTarget.dataset.id;
+                    if (confirm('Are you sure you want to delete this passkey?')) {
+                        try {
+                            await window.passkey.delete(passkeyId);
+                            loadPasskeys();
+                        } catch (error) {
+                            alert('Failed to delete passkey: ' + error.message);
+                        }
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Failed to load passkeys:', error);
+            document.getElementById('passkey-list').innerHTML = `
+                <div class="text-center text-red-600 py-8">
+                    <p>Failed to load passkeys</p>
+                </div>
+            `;
+        }
+    }
+
+    // Modal management
+    const modal = document.getElementById('register-modal');
+    const deviceNameInput = document.getElementById('device-name');
+    const errorDiv = document.getElementById('register-error');
+
+    document.getElementById('register-passkey-btn').addEventListener('click', () => {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        deviceNameInput.value = '';
+        errorDiv.style.display = 'none';
+    });
+
+    document.getElementById('cancel-register-btn').addEventListener('click', () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    });
+
+    // Register passkey
+    document.getElementById('confirm-register-btn').addEventListener('click', async () => {
+        const deviceName = deviceNameInput.value.trim() || 'My Device';
+        const btn = document.getElementById('confirm-register-btn');
+
+        btn.disabled = true;
+        btn.textContent = 'Registering...';
+        errorDiv.style.display = 'none';
+
+        try {
+            await window.passkey.register(deviceName);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            loadPasskeys();
+        } catch (error) {
+            errorDiv.textContent = error.message || 'Failed to register passkey';
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Register';
+        }
+    });
+
+    // Load passkeys on page load
+    loadPasskeys();
+</script>
+{% endblock %}
