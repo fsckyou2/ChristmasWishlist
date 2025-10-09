@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, jsonify
 from flask_login import current_user
 from app.models import User, WishlistItem
+from app import __version__
 
 bp = Blueprint("main", __name__)
 
@@ -23,3 +24,9 @@ def index():
 def about():
     """About page"""
     return render_template("main/about.html")
+
+
+@bp.route("/version")
+def version():
+    """Return application version"""
+    return jsonify({"version": __version__, "app": "Christmas Wishlist"})
