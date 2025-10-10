@@ -14,6 +14,16 @@ This guide covers how to handle database schema changes in this project.
 
 **Status**: Migration script available at `scripts/migrate_purchase_fields.py`
 
+### Migration: WishlistChange CASCADE DELETE (v1.3.0)
+
+**Date**: 2025-10-10
+**Changes**:
+- Added CASCADE DELETE to `wishlist_changes.user_id` foreign key
+- Allows users to be deleted without "NOT NULL constraint failed" errors
+- Automatically deletes associated wishlist_changes when user is deleted
+
+**Status**: Migration script available at `scripts/migrate_wishlist_changes_cascade.py`
+
 ## Running Migrations
 
 ### For Docker Deployments
@@ -21,8 +31,9 @@ This guide covers how to handle database schema changes in this project.
 If you're upgrading from a version before v1.3.0:
 
 ```bash
-# Method 1: Run migration script (preserves existing data)
+# Run both migration scripts (preserves existing data)
 docker exec christmas-wishlist python scripts/migrate_purchase_fields.py
+docker exec christmas-wishlist python scripts/migrate_wishlist_changes_cascade.py
 
 # Then restart the container
 docker restart christmas-wishlist
@@ -34,8 +45,9 @@ docker restart christmas-wishlist
 # Activate virtual environment
 source venv/bin/activate  # or venv\Scripts\activate on Windows
 
-# Run migration script
+# Run migration scripts
 python scripts/migrate_purchase_fields.py
+python scripts/migrate_wishlist_changes_cascade.py
 
 # Restart the app
 python run.py
@@ -142,9 +154,24 @@ If you need to make database schema changes in the future:
 sqlite3.OperationalError: no such column: purchases.purchased
 ```
 
-**Solution**: Run the migration script
+**Solution**: Run the purchase fields migration script
 ```bash
 docker exec christmas-wishlist python scripts/migrate_purchase_fields.py
+docker restart christmas-wishlist
+```
+
+### "NOT NULL constraint failed: wishlist_changes.user_id" Error
+
+**Symptom**:
+```
+sqlite3.IntegrityError: NOT NULL constraint failed: wishlist_changes.user_id
+```
+
+**Cause**: Trying to delete a user when wishlist_changes table doesn't have CASCADE DELETE
+
+**Solution**: Run the wishlist_changes cascade migration script
+```bash
+docker exec christmas-wishlist python scripts/migrate_wishlist_changes_cascade.py
 docker restart christmas-wishlist
 ```
 

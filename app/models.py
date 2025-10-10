@@ -119,7 +119,7 @@ class WishlistChange(db.Model):
     __tablename__ = "wishlist_changes"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     change_type = db.Column(db.String(50), nullable=False)  # 'added', 'updated', 'deleted'
     item_name = db.Column(db.String(200), nullable=False)
     item_id = db.Column(db.Integer)  # May be null if item was deleted
@@ -127,7 +127,7 @@ class WishlistChange(db.Model):
     notified = db.Column(db.Boolean, default=False, index=True)
 
     # Relationship
-    user = db.relationship("User", backref="wishlist_changes")
+    user = db.relationship("User", backref=db.backref("wishlist_changes", cascade="all, delete-orphan"))
 
     def __repr__(self):
         return f"<WishlistChange user={self.user_id} type={self.change_type} item={self.item_name}>"
