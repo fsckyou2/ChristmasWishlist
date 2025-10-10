@@ -334,4 +334,6 @@ def update_claim_status(claim_id):
 
     db.session.commit()
 
-    return jsonify({"success": True, "purchased": claim.purchased, "received": claim.received, "wrapped": claim.wrapped})
+    return jsonify(
+        {"success": True, "purchased": claim.purchased, "received": claim.received, "wrapped": claim.wrapped}
+    )
