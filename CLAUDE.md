@@ -242,14 +242,30 @@ For production deployments, consider adding Flask-Migrate for proper migrations.
 
 ## Continuous Integration
 
-GitHub Actions CI runs automatically on push/PR to main/master/development branches:
+GitHub Actions workflows run automatically:
 
+### CI Workflow (`.github/workflows/ci.yml`)
+Runs on all pushes and pull requests:
 - **Test Job**: Runs pytest on Python 3.11, 3.12, 3.13 with coverage reporting
 - **Lint Job**: Checks code formatting (black) and quality (flake8)
 - **Docker Job**: Verifies Docker build and container startup
 
+### Release Workflow (`.github/workflows/release.yml`)
+Runs on push to main branch only - **single workflow** that:
+1. Bumps version based on commit messages
+2. Updates VERSION and CHANGELOG.md
+3. Commits and pushes changes
+4. Creates and pushes git tag
+5. Builds Docker image
+6. Pushes to Docker Hub
+
+**Setup Required**:
+- GitHub Secrets: `PAT_TOKEN`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
+- See `GITHUB_ACTIONS_SETUP.md` for detailed setup instructions
+
 Configuration files:
-- `.github/workflows/ci.yml` - GitHub Actions workflow
+- `.github/workflows/ci.yml` - CI workflow
+- `.github/workflows/release.yml` - Release workflow
 - `.flake8` - Flake8 configuration (max line length 120, ignores E128, W503, W504)
 - `pyproject.toml` - Black, pytest, and coverage configuration
 
@@ -261,26 +277,14 @@ Code quality standards:
 
 Current test coverage: **76%** (87 tests passing)
 
-## Docker Hub Deployment
+## Automated Releases
 
-Automated Docker image deployment to Docker Hub when version tags are created:
+The release workflow provides **fully automated releases** when merging to main:
 
-- **Workflow**: `.github/workflows/docker-publish.yml`
-- **Trigger**: Only runs when version-bump workflow creates a tag (e.g., `v1.2.3`)
-- **This ensures**: VERSION file is already updated before building the Docker image
-- **Image Tagging**:
-  - `latest` - Most recent tagged version
+**Image Tagging**:
+  - `latest` - Most recent version
   - `v1.2.3` - Exact semantic version
   - `v1.2`, `v1` - Major and major.minor versions
-
-**Workflow Order**:
-1. Push to main → version-bump workflow runs
-2. Version-bump creates tag → docker-publish triggers
-3. Docker image built with correct version
-
-**Setup Required**:
-- GitHub Secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
-- See `DOCKER_HUB_SETUP.md` for detailed setup instructions
 
 **Pull Image**:
 ```bash
@@ -292,7 +296,7 @@ docker pull <your-username>/christmas-wishlist:latest
 The project follows semantic versioning (MAJOR.MINOR.PATCH) with **automated version bumping**:
 
 - **Current Version**: Tracked in `VERSION` file (currently 1.0.0)
-- **Auto-Bump Workflow**: `.github/workflows/version-bump.yml` automatically bumps version on merge to main
+- **Release Workflow**: `.github/workflows/release.yml` automatically handles version bump + Docker publish
 - **Version Endpoint**: `GET /version` returns JSON with current version
 - **Template Display**: Version shown in footer of all pages via `app_version` context variable
 
@@ -303,7 +307,7 @@ git checkout development
 git commit -m "feat: add new feature"  # Use conventional commits
 git push
 
-# Merge to main - triggers auto version bump
+# Merge to main - triggers release workflow
 git checkout main
 git merge development
 git push
@@ -311,12 +315,14 @@ git push
 # GitHub Actions automatically:
 # 1. Bumps version based on commit messages
 # 2. Updates VERSION and CHANGELOG.md
-# 3. Creates git tag (e.g., v1.1.0)
-# 4. Triggers Docker Hub deployment
+# 3. Commits and pushes changes [skip ci]
+# 4. Creates and pushes git tag (e.g., v1.1.0)
+# 5. Builds Docker image with new version
+# 6. Pushes to Docker Hub with version tags
 ```
 
 **Commit Message Convention** (for auto-bumping):
-- `feat:` or `feat():` → MINOR version bump (1.0.0 → 1.1.0)
+- `feat:` or `feat(scope):` → MINOR version bump (1.0.0 → 1.1.0)
 - `fix:` or other messages → PATCH version bump (1.0.0 → 1.0.1)
 - `BREAKING CHANGE:` or `feat!:` → MAJOR version bump (1.0.0 → 2.0.0)
 
@@ -326,5 +332,7 @@ python scripts/bump_version.py [major|minor|patch]
 ```
 
 **Documentation**:
-- See `VERSIONING.md` for detailed versioning guide
+- See `GITHUB_ACTIONS_SETUP.md` for workflow setup guide
+- See `WORKFLOW_SEQUENCE.md` for detailed execution flow
+- See `VERSIONING.md` for versioning guide
 - See `CHANGELOG.md` for version history and changes

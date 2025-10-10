@@ -1,6 +1,6 @@
 # GitHub Actions Setup Guide
 
-This guide walks you through configuring GitHub Actions for automated version bumping and Docker Hub deployment.
+This guide walks you through configuring GitHub Actions for automated testing, version bumping, and Docker Hub deployment.
 
 ## Prerequisites
 
@@ -8,9 +8,21 @@ This guide walks you through configuring GitHub Actions for automated version bu
 - Docker Hub account (for Docker deployment)
 - Admin access to the repository
 
+## Workflows Overview
+
+This project uses two GitHub Actions workflows:
+
+1. **CI Workflow** (`.github/workflows/ci.yml`)
+   - Runs on: All pushes and pull requests
+   - Purpose: Run tests, linting, and verify Docker build
+
+2. **Release Workflow** (`.github/workflows/release.yml`)
+   - Runs on: Push to main branch only
+   - Purpose: Bump version → Build Docker image → Push to Docker Hub
+
 ## Step 1: Create Personal Access Token (PAT)
 
-The version bump workflow needs a Personal Access Token to trigger the Docker publish workflow. **GitHub's `GITHUB_TOKEN` cannot trigger other workflows** - this is a security limitation.
+The release workflow needs a Personal Access Token to push version commits and tags.
 
 ### Create a Fine-Grained Personal Access Token
 
@@ -19,7 +31,7 @@ The version bump workflow needs a Personal Access Token to trigger the Docker pu
 3. Click **Personal access tokens** → **Fine-grained tokens**
 4. Click **Generate new token**
 5. Configure the token:
-   - **Name**: `ChristmasWishlist-Version-Bump`
+   - **Name**: `ChristmasWishlist-Release`
    - **Expiration**: Choose expiration (90 days recommended, or custom)
    - **Repository access**: Select "Only select repositories"
      - Choose your `ChristmasWishlist` repository
@@ -40,37 +52,11 @@ The version bump workflow needs a Personal Access Token to trigger the Docker pu
    - Click **Add secret**
 
 **Why this is needed:**
-When the version-bump workflow pushes a git tag, it needs to trigger the docker-publish workflow. GitHub's built-in `GITHUB_TOKEN` cannot trigger other workflows (security feature). Using a PAT allows the tag push to trigger the docker-publish workflow.
+The PAT allows the workflow to push version commits and tags to your repository.
 
-## Step 2: Configure Repository Permissions
+## Step 2: Configure Docker Hub Secrets
 
-Enable write permissions for other GitHub Actions operations.
-
-### Enable Write Permissions for GitHub Actions
-
-1. Go to your GitHub repository
-2. Click **Settings** (top menu)
-3. In the left sidebar, click **Actions** → **General**
-4. Scroll to **Workflow permissions**
-5. Select **"Read and write permissions"**
-6. (Optional) Check **"Allow GitHub Actions to create and approve pull requests"**
-7. Click **Save**
-
-**Screenshot reference:**
-```
-Workflow permissions
-● Read repository contents and packages permissions
-○ Read and write permissions   ← SELECT THIS
-
-□ Allow GitHub Actions to create and approve pull requests   ← OPTIONAL
-```
-
-**Why this is needed:**
-Additional permissions for GitHub Actions to function properly.
-
-## Step 3: Configure Docker Hub Secrets
-
-The Docker Hub deployment workflow needs your Docker Hub credentials.
+The release workflow needs your Docker Hub credentials to push images.
 
 ### Create Docker Hub Access Token
 
@@ -97,25 +83,25 @@ The Docker Hub deployment workflow needs your Docker Hub credentials.
 
 **Secret 2: DOCKERHUB_TOKEN**
 - Name: `DOCKERHUB_TOKEN`
-- Value: The access token you generated in step 1
+- Value: The access token you generated above
 - Click **Add secret**
 
-## Step 4: Verify Workflows are Enabled
+## Step 3: Verify Workflows are Enabled
 
 1. Go to **Actions** tab in your repository
 2. If you see a message about workflows being disabled:
    - Click **"I understand my workflows, go ahead and enable them"**
 3. You should see the following workflows listed:
    - ✅ CI
-   - ✅ Auto Version Bump
-   - ✅ Build and Push Docker Image
+   - ✅ Release
 
-## Step 5: Test the Setup
+## Step 4: Test the Setup
 
 ### Test CI Workflow
 
+Push any change to any branch:
+
 ```bash
-# Make any change to code
 git checkout development
 echo "# test" >> README.md
 git add README.md
@@ -127,54 +113,46 @@ git push
 2. You should see "CI" workflow running
 3. Wait for it to complete (green checkmark)
 
-### Test Version Bump Workflow
+### Test Release Workflow
+
+Merge to main to trigger version bump and Docker publish:
 
 ```bash
-# Merge to main
 git checkout main
 git merge development
 git push
 ```
 
 1. Go to **Actions** tab
-2. You should see "Auto Version Bump" workflow running
-3. It should:
-   - Commit version changes
-   - Create a git tag
-   - Trigger Docker Hub deployment
+2. You should see "Release" workflow running
+3. It will:
+   - Analyze your commit messages
+   - Bump the version (patch/minor/major)
+   - Update VERSION and CHANGELOG.md
+   - Create and push a git tag
+   - Build Docker image
+   - Push to Docker Hub
 4. Check that a new tag was created: **Code** → **Tags**
+5. Verify on Docker Hub: https://hub.docker.com/r/YOUR_USERNAME/christmas-wishlist
 
-### Test Docker Hub Deployment
+## Commit Message Convention
 
-1. After version bump completes and creates a tag, "Build and Push Docker Image" should automatically trigger
-2. Check **Actions** tab - you should see TWO workflows:
-   - ✅ "Auto Version Bump" (should be completed)
-   - 🔄 "Build and Push Docker Image" (triggered by the tag)
-3. Once complete, verify on Docker Hub:
-   - Go to https://hub.docker.com/r/YOUR_USERNAME/christmas-wishlist
-   - You should see new tags (latest, v1.x.x, etc.)
+The release workflow automatically determines version bump based on your commit messages:
 
-**Important:** The Docker workflow is triggered by the tag created by the version bump workflow. This ensures the VERSION file is already updated before building the image.
+- `feat:` or `feat(scope):` → **MINOR** version bump (1.0.0 → 1.1.0)
+- `fix:` or other messages → **PATCH** version bump (1.0.0 → 1.0.1)
+- `BREAKING CHANGE:` or `feat!:` → **MAJOR** version bump (1.0.0 → 2.0.0)
+
+**Examples:**
+```bash
+git commit -m "feat: add dark mode toggle"           # Minor bump
+git commit -m "fix: resolve login redirect issue"    # Patch bump
+git commit -m "feat!: redesign authentication flow"  # Major bump
+```
 
 ## Troubleshooting
 
-### Docker Publish Doesn't Trigger After Version Bump
-
-**Symptom:**
-- Version bump workflow completes successfully
-- Tag is created and pushed
-- Docker publish workflow never starts
-
-**Cause:**
-GitHub's `GITHUB_TOKEN` cannot trigger other workflows. If the version-bump workflow uses `GITHUB_TOKEN`, the tag push won't trigger docker-publish.
-
-**Solution:**
-1. Create a Personal Access Token (PAT) - see Step 1 above
-2. Add `PAT_TOKEN` secret to repository
-3. Verify `.github/workflows/version-bump.yml` uses `token: ${{ secrets.PAT_TOKEN }}`
-4. Re-run the workflow or push a new commit
-
-### Version Bump: 403 Permission Denied
+### Release: 403 Permission Denied
 
 **Error:**
 ```
@@ -183,18 +161,16 @@ fatal: unable to access 'https://github.com/...': The requested URL returned err
 ```
 
 **Solution:**
-1. Verify PAT_TOKEN secret is configured (Step 1)
+1. Verify `PAT_TOKEN` secret is configured (Step 1)
 2. Check PAT has "Contents: Read and write" permission
 3. Ensure PAT hasn't expired
-4. Check Step 2 above - ensure "Read and write permissions" is enabled
-5. Verify the workflow has `permissions: contents: write` in the YAML
-6. Try re-running the failed workflow
+4. Try re-running the failed workflow
 
-### Version Bump: Workflow Doesn't Trigger
+### Release Workflow Doesn't Trigger
 
 **Possible causes:**
 1. Commit message contains `[skip ci]`
-2. Only VERSION or CHANGELOG.md was changed
+2. Only VERSION, CHANGELOG.md, or documentation files were changed
 3. Workflow is disabled in Actions settings
 
 **Solution:**
@@ -211,100 +187,31 @@ unauthorized: authentication required
 ```
 
 **Solution:**
-1. Verify secrets are set correctly (Step 2 above)
+1. Verify secrets are set correctly (Step 2)
 2. Check secret names match exactly: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
 3. Ensure Docker Hub token hasn't expired
 4. Verify token has "Read, Write, Delete" permissions
 5. Try regenerating the Docker Hub access token
 
-### Docker Push: Image Not Found on Docker Hub
+### Docker Image Not Found on Docker Hub
 
 **Check:**
 1. Go to Actions tab and verify workflow completed successfully
-2. Look for any errors in the "Build and push Docker image" step
+2. Look for errors in the "Build and push Docker image" step
 3. Verify Docker Hub username in secrets is correct
 4. Check that the repository name matches: `christmas-wishlist`
 
-### Workflow Infinite Loop
+### Version Didn't Bump
 
-**Symptom:** Version bump keeps triggering itself
+**Possible causes:**
+1. No commits since last tag
+2. Commit messages don't follow conventional format
+3. Changes were only in ignored paths (docs, etc.)
 
-**This should NOT happen if configured correctly:**
-- The workflow has `if: "!contains(github.event.head_commit.message, '[skip ci]')"`
-- Commits use `[skip ci]` flag
-- `paths-ignore` prevents triggering on VERSION/CHANGELOG changes
-
-**If it happens:**
-1. Disable the workflow temporarily: Settings → Actions → Disable workflow
-2. Check the commit messages in the loop
-3. Verify `[skip ci]` is in the commit message
-4. Re-enable workflow after investigation
-
-## Advanced Configuration
-
-### Change Branch for Auto Version Bump
-
-Edit `.github/workflows/version-bump.yml`:
-
-```yaml
-on:
-  push:
-    branches:
-      - production  # Change from 'main'
-```
-
-### Disable Specific Workflows
-
-Create a file `.github/workflows/disabled/` and move workflows you want to disable:
-
-```bash
-mkdir -p .github/workflows/disabled
-mv .github/workflows/version-bump.yml .github/workflows/disabled/
-```
-
-### Manual Workflow Trigger
-
-Add `workflow_dispatch` to any workflow to enable manual triggering:
-
-```yaml
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:  # Add this
-```
-
-Then you can run it manually from Actions tab → Select workflow → Run workflow
-
-## Security Best Practices
-
-1. **Never commit secrets** to the repository
-2. **Rotate Docker Hub tokens** periodically (every 6-12 months)
-3. **Use least privilege** - only grant permissions that are needed
-4. **Review workflow runs** regularly in the Actions tab
-5. **Enable branch protection** on main branch (Settings → Branches)
-
-## Getting Help
-
-If you encounter issues not covered here:
-
-1. **Check workflow logs:**
-   - Actions tab → Click on failed run → Click on failed job
-   - Review detailed logs for error messages
-
-2. **Review workflow files:**
-   - `.github/workflows/ci.yml`
-   - `.github/workflows/version-bump.yml`
-   - `.github/workflows/docker-publish.yml`
-
-3. **Verify configuration:**
-   - Repository settings (permissions, secrets)
-   - Workflow YAML syntax
-   - Git configuration
-
-4. **Test locally:**
-   - Run pytest locally
-   - Test Docker build locally
-   - Manually run version bump script
+**Solution:**
+- Check commit messages: `git log --oneline`
+- Ensure at least one commit follows conventional format
+- Manually bump if needed: `python scripts/bump_version.py patch`
 
 ## Complete Checklist
 
@@ -312,38 +219,40 @@ Before pushing to main, ensure:
 
 - [ ] Personal Access Token (PAT) created with Contents: Read and write permission
 - [ ] GitHub secrets configured:
-  - [ ] PAT_TOKEN (for triggering docker-publish)
+  - [ ] PAT_TOKEN
   - [ ] DOCKERHUB_USERNAME
   - [ ] DOCKERHUB_TOKEN
-- [ ] Repository permissions: "Read and write permissions" enabled
 - [ ] Docker Hub access token created
 - [ ] All workflows enabled in Actions tab
 - [ ] CI workflow passes on development branch
 - [ ] Commit messages follow Conventional Commits format
-- [ ] Version bump tested on a test branch first (optional)
 - [ ] Docker Hub repository ready to receive images
 
 ---
 
-Once everything is set up correctly, your development workflow becomes:
+## Development Workflow
+
+Once everything is set up correctly, your development workflow is:
 
 ```bash
 # Normal development
 git checkout development
 git commit -m "feat: add cool feature"
 git push
+# → CI runs tests
 
 # Release (merge to main)
 git checkout main
 git merge development
 git push
-
-# GitHub Actions automatically:
-# ✓ Runs tests
-# ✓ Bumps version
-# ✓ Creates tag
-# ✓ Builds Docker image
-# ✓ Pushes to Docker Hub
+# → Release workflow automatically:
+#   ✓ Bumps version
+#   ✓ Updates CHANGELOG
+#   ✓ Creates tag
+#   ✓ Builds Docker image
+#   ✓ Pushes to Docker Hub
 ```
+
+**Total time:** ~3-5 minutes from push to Docker Hub
 
 Happy automating! 🚀

@@ -1,4 +1,4 @@
-name: Auto Version Bump
+name: Release
 
 on:
   push:
@@ -7,16 +7,14 @@ on:
     paths-ignore:
       - 'VERSION'
       - 'CHANGELOG.md'
+      - '**.md'
+      - '.github/**'
 
-# Grant write permissions to GITHUB_TOKEN
-permissions:
-  contents: write
-
+# Prevent infinite loops
+# Skip if commit message contains [skip ci]
 jobs:
-  bump-version:
+  release:
     runs-on: ubuntu-latest
-
-    # Prevent infinite loops - only run if VERSION wasn't just updated
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
 
     steps:
@@ -24,8 +22,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Use PAT to trigger docker-publish workflow when tag is pushed
-          # GITHUB_TOKEN cannot trigger other workflows (GitHub security limitation)
+          # Use PAT to allow pushing tags and triggering other workflows
           token: ${{ secrets.PAT_TOKEN }}
           persist-credentials: true
 
@@ -33,6 +30,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Determine version bump type
         id: bump_type
@@ -63,11 +65,6 @@ jobs:
 
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
           echo "Detected bump type: $BUMP_TYPE"
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
 
       - name: Bump version
         id: bump
@@ -130,3 +127,43 @@ jobs:
 
           git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
           git push origin "v$NEW_VERSION"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/christmas-wishlist
+          tags: |
+            type=semver,pattern={{version}},value=v${{ steps.bump.outputs.new_version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.bump.outputs.new_version }}
+            type=semver,pattern={{major}},value=v${{ steps.bump.outputs.new_version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/christmas-wishlist:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/christmas-wishlist:buildcache,mode=max
+
+      - name: Display results
+        run: |
+          echo "✅ Version bumped to ${{ steps.bump.outputs.new_version }}"
+          echo "✅ Tag v${{ steps.bump.outputs.new_version }} created and pushed"
+          echo "✅ Docker image pushed to Docker Hub"
+          echo ""
+          echo "Docker tags:"
+          echo "${{ steps.meta.outputs.tags }}"
