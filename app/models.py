@@ -29,7 +29,11 @@ class User(UserMixin, db.Model):
 
     # Relationships
     wishlist_items = db.relationship(
-        "WishlistItem", foreign_keys="WishlistItem.user_id", backref="user", lazy="dynamic", cascade="all, delete-orphan"
+        "WishlistItem",
+        foreign_keys="WishlistItem.user_id",
+        backref="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
     )
     purchases = db.relationship("Purchase", backref="purchased_by", lazy="dynamic", cascade="all, delete-orphan")
     # claims is an alias for purchases (view-only for convenience)

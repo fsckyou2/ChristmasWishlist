@@ -14,9 +14,7 @@ def my_list():
     # Only show owner's items - hide custom gifts from others
     items = (
         WishlistItem.query.filter_by(user_id=current_user.id)
-        .filter(
-            (WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id)  # noqa: E711, E712
-        )
+        .filter((WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id))  # noqa: E711, E712
         .order_by(WishlistItem.created_at.desc())
         .all()
     )
@@ -30,9 +28,7 @@ def my_list_table():
     # Only show owner's items - hide custom gifts from others
     items = (
         WishlistItem.query.filter_by(user_id=current_user.id)
-        .filter(
-            (WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id)  # noqa: E711, E712
-        )
+        .filter((WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id))  # noqa: E711, E712
         .order_by(WishlistItem.created_at.desc())
         .all()
     )
