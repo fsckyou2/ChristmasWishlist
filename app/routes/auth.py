@@ -9,23 +9,40 @@ from app.email import send_magic_link_email, send_welcome_email
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
-def similar_items(item1, item2, threshold=0.9):
-    """
-    Check if two items are similar enough to merge.
-    Returns True if URLs match or names are >90% similar.
-    """
-    # Exact URL match (ignore case and trailing slashes)
+def similar_items(item1, item2, threshold=0.75):
+    """Check if two items are similar enough to merge."""
+    # Method 1: Exact URL match (most reliable)
     if item1.url and item2.url:
         url1 = item1.url.lower().rstrip("/")
         url2 = item2.url.lower().rstrip("/")
         if url1 == url2:
             return True
 
-    # Fuzzy name matching
+    # Method 2: Name similarity using SequenceMatcher
     if item1.name and item2.name:
-        similarity = SequenceMatcher(None, item1.name.lower(), item2.name.lower()).ratio()
-        if similarity >= threshold:
+        name_similarity = SequenceMatcher(None, item1.name.lower(), item2.name.lower()).ratio()
+        if name_similarity >= threshold:
             return True
+
+        # Method 3: Significant word overlap (for products with different descriptions)
+        # Extract words of meaningful length (4+ characters)
+        words1 = set(
+            [w.lower() for w in item1.name.replace(",", "").replace("–", " ").replace("-", " ").split() if len(w) >= 4]
+        )
+        words2 = set(
+            [w.lower() for w in item2.name.replace(",", "").replace("–", " ").replace("-", " ").split() if len(w) >= 4]
+        )
+
+        if words1 and words2:
+            # Calculate Jaccard similarity (intersection over union)
+            intersection = words1 & words2
+            union = words1 | words2
+            jaccard = len(intersection) / len(union) if union else 0
+
+            # If they share 40% of significant words, likely the same item
+            # AND they share at least 3 words, it's probably the same product
+            if jaccard >= 0.4 and len(intersection) >= 3:
+                return True
 
     return False
 
@@ -53,6 +70,10 @@ def merge_items(existing_item, new_item):
     purchases = Purchase.query.filter_by(wishlist_item_id=new_item.id).all()
     for purchase in purchases:
         purchase.wishlist_item_id = existing_item.id
+
+    # Flush the purchase updates before deleting the item to ensure they're persisted
+    if purchases:
+        db.session.flush()
 
     # Delete the new_item
     db.session.delete(new_item)
@@ -104,14 +125,6 @@ def register():
 
             # Delete the proxy wishlist
             db.session.delete(proxy)
-
-            total_items = len(items_to_transfer) + merged_count
-            merge_msg = f" ({merged_count} duplicate(s) merged)" if merged_count > 0 else ""
-            flash(
-                f"Welcome! We found a wishlist created for you with {total_items} item(s){merge_msg}. "
-                "It's now been added to your account!",
-                "success",
-            )
 
         db.session.commit()
 

@@ -1037,3 +1037,128 @@ class TestProxyWishlist:
         with app.app_context():
             item = WishlistItem.query.get(item_id)
             assert item is None
+
+    def test_manual_merge_custom_gift(self, client, app, user, other_user):
+        """Test manually merging a custom gift with another item"""
+        # Create two items on other_user's wishlist
+        with app.app_context():
+            # Item 1: Custom gift added by user
+            item1 = WishlistItem(
+                user_id=other_user.id,
+                added_by_id=user.id,
+                name="R2-D2 Droid",
+                url="https://example.com/r2d2",
+                quantity=1,
+            )
+            db.session.add(item1)
+            db.session.flush()
+
+            # Item 2: Regular item added by other_user (user can't see this)
+            item2 = WishlistItem(
+                user_id=other_user.id,
+                added_by_id=None,
+                name="R2-D2 Droid Limited Edition",
+                url="https://example.com/r2d2",
+                quantity=1,
+            )
+            db.session.add(item2)
+            db.session.commit()
+            item1_id = item1.id
+            item2_id = item2.id
+
+        self.login_user(client, app, user)
+
+        # Merge item1 into item2
+        response = client.post(
+            "/wishlist/merge-items",
+            data=json.dumps({"source_item_id": item1_id, "target_item_id": item2_id}),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["success"] is True
+
+        # Verify merge
+        with app.app_context():
+            # Source item should be deleted
+            assert WishlistItem.query.get(item1_id) is None
+            # Target item should still exist
+            assert WishlistItem.query.get(item2_id) is not None
+
+    def test_manual_merge_different_wishlists_denied(self, client, app, user, other_user, admin_user):
+        """Test user cannot merge items from different wishlists"""
+        # Create items on different users' wishlists
+        with app.app_context():
+            item1 = WishlistItem(user_id=other_user.id, added_by_id=None, name="Item 1", quantity=1)
+            item2 = WishlistItem(user_id=admin_user.id, added_by_id=None, name="Item 2", quantity=1)
+            db.session.add_all([item1, item2])
+            db.session.commit()
+            item1_id = item1.id
+            item2_id = item2.id
+
+        self.login_user(client, app, user)
+
+        # Try to merge items from different wishlists (should fail)
+        response = client.post(
+            "/wishlist/merge-items",
+            data=json.dumps({"source_item_id": item1_id, "target_item_id": item2_id}),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 403
+        data = json.loads(response.data)
+        assert "same wishlist" in data["error"].lower()
+
+    def test_manual_merge_transfers_purchases(self, client, app, user, other_user, admin_user):
+        """Test that merging items transfers purchases correctly"""
+        # Create two items and purchases
+        with app.app_context():
+            # Item 1: Custom gift by user, claimed by user
+            item1 = WishlistItem(
+                user_id=other_user.id,
+                added_by_id=user.id,
+                name="Cool Gadget",
+                quantity=2,
+            )
+            db.session.add(item1)
+            db.session.flush()
+
+            purchase1 = Purchase(wishlist_item_id=item1.id, purchased_by_id=user.id, quantity=1)
+            db.session.add(purchase1)
+            db.session.flush()
+
+            # Item 2: Regular item, claimed by admin
+            item2 = WishlistItem(user_id=other_user.id, added_by_id=None, name="Cool Gadget Pro", quantity=2)
+            db.session.add(item2)
+            db.session.flush()
+
+            purchase2 = Purchase(wishlist_item_id=item2.id, purchased_by_id=admin_user.id, quantity=1)
+            db.session.add(purchase2)
+            db.session.commit()
+
+            item1_id = item1.id
+            item2_id = item2.id
+            purchase1_id = purchase1.id
+
+        self.login_user(client, app, user)
+
+        # Merge item1 into item2
+        response = client.post(
+            "/wishlist/merge-items",
+            data=json.dumps({"source_item_id": item1_id, "target_item_id": item2_id}),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+
+        # Verify purchases were transferred
+        with app.app_context():
+            # Purchase from item1 should now point to item2
+            purchase1 = Purchase.query.get(purchase1_id)
+            assert purchase1 is not None
+            assert purchase1.wishlist_item_id == item2_id
+
+            # Item2 should now have 2 purchases
+            item2 = WishlistItem.query.get(item2_id)
+            assert item2.purchases.count() == 2

@@ -76,8 +76,12 @@ python scripts/migrate_wishlist_changes_cascade.py
 ```bash
 cd /app
 python scripts/migrate_custom_gifts.py
+python scripts/migrate_available_images.py
 python scripts/migrate_proxy_wishlists.py
+python scripts/migrate_user_id_nullable.py
 ```
+
+**IMPORTANT**: The `migrate_user_id_nullable.py` script is **critical** for proxy wishlists to work. Without it, you'll get "NOT NULL constraint failed" errors when adding items to proxy wishlists.
 
 **Fresh install**: No migrations needed - all tables are created automatically!
 
@@ -105,6 +109,20 @@ python scripts/migrate_proxy_wishlists.py
 1. Check if migration was run (look for warning in logs)
 2. Run the migration script as shown above
 3. Restart the app
+
+### "NOT NULL constraint failed: wishlist_items.user_id"
+
+**Symptom**: Error when trying to add items to proxy wishlists
+
+**Solution**: This means the `migrate_user_id_nullable.py` migration hasn't been run yet.
+```bash
+# In TrueNAS Shell, access the app's shell
+cd /app
+python scripts/migrate_user_id_nullable.py
+# Then restart the app
+```
+
+This migration makes the `user_id` column nullable, which is required for proxy wishlist items.
 
 ### Database corruption after migration
 

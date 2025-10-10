@@ -87,11 +87,36 @@
                         {% if item.is_custom_gift and item.added_by_id == current_user.id %}
                             <!-- Custom gift added by current user - show delete option -->
                             <div class="bg-purple-100 text-purple-800 px-3 py-2 rounded mb-3">
-                                <div class="flex justify-between items-center text-sm">
+                                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-sm">
                                     <span class="font-semibold">Your Custom Gift</span>
-                                    <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline">
-                                        <button type="submit" class="text-red-600 hover:text-red-800 font-semibold" onclick="return confirm('Delete this custom gift?')">Delete</button>
-                                    </form>
+                                    <div class="flex gap-2">
+                                        <button type="button" onclick="toggleMergeDropdown({{ item.id }})" class="text-purple-700 hover:text-purple-900 font-semibold">
+                                            Merge with...
+                                        </button>
+                                        <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline">
+                                            <button type="submit" class="text-red-600 hover:text-red-800 font-semibold" onclick="return confirm('Delete this custom gift?')">Delete</button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <!-- Merge dropdown -->
+                                <div id="merge-dropdown-{{ item.id }}" class="hidden mt-2 border-t border-purple-300 pt-2">
+                                    <label class="block text-xs font-semibold mb-1">Select item to merge with:</label>
+                                    <select id="merge-target-{{ item.id }}" class="w-full text-sm bg-white text-gray-800 border border-purple-300 rounded px-2 py-1 mb-2">
+                                        <option value="">-- Choose item --</option>
+                                        {% for other_item in items %}
+                                            {% if other_item.id != item.id %}
+                                                <option value="{{ other_item.id }}">{{ other_item.name[:50] }}{% if other_item.name|length > 50 %}...{% endif %}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    <div class="flex gap-2">
+                                        <button type="button" onclick="mergeItems({{ item.id }})" class="flex-1 bg-purple-700 text-white px-2 py-1 rounded text-xs hover:bg-purple-800">
+                                            Merge
+                                        </button>
+                                        <button type="button" onclick="toggleMergeDropdown({{ item.id }})" class="flex-1 bg-gray-300 text-gray-800 px-2 py-1 rounded text-xs hover:bg-gray-400">
+                                            Cancel
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         {% else %}
@@ -140,4 +165,50 @@
         <a href="{{ url_for('wishlist.all_users') }}" class="text-red-600 hover:underline">← Back to All Users</a>
     </div>
 </div>
+
+<script>
+function toggleMergeDropdown(itemId) {
+    const dropdown = document.getElementById(`merge-dropdown-${itemId}`);
+    dropdown.classList.toggle('hidden');
+}
+
+async function mergeItems(sourceItemId) {
+    const targetSelect = document.getElementById(`merge-target-${sourceItemId}`);
+    const targetItemId = targetSelect.value;
+
+    if (!targetItemId) {
+        alert('Please select an item to merge with');
+        return;
+    }
+
+    if (!confirm('Merge this item? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/wishlist/merge-items', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                source_item_id: sourceItemId,
+                target_item_id: parseInt(targetItemId)
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            // Show success message and reload page
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert('Error merging items: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Error merging items: ' + error.message);
+    }
+}
+</script>
 {% endblock %}

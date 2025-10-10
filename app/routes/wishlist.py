@@ -3,8 +3,78 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import User, WishlistItem, Purchase, WishlistChange, ProxyWishlist
 from app.forms import WishlistItemForm, PurchaseForm, ProxyWishlistForm
+from difflib import SequenceMatcher
 
 bp = Blueprint("wishlist", __name__, url_prefix="/wishlist")
+
+
+def similar_items(item1, item2, threshold=0.75):
+    """Check if two items are similar enough to merge."""
+    # Method 1: Exact URL match (most reliable)
+    if item1.url and item2.url:
+        url1 = item1.url.lower().rstrip("/")
+        url2 = item2.url.lower().rstrip("/")
+        if url1 == url2:
+            return True
+
+    # Method 2: Name similarity using SequenceMatcher
+    if item1.name and item2.name:
+        name_similarity = SequenceMatcher(None, item1.name.lower(), item2.name.lower()).ratio()
+        if name_similarity >= threshold:
+            return True
+
+        # Method 3: Significant word overlap (for products with different descriptions)
+        # Extract words of meaningful length (4+ characters)
+        words1 = set(
+            [w.lower() for w in item1.name.replace(",", "").replace("–", " ").replace("-", " ").split() if len(w) >= 4]
+        )
+        words2 = set(
+            [w.lower() for w in item2.name.replace(",", "").replace("–", " ").replace("-", " ").split() if len(w) >= 4]
+        )
+
+        if words1 and words2:
+            # Calculate Jaccard similarity (intersection over union)
+            intersection = words1 & words2
+            union = words1 | words2
+            jaccard = len(intersection) / len(union) if union else 0
+
+            # If they share 40% of significant words, likely the same item
+            # AND they share at least 3 words, it's probably the same product
+            if jaccard >= 0.4 and len(intersection) >= 3:
+                return True
+
+    return False
+
+
+def merge_items(existing_item, new_item):
+    """Merge new_item into existing_item, preserving the best data from both."""
+    # Merge data: prefer new_item's data if existing is missing
+    if new_item.description and not existing_item.description:
+        existing_item.description = new_item.description
+    if new_item.price and not existing_item.price:
+        existing_item.price = new_item.price
+    if new_item.image_url and not existing_item.image_url:
+        existing_item.image_url = new_item.image_url
+    if new_item.url and not existing_item.url:
+        existing_item.url = new_item.url
+
+    # Use the higher quantity
+    if new_item.quantity > existing_item.quantity:
+        existing_item.quantity = new_item.quantity
+
+    # Transfer any purchases from new_item to existing_item
+    purchases = Purchase.query.filter_by(wishlist_item_id=new_item.id).all()
+    for purchase in purchases:
+        purchase.wishlist_item_id = existing_item.id
+
+    # Flush the purchase updates before deleting the item to ensure they're persisted
+    if purchases:
+        db.session.flush()
+
+    # Delete the new item since we've merged everything
+    db.session.delete(new_item)
+
+    return existing_item
 
 
 @bp.route("/my-list")
@@ -61,12 +131,29 @@ def add_item():
         db.session.add(item)
         db.session.flush()  # Get the item ID
 
-        # Track the change
-        change = WishlistChange(user_id=current_user.id, change_type="added", item_name=item.name, item_id=item.id)
-        db.session.add(change)
-        db.session.commit()
+        # Check for duplicate items (including custom gifts from others)
+        all_user_items = WishlistItem.query.filter_by(user_id=current_user.id).filter(WishlistItem.id != item.id).all()
+        merged = False
 
-        flash("Item added to your wishlist!", "success")
+        for existing_item in all_user_items:
+            if similar_items(item, existing_item):
+                # Found a duplicate - merge the new item into the existing one
+                merge_items(existing_item, item)
+                merged = True
+                flash(
+                    f'Item merged with existing item "{existing_item.name}" in your wishlist!',
+                    "info",
+                )
+                db.session.commit()
+                return redirect(url_for("wishlist.my_list"))
+
+        if not merged:
+            # Track the change
+            change = WishlistChange(user_id=current_user.id, change_type="added", item_name=item.name, item_id=item.id)
+            db.session.add(change)
+            db.session.commit()
+            flash("Item added to your wishlist!", "success")
+
         return redirect(url_for("wishlist.my_list"))
 
     return render_template("wishlist/add_item.html", form=form)
@@ -383,12 +470,29 @@ def add_item_from_scraped_data():
     db.session.add(item)
     db.session.flush()  # Get the item ID
 
-    # Track the change
+    # Check for duplicate items (including custom gifts from others)
+    all_user_items = WishlistItem.query.filter_by(user_id=current_user.id).filter(WishlistItem.id != item.id).all()
+
+    for existing_item in all_user_items:
+        if similar_items(item, existing_item):
+            # Found a duplicate - merge the new item into the existing one
+            merge_items(existing_item, item)
+            db.session.commit()
+            return jsonify(
+                {
+                    "success": True,
+                    "merged": True,
+                    "merged_with_id": existing_item.id,
+                    "message": f'Item merged with existing item "{existing_item.name}"',
+                }
+            )
+
+    # No duplicates found - track the change and add normally
     change = WishlistChange(user_id=current_user.id, change_type="added", item_name=item.name, item_id=item.id)
     db.session.add(change)
     db.session.commit()
 
-    return jsonify({"success": True, "item_id": item.id})
+    return jsonify({"success": True, "item_id": item.id, "merged": False})
 
 
 @bp.route("/all-users")
@@ -546,3 +650,41 @@ def edit_proxy_wishlist(proxy_id):
         return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=proxy.id))
 
     return render_template("wishlist/edit_proxy.html", form=form, proxy=proxy)
+
+
+@bp.route("/merge-items", methods=["POST"])
+@login_required
+def merge_items_manual():
+    """Manually merge two items - used when user selects 'Merge with...' in the UI"""
+    data = request.get_json()
+    source_item_id = data.get("source_item_id")  # Item to be merged (will be deleted)
+    target_item_id = data.get("target_item_id")  # Item to merge into (will be kept)
+
+    if not source_item_id or not target_item_id:
+        return jsonify({"error": "Missing item IDs"}), 400
+
+    source_item = WishlistItem.query.get_or_404(source_item_id)
+    target_item = WishlistItem.query.get_or_404(target_item_id)
+
+    # Verify both items belong to the same user or proxy
+    if source_item.user_id != target_item.user_id or source_item.proxy_wishlist_id != target_item.proxy_wishlist_id:
+        return jsonify({"error": "Items must belong to the same wishlist"}), 403
+
+    # Any authenticated user viewing a wishlist can merge items they can see
+    # (Wishlist owners can't see custom gifts on their own list anyway, so this is safe)
+
+    # Perform the merge
+    try:
+        merge_items(target_item, source_item)
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "message": f'Item merged with "{target_item.name}"',
+                "target_item_id": target_item.id,
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500

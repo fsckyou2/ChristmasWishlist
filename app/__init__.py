@@ -85,23 +85,46 @@ def create_app(config_name="default"):
 
         inspector = inspect(db.engine)
 
-        # Check for proxy_wishlist_id column (added in v1.5.0)
+        # Check for missing columns (added in v1.5.0)
         if "wishlist_items" in inspector.get_table_names():
-            columns = [col["name"] for col in inspector.get_columns("wishlist_items")]
-            if "proxy_wishlist_id" not in columns:
+            columns_info = {col["name"]: col for col in inspector.get_columns("wishlist_items")}
+            missing_migrations = []
+
+            if "available_images" not in columns_info:
+                missing_migrations.append(
+                    ("available_images column", "scripts/migrate_available_images.py", "image selection")
+                )
+            if "proxy_wishlist_id" not in columns_info:
+                missing_migrations.append(
+                    ("proxy_wishlist_id column", "scripts/migrate_proxy_wishlists.py", "proxy wishlist")
+                )
+
+            # Check if user_id is nullable (required for proxy wishlists)
+            if "user_id" in columns_info and not columns_info["user_id"]["nullable"]:
+                missing_migrations.append(
+                    ("user_id nullable constraint", "scripts/migrate_user_id_nullable.py", "proxy wishlist items")
+                )
+
+            if missing_migrations:
                 print("\n" + "=" * 70)
                 print("⚠️  WARNING: Database migration required!")
                 print("=" * 70)
-                print("Your database is missing the 'proxy_wishlist_id' column.")
-                print("Please run the migration script:")
+                print("Your database needs the following migrations:")
                 print("")
-                print("  docker exec <container-name> python scripts/migrate_proxy_wishlists.py")
+                for item, script, feature in missing_migrations:
+                    print(f"  - {item} (for {feature} feature)")
+                print("")
+                print("Please run the migration scripts:")
+                print("")
+                for item, script, feature in missing_migrations:
+                    print(f"  docker exec <container-name> python {script}")
                 print("")
                 print("Or for local development:")
-                print("  python scripts/migrate_proxy_wishlists.py")
+                for item, script, feature in missing_migrations:
+                    print(f"  python {script}")
                 print("")
-                print("The app will start, but proxy wishlist features will not work")
-                print("until the migration is complete.")
+                print("The app will start, but some features will not work")
+                print("until the migrations are complete.")
                 print("=" * 70 + "\n")
 
         # Create admin user if it doesn't exist (passwordless)
