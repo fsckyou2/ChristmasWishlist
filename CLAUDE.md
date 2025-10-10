@@ -263,13 +263,20 @@ Current test coverage: **76%** (87 tests passing)
 
 ## Docker Hub Deployment
 
-Automated Docker image deployment to Docker Hub on push to main branch (e.g., when development is merged):
+Automated Docker image deployment to Docker Hub when version tags are created:
 
 - **Workflow**: `.github/workflows/docker-publish.yml`
+- **Trigger**: Only runs when version-bump workflow creates a tag (e.g., `v1.2.3`)
+- **This ensures**: VERSION file is already updated before building the Docker image
 - **Image Tagging**:
-  - `latest` - Most recent main branch build
-  - `main-<commit-sha>` - Specific commit builds
-  - `v1.2.3`, `v1.2`, `v1` - Semantic version tags (when releases are tagged)
+  - `latest` - Most recent tagged version
+  - `v1.2.3` - Exact semantic version
+  - `v1.2`, `v1` - Major and major.minor versions
+
+**Workflow Order**:
+1. Push to main → version-bump workflow runs
+2. Version-bump creates tag → docker-publish triggers
+3. Docker image built with correct version
 
 **Setup Required**:
 - GitHub Secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`

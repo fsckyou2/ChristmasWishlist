@@ -242,9 +242,12 @@ git push
 
 ### Docker Hub Deployment
 
-Docker images are automatically built and pushed to Docker Hub when:
-- Code is pushed to `main` branch
-- Version tags are created (e.g., `v1.2.3`)
+Docker images are automatically built and pushed to Docker Hub when version tags are created (e.g., `v1.2.3`).
+
+**Workflow Order:**
+1. Push to main → Version bump workflow runs
+2. Version bump creates tag → Docker build workflow triggers
+3. This ensures VERSION file is updated before building the image
 
 **Setup Required:**
 1. Enable GitHub Actions write permissions:

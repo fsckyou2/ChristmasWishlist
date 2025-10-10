@@ -2,9 +2,10 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ main ]
     tags:
       - 'v*.*.*'
+  # Only trigger on version tags created by the version-bump workflow
+  # This ensures VERSION file is already updated before building the image
 
 env:
   IMAGE_NAME: christmas-wishlist

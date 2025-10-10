@@ -166,22 +166,26 @@ If you prefer to bump the version manually:
 When you merge `development` to `main`, the following happens automatically:
 
 1. **Push to main** detected
-2. **Version Bump workflow** runs:
+2. **Version Bump workflow** runs (completes fully before Docker build):
    - Analyzes commit messages
    - Determines bump type (major/minor/patch)
    - Updates VERSION file
    - Updates CHANGELOG.md
    - Commits changes with `[skip ci]`
+   - Pushes commit
    - Creates git tag (e.g., `v1.2.3`)
    - Pushes tag
-3. **Docker Hub deployment** triggered by tag:
-   - Builds Docker image
+3. **Docker Hub deployment** triggered ONLY by the tag push:
+   - Checks out code (VERSION is already updated)
+   - Builds Docker image with correct version
    - Tags with multiple versions:
      - `v1.2.3` (exact version)
      - `v1.2` (major.minor)
      - `v1` (major only)
      - `latest` (most recent main)
    - Pushes to Docker Hub
+
+**Important:** The Docker publish workflow is triggered ONLY by version tags (not by push to main). This ensures the VERSION file is always updated before the Docker image is built, preventing version mismatches.
 
 ### Manual Workflow (When manually tagging)
 
