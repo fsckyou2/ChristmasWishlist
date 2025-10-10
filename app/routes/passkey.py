@@ -81,7 +81,8 @@ def register_complete():
 
         # Get RP info
         rp_id = current_app.config.get("WEBAUTHN_RP_ID", "localhost")
-        origin = current_app.config.get("APP_URL", "http://localhost:5000")
+        # Use the actual request origin to handle both HTTP and HTTPS
+        origin = request.url_root.rstrip("/")
 
         # Verify the registration response
         verification = verify_registration_response(
@@ -166,7 +167,8 @@ def login_complete():
 
         # Get RP info
         rp_id = current_app.config.get("WEBAUTHN_RP_ID", "localhost")
-        origin = current_app.config.get("APP_URL", "http://localhost:5000")
+        # Use the actual request origin to handle both HTTP and HTTPS
+        origin = request.url_root.rstrip("/")
 
         # Verify the authentication response
         verification = verify_authentication_response(
