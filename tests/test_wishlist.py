@@ -125,7 +125,7 @@ class TestWishlistRoutes:
             follow_redirects=True,
         )
 
-        assert b"can only edit your own" in response.data
+        assert b"can only edit items you added" in response.data
 
     def test_delete_item(self, client, app, user, wishlist_item):
         """Test deleting a wishlist item"""

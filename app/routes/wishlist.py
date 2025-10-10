@@ -173,7 +173,7 @@ def delete_item(item_id):
     db.session.commit()
 
     if is_custom_gift:
-        flash(f"Custom gift deleted.", "success")
+        flash("Custom gift deleted.", "success")
         # Check where the request came from via referrer
         referrer = request.referrer
         if referrer and "my-claims" in referrer:
