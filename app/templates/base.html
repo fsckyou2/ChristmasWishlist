@@ -30,12 +30,21 @@
     <nav class="bg-red-700 text-white shadow-lg">
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-4">
-                <a href="{{ url_for('main.index') }}" class="text-2xl font-bold flex items-center gap-2">
-                    <span class="text-3xl">🎁</span>
-                    Scimone Christmas Wishlist
+                <a href="{{ url_for('main.index') }}" class="text-xl md:text-2xl font-bold flex items-center gap-2">
+                    <span class="text-2xl md:text-3xl">🎁</span>
+                    <span class="hidden sm:inline">Scimone Christmas Wishlist</span>
+                    <span class="sm:hidden">Christmas</span>
                 </a>
 
-                <div class="flex items-center gap-4">
+                <!-- Mobile Menu Button -->
+                <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-1.5 p-2">
+                    <span class="block w-6 h-0.5 bg-white"></span>
+                    <span class="block w-6 h-0.5 bg-white"></span>
+                    <span class="block w-6 h-0.5 bg-white"></span>
+                </button>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center gap-4">
                     {% if current_user.is_authenticated %}
                         {% if session.get('impersonate_user_id') %}
                             <div class="bg-yellow-500 text-black px-3 py-1 rounded text-sm">
@@ -57,6 +66,36 @@
                     {% else %}
                         <a href="{{ url_for('auth.login') }}" class="hover:underline">Login</a>
                         <a href="{{ url_for('auth.register') }}" class="bg-white text-red-600 px-4 py-2 rounded font-semibold hover:bg-gray-100">
+                            Register
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Mobile Navigation Menu -->
+            <div id="mobile-menu" class="hidden md:hidden pb-4">
+                <div class="flex flex-col gap-3">
+                    {% if current_user.is_authenticated %}
+                        {% if session.get('impersonate_user_id') %}
+                            <div class="bg-yellow-500 text-black px-3 py-2 rounded text-sm">
+                                Impersonating {{ current_user.name }}
+                            </div>
+                            <a href="{{ url_for('admin.stop_impersonate') }}" class="hover:underline py-2">
+                                Stop Impersonating
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline py-2">My Wishlist</a>
+                            <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">My Claims</a>
+                            <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline py-2">Browse Wishlists</a>
+                            <a href="{{ url_for('passkey.manage') }}" class="hover:underline py-2">Passkeys</a>
+                            {% if current_user.is_admin %}
+                                <a href="{{ url_for('admin.dashboard') }}" class="hover:underline py-2">Admin</a>
+                            {% endif %}
+                            <a href="{{ url_for('auth.logout') }}" class="hover:underline py-2">Logout ({{ current_user.name }})</a>
+                        {% endif %}
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}" class="hover:underline py-2">Login</a>
+                        <a href="{{ url_for('auth.register') }}" class="bg-white text-red-600 px-4 py-2 rounded font-semibold hover:bg-gray-100 text-center">
                             Register
                         </a>
                     {% endif %}
@@ -90,6 +129,20 @@
             <p class="text-gray-500 text-sm mt-2">Version {{ app_version }}</p>
         </div>
     </footer>
+
+    <!-- Mobile Menu Toggle Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuBtn = document.getElementById('mobile-menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
+
+            if (menuBtn && mobileMenu) {
+                menuBtn.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                });
+            }
+        });
+    </script>
 
     {% block scripts %}{% endblock %}
 </body>
