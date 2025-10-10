@@ -13,7 +13,7 @@
 
     <div class="bg-blue-900 p-4 rounded-lg mb-6">
         <p class="text-sm text-gray-200">
-            <strong>Tip:</strong> Track your gift-giving progress! Mark items as "Acquired" when you buy them, and "Wrapped" when they're ready to go. The recipients won't see this information.
+            <strong>Tip:</strong> Track your gift-giving progress! Mark items as "Purchased" when you order them, "Received" when they arrive, and "Wrapped" when they're ready to go. The recipients won't see this information.
         </p>
     </div>
 
@@ -53,12 +53,22 @@
                                 <div class="flex flex-col gap-3">
                                     <label class="flex items-center gap-2 cursor-pointer">
                                         <input type="checkbox"
+                                               class="w-5 h-5 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-2 focus:ring-blue-600 cursor-pointer status-checkbox"
+                                               data-claim-id="{{ claim.id }}"
+                                               data-status="purchased"
+                                               {% if claim.purchased %}checked{% endif %}>
+                                        <span class="text-sm font-semibold {% if claim.purchased %}text-blue-600{% else %}text-gray-400{% endif %}">
+                                            💳 Purchased
+                                        </span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox"
                                                class="w-5 h-5 rounded border-gray-600 bg-gray-700 text-green-600 focus:ring-2 focus:ring-green-600 cursor-pointer status-checkbox"
                                                data-claim-id="{{ claim.id }}"
-                                               data-status="acquired"
-                                               {% if claim.acquired %}checked{% endif %}>
-                                        <span class="text-sm font-semibold {% if claim.acquired %}text-green-600{% else %}text-gray-400{% endif %}">
-                                            📦 Acquired
+                                               data-status="received"
+                                               {% if claim.received %}checked{% endif %}>
+                                        <span class="text-sm font-semibold {% if claim.received %}text-green-600{% else %}text-gray-400{% endif %}">
+                                            📦 Received
                                         </span>
                                     </label>
                                     <label class="flex items-center gap-2 cursor-pointer">
@@ -89,10 +99,12 @@
                 <!-- Summary Stats for Recipient -->
                 <div class="mt-4 flex gap-6 text-sm text-gray-400">
                     {% set total_claims = data.claims|length %}
-                    {% set acquired_count = data.claims|selectattr('acquired', 'equalto', true)|list|length %}
+                    {% set purchased_count = data.claims|selectattr('purchased', 'equalto', true)|list|length %}
+                    {% set received_count = data.claims|selectattr('received', 'equalto', true)|list|length %}
                     {% set wrapped_count = data.claims|selectattr('wrapped', 'equalto', true)|list|length %}
                     <span>Total items: {{ total_claims }}</span>
-                    <span class="text-green-600">Acquired: {{ acquired_count }}/{{ total_claims }}</span>
+                    <span class="text-blue-600">Purchased: {{ purchased_count }}/{{ total_claims }}</span>
+                    <span class="text-green-600">Received: {{ received_count }}/{{ total_claims }}</span>
                     <span class="text-purple-600">Wrapped: {{ wrapped_count }}/{{ total_claims }}</span>
                 </div>
             </div>
@@ -132,12 +144,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (response.ok) {
                     // Update label color
                     const label = this.nextElementSibling;
+                    const colorMap = {
+                        'purchased': 'text-blue-600',
+                        'received': 'text-green-600',
+                        'wrapped': 'text-purple-600'
+                    };
                     if (isChecked) {
                         label.classList.remove('text-gray-400');
-                        label.classList.add(status === 'acquired' ? 'text-green-600' : 'text-purple-600');
+                        label.classList.add(colorMap[status]);
                     } else {
                         label.classList.add('text-gray-400');
-                        label.classList.remove('text-green-600', 'text-purple-600');
+                        label.classList.remove('text-blue-600', 'text-green-600', 'text-purple-600');
                     }
                 } else {
                     // Revert checkbox on error

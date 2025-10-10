@@ -103,7 +103,8 @@ class Purchase(db.Model):
     wishlist_item_id = db.Column(db.Integer, db.ForeignKey("wishlist_items.id"), nullable=False)
     purchased_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    acquired = db.Column(db.Boolean, default=False)  # Has the gift been purchased/obtained?
+    purchased = db.Column(db.Boolean, default=False)  # Has the gift been purchased/ordered?
+    received = db.Column(db.Boolean, default=False)  # Has the gift been received (for online orders)?
     wrapped = db.Column(db.Boolean, default=False)  # Has the gift been wrapped?
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
