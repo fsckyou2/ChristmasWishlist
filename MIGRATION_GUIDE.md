@@ -4,6 +4,17 @@ This guide covers how to handle database schema changes in this project.
 
 ## Current Migration Status
 
+### Migration: Custom Gifts (v1.4.0)
+
+**Date**: 2025-10-10
+**Changes**:
+- Added `added_by_id` field to WishlistItem model
+- Enables custom gifts: users can add items to others' wishlists
+- Target user won't see custom gifts, but other users will
+- Prevents duplicate gift purchases
+
+**Status**: Migration script available at `scripts/migrate_custom_gifts.py`
+
 ### Migration: Purchase Fields (v1.3.0)
 
 **Date**: 2025-10-10
@@ -28,12 +39,13 @@ This guide covers how to handle database schema changes in this project.
 
 ### For Docker Deployments
 
-If you're upgrading from a version before v1.3.0:
+If you're upgrading from a version before v1.4.0:
 
 ```bash
-# Run both migration scripts (preserves existing data)
+# Run all migration scripts (preserves existing data)
 docker exec christmas-wishlist python scripts/migrate_purchase_fields.py
 docker exec christmas-wishlist python scripts/migrate_wishlist_changes_cascade.py
+docker exec christmas-wishlist python scripts/migrate_custom_gifts.py
 
 # Then restart the container
 docker restart christmas-wishlist
@@ -48,6 +60,7 @@ source venv/bin/activate  # or venv\Scripts\activate on Windows
 # Run migration scripts
 python scripts/migrate_purchase_fields.py
 python scripts/migrate_wishlist_changes_cascade.py
+python scripts/migrate_custom_gifts.py
 
 # Restart the app
 python run.py

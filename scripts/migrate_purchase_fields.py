@@ -17,7 +17,7 @@ import os
 # Add parent directory to path to import app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app import create_app, db
+from app import create_app, db  # noqa: E402
 
 
 def migrate():
@@ -95,8 +95,10 @@ def migrate():
                 db.text(
                     """
                 INSERT INTO purchases_new
-                (id, wishlist_item_id, purchased_by_id, quantity, purchased, received, wrapped, created_at, updated_at)
-                SELECT id, wishlist_item_id, purchased_by_id, quantity, purchased, received, wrapped, created_at, updated_at
+                (id, wishlist_item_id, purchased_by_id, quantity, purchased, received, wrapped,
+                 created_at, updated_at)
+                SELECT id, wishlist_item_id, purchased_by_id, quantity, purchased, received, wrapped,
+                       created_at, updated_at
                 FROM purchases
             """
                 )

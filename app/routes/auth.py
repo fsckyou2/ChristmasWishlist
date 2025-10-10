@@ -1,5 +1,5 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, session
-from flask_login import login_user, logout_user, current_user
+from flask import Blueprint, render_template, redirect, url_for, flash, session, jsonify
+from flask_login import login_user, logout_user, current_user, login_required
 from app import db
 from app.models import User
 from app.forms import RegistrationForm, LoginForm
@@ -74,3 +74,12 @@ def logout():
         logout_user()
         flash("You have been logged out.", "info")
     return redirect(url_for("main.index"))
+
+
+@bp.route("/complete-tour", methods=["POST"])
+@login_required
+def complete_tour():
+    """Mark user's tour as completed"""
+    current_user.has_seen_tour = True
+    db.session.commit()
+    return jsonify({"success": True})

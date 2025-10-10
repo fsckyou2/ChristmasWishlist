@@ -55,7 +55,7 @@
                             </a>
                         {% else %}
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline">My Wishlist</a>
-                            <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">My Claims</a>
+                            <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">My Gifts for Others</a>
                             <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline">Browse Wishlists</a>
                             <a href="{{ url_for('passkey.manage') }}" class="hover:underline">Passkeys</a>
                             {% if current_user.is_admin %}
@@ -85,7 +85,7 @@
                             </a>
                         {% else %}
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline py-2">My Wishlist</a>
-                            <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">My Claims</a>
+                            <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">My Gifts for Others</a>
                             <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline py-2">Browse Wishlists</a>
                             <a href="{{ url_for('passkey.manage') }}" class="hover:underline py-2">Passkeys</a>
                             {% if current_user.is_admin %}
@@ -143,6 +143,9 @@
             }
         });
     </script>
+
+    <!-- Welcome Tour -->
+    {% include 'tour.html' %}
 
     {% block scripts %}{% endblock %}
 </body>
