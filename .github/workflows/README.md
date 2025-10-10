@@ -64,10 +64,13 @@ docs: update README                   # → PATCH bump
 ### 3. Docker Hub Deployment (`docker-publish.yml`)
 
 **Triggers**:
-- Push to `main` branch
-- Push of tags matching `v*.*.*` pattern
+- Push of tags matching `v*.*.*` pattern ONLY
+- Does NOT trigger on push to main (prevents race condition with version-bump)
 
 **Purpose**: Build and push Docker images to Docker Hub
+
+**Trigger Order**:
+This workflow is triggered by tags created by the version-bump workflow, ensuring the VERSION file is always up-to-date before building the Docker image.
 
 **How It Works**:
 1. Checks out code
@@ -99,7 +102,7 @@ docs: update README                   # → PATCH bump
 ```
 Development Branch
       ↓
-  (commits)
+  (commits with conventional commit messages)
       ↓
   git push origin development
       ↓
@@ -112,16 +115,25 @@ Merge to Main
   [CI workflow runs] ✓
       ↓
   [Version Bump workflow runs]
+      ├── Analyzes commits
       ├── Bumps version (e.g., 1.0.0 → 1.1.0)
+      ├── Updates VERSION file
       ├── Updates CHANGELOG.md
-      ├── Commits changes
-      └── Creates tag v1.1.0
+      ├── Commits changes with [skip ci]
+      ├── Pushes commit
+      └── Creates and pushes tag v1.1.0
       ↓
-  [Docker Publish workflow triggered by tag]
-      ├── Builds Docker image
+  [Docker Publish workflow TRIGGERED BY TAG]
+      ├── Checks out code (with updated VERSION)
+      ├── Builds Docker image with version 1.1.0
       ├── Tags: v1.1.0, v1.1, v1, latest
       └── Pushes to Docker Hub ✓
 ```
+
+**Important:** The Docker publish workflow ONLY runs when a tag is created. This ensures:
+1. VERSION file is already updated before building
+2. No race condition between version-bump and docker-publish
+3. Docker image always has the correct version
 
 ## Monitoring Workflows
 

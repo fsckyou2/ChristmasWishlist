@@ -112,11 +112,15 @@ git push
 
 ### Test Docker Hub Deployment
 
-1. After version bump completes, "Build and Push Docker Image" should run
-2. Check **Actions** tab for the workflow
+1. After version bump completes and creates a tag, "Build and Push Docker Image" should automatically trigger
+2. Check **Actions** tab - you should see TWO workflows:
+   - ✅ "Auto Version Bump" (should be completed)
+   - 🔄 "Build and Push Docker Image" (triggered by the tag)
 3. Once complete, verify on Docker Hub:
    - Go to https://hub.docker.com/r/YOUR_USERNAME/christmas-wishlist
    - You should see new tags (latest, v1.x.x, etc.)
+
+**Important:** The Docker workflow is triggered by the tag created by the version bump workflow. This ensures the VERSION file is already updated before building the image.
 
 ## Troubleshooting
 
