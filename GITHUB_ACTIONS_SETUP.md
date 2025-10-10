@@ -8,9 +8,43 @@ This guide walks you through configuring GitHub Actions for automated version bu
 - Docker Hub account (for Docker deployment)
 - Admin access to the repository
 
-## Step 1: Configure Repository Permissions
+## Step 1: Create Personal Access Token (PAT)
 
-The automated version bump workflow needs permission to commit and push to your repository.
+The version bump workflow needs a Personal Access Token to trigger the Docker publish workflow. **GitHub's `GITHUB_TOKEN` cannot trigger other workflows** - this is a security limitation.
+
+### Create a Fine-Grained Personal Access Token
+
+1. Go to GitHub → Click your profile picture → **Settings**
+2. Scroll to **Developer settings** (bottom of left sidebar)
+3. Click **Personal access tokens** → **Fine-grained tokens**
+4. Click **Generate new token**
+5. Configure the token:
+   - **Name**: `ChristmasWishlist-Version-Bump`
+   - **Expiration**: Choose expiration (90 days recommended, or custom)
+   - **Repository access**: Select "Only select repositories"
+     - Choose your `ChristmasWishlist` repository
+   - **Permissions - Repository**:
+     - Contents: **Read and write**
+     - Metadata: **Read-only** (auto-selected)
+6. Click **Generate token**
+7. **Copy the token immediately** (you won't see it again!)
+
+### Add PAT to GitHub Repository Secrets
+
+1. Go to your GitHub repository
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Add secret:
+   - Name: `PAT_TOKEN`
+   - Value: The personal access token you just created
+   - Click **Add secret**
+
+**Why this is needed:**
+When the version-bump workflow pushes a git tag, it needs to trigger the docker-publish workflow. GitHub's built-in `GITHUB_TOKEN` cannot trigger other workflows (security feature). Using a PAT allows the tag push to trigger the docker-publish workflow.
+
+## Step 2: Configure Repository Permissions
+
+Enable write permissions for other GitHub Actions operations.
 
 ### Enable Write Permissions for GitHub Actions
 
@@ -32,9 +66,9 @@ Workflow permissions
 ```
 
 **Why this is needed:**
-The version bump workflow commits VERSION and CHANGELOG.md changes back to the repository. Without write permissions, you'll get a 403 error when the workflow tries to push.
+Additional permissions for GitHub Actions to function properly.
 
-## Step 2: Configure Docker Hub Secrets
+## Step 3: Configure Docker Hub Secrets
 
 The Docker Hub deployment workflow needs your Docker Hub credentials.
 
@@ -66,7 +100,7 @@ The Docker Hub deployment workflow needs your Docker Hub credentials.
 - Value: The access token you generated in step 1
 - Click **Add secret**
 
-## Step 3: Verify Workflows are Enabled
+## Step 4: Verify Workflows are Enabled
 
 1. Go to **Actions** tab in your repository
 2. If you see a message about workflows being disabled:
@@ -76,7 +110,7 @@ The Docker Hub deployment workflow needs your Docker Hub credentials.
    - ✅ Auto Version Bump
    - ✅ Build and Push Docker Image
 
-## Step 4: Test the Setup
+## Step 5: Test the Setup
 
 ### Test CI Workflow
 
@@ -124,6 +158,22 @@ git push
 
 ## Troubleshooting
 
+### Docker Publish Doesn't Trigger After Version Bump
+
+**Symptom:**
+- Version bump workflow completes successfully
+- Tag is created and pushed
+- Docker publish workflow never starts
+
+**Cause:**
+GitHub's `GITHUB_TOKEN` cannot trigger other workflows. If the version-bump workflow uses `GITHUB_TOKEN`, the tag push won't trigger docker-publish.
+
+**Solution:**
+1. Create a Personal Access Token (PAT) - see Step 1 above
+2. Add `PAT_TOKEN` secret to repository
+3. Verify `.github/workflows/version-bump.yml` uses `token: ${{ secrets.PAT_TOKEN }}`
+4. Re-run the workflow or push a new commit
+
 ### Version Bump: 403 Permission Denied
 
 **Error:**
@@ -133,9 +183,12 @@ fatal: unable to access 'https://github.com/...': The requested URL returned err
 ```
 
 **Solution:**
-1. Check Step 1 above - ensure "Read and write permissions" is enabled
-2. Verify the workflow has `permissions: contents: write` in the YAML
-3. Try re-running the failed workflow
+1. Verify PAT_TOKEN secret is configured (Step 1)
+2. Check PAT has "Contents: Read and write" permission
+3. Ensure PAT hasn't expired
+4. Check Step 2 above - ensure "Read and write permissions" is enabled
+5. Verify the workflow has `permissions: contents: write` in the YAML
+6. Try re-running the failed workflow
 
 ### Version Bump: Workflow Doesn't Trigger
 
@@ -257,9 +310,13 @@ If you encounter issues not covered here:
 
 Before pushing to main, ensure:
 
+- [ ] Personal Access Token (PAT) created with Contents: Read and write permission
+- [ ] GitHub secrets configured:
+  - [ ] PAT_TOKEN (for triggering docker-publish)
+  - [ ] DOCKERHUB_USERNAME
+  - [ ] DOCKERHUB_TOKEN
 - [ ] Repository permissions: "Read and write permissions" enabled
 - [ ] Docker Hub access token created
-- [ ] GitHub secrets configured: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 - [ ] All workflows enabled in Actions tab
 - [ ] CI workflow passes on development branch
 - [ ] Commit messages follow Conventional Commits format
