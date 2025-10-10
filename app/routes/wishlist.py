@@ -151,7 +151,7 @@ def claim_item(item_id):
             db.session.add(purchase)
             db.session.commit()
             flash(
-                f'Claimed {quantity} of "{item.name}"! ' "Don't forget to mark it as acquired when you buy it.",
+                f'Claimed {quantity} of "{item.name}"! ' "Don't forget to mark it as purchased when you order it.",
                 "success",
             )
             return redirect(url_for("wishlist.view_user_list", user_id=item.user_id))
@@ -316,7 +316,7 @@ def my_claims():
 @bp.route("/update-claim-status/<int:claim_id>", methods=["POST"])
 @login_required
 def update_claim_status(claim_id):
-    """Update acquired/wrapped status of a claim"""
+    """Update purchased/received/wrapped status of a claim"""
     claim = Purchase.query.get_or_404(claim_id)
 
     # Only the person who made the claim can update it
@@ -325,11 +325,13 @@ def update_claim_status(claim_id):
 
     data = request.get_json()
 
-    if "acquired" in data:
-        claim.acquired = bool(data["acquired"])
+    if "purchased" in data:
+        claim.purchased = bool(data["purchased"])
+    if "received" in data:
+        claim.received = bool(data["received"])
     if "wrapped" in data:
         claim.wrapped = bool(data["wrapped"])
 
     db.session.commit()
 
-    return jsonify({"success": True, "acquired": claim.acquired, "wrapped": claim.wrapped})
+    return jsonify({"success": True, "purchased": claim.purchased, "received": claim.received, "wrapped": claim.wrapped})
