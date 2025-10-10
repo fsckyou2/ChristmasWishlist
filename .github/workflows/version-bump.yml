@@ -24,6 +24,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Use PAT to trigger docker-publish workflow when tag is pushed
+          # GITHUB_TOKEN cannot trigger other workflows (GitHub security limitation)
           token: ${{ secrets.PAT_TOKEN }}
           persist-credentials: true
 

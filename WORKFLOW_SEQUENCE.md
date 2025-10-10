@@ -212,12 +212,19 @@ on:
 
 **Symptom:** Version bump completes but Docker workflow doesn't start
 
-**Cause:** Tag wasn't pushed, or tag pattern doesn't match
+**Possible causes:**
 
-**Fix:**
-- Check if tag exists: `git tag -l`
-- Verify tag pushed to remote: `git ls-remote --tags origin`
-- Check tag format matches `v*.*.*` (e.g., `v1.0.0` not `1.0.0`)
+1. **Using GITHUB_TOKEN instead of PAT** (most common)
+   - GitHub's `GITHUB_TOKEN` cannot trigger other workflows
+   - **Fix:** Use Personal Access Token (PAT) in version-bump.yml
+   - See GITHUB_ACTIONS_SETUP.md Step 1 for PAT setup
+
+2. **Tag wasn't pushed**
+   - Check if tag exists: `git tag -l`
+   - Verify tag pushed to remote: `git ls-remote --tags origin`
+
+3. **Tag pattern doesn't match**
+   - Check tag format matches `v*.*.*` (e.g., `v1.0.0` not `1.0.0`)
 
 ### Both workflows run simultaneously
 
