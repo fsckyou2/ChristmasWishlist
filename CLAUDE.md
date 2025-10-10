@@ -233,12 +233,23 @@ ADMIN_NAME=<admin-name>
 
 ## Database Migrations
 
-This project does not use Flask-Migrate/Alembic. Database schema changes are handled via:
+This project does not use Flask-Migrate/Alembic. Database schema changes are handled via custom migration scripts:
+
+**For Development** (data loss acceptable):
 1. Modify models in `app/models.py`
 2. Delete database file (SQLite) or drop tables
 3. Restart app to recreate tables via `db.create_all()`
 
-For production deployments, consider adding Flask-Migrate for proper migrations.
+**For Production** (preserve data):
+1. Modify models in `app/models.py`
+2. Create migration script in `scripts/migrate_*.py`
+3. Run migration: `docker exec christmas-wishlist python scripts/migrate_*.py`
+4. Restart application
+
+**Available Migrations**:
+- `scripts/migrate_purchase_fields.py` - Adds purchased/received fields (v1.3.0)
+
+See `MIGRATION_GUIDE.md` for detailed migration instructions and troubleshooting.
 
 ## Continuous Integration
 
