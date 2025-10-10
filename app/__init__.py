@@ -102,4 +102,3 @@ def create_app(config_name="default"):
         init_cli(app)
 
     return app
-# Test release workflow
