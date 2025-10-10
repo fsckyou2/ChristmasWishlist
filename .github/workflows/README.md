@@ -41,6 +41,10 @@ This directory contains CI/CD workflows for the Christmas Wishlist project.
 **Requirements**:
 - Commits should follow [Conventional Commits](https://www.conventionalcommits.org/) format
 - Uses `GITHUB_TOKEN` for committing (automatically provided)
+- Repository settings must allow GitHub Actions to create and push commits:
+  - Go to Settings → Actions → General
+  - Under "Workflow permissions", select "Read and write permissions"
+  - Check "Allow GitHub Actions to create and approve pull requests" (optional)
 
 **Prevents Infinite Loops**:
 - Skips if commit message contains `[skip ci]`
