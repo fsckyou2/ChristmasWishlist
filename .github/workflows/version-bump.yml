@@ -24,8 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Use GITHUB_TOKEN with write permissions
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           persist-credentials: true
 
       - name: Configure Git
