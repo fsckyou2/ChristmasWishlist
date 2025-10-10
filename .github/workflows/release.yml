@@ -9,6 +9,7 @@ on:
       - 'CHANGELOG.md'
       - '**.md'
       - '.github/**'
+  workflow_dispatch:  # Allow manual triggering from Actions tab
 
 # Prevent infinite loops
 # Skip if commit message contains [skip ci]
