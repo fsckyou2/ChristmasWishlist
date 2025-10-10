@@ -79,6 +79,31 @@ def create_app(config_name="default"):
     # Create database tables
     with app.app_context():
         db.create_all()
+
+        # Check if migrations are needed (for existing databases)
+        from sqlalchemy import inspect
+
+        inspector = inspect(db.engine)
+
+        # Check for proxy_wishlist_id column (added in v1.5.0)
+        if "wishlist_items" in inspector.get_table_names():
+            columns = [col["name"] for col in inspector.get_columns("wishlist_items")]
+            if "proxy_wishlist_id" not in columns:
+                print("\n" + "=" * 70)
+                print("⚠️  WARNING: Database migration required!")
+                print("=" * 70)
+                print("Your database is missing the 'proxy_wishlist_id' column.")
+                print("Please run the migration script:")
+                print("")
+                print("  docker exec <container-name> python scripts/migrate_proxy_wishlists.py")
+                print("")
+                print("Or for local development:")
+                print("  python scripts/migrate_proxy_wishlists.py")
+                print("")
+                print("The app will start, but proxy wishlist features will not work")
+                print("until the migration is complete.")
+                print("=" * 70 + "\n")
+
         # Create admin user if it doesn't exist (passwordless)
         from app.models import User
 

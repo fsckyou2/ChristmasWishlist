@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Create Wishlist for Non-User{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8">Create Wishlist for Someone Without an Account</h1>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-8">
+        <div class="mb-6 p-4 bg-blue-900 rounded">
+            <p class="text-sm text-gray-200">
+                <strong>Info:</strong> Create a wishlist for someone who doesn't have an account yet. You and others can add gift ideas to it. If they later register with the email you provide, it will automatically become their wishlist!
+            </p>
+        </div>
+
+        <form method="POST" class="space-y-4">
+            {{ form.hidden_tag() }}
+
+            <div>
+                {{ form.name.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.name(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 placeholder-gray-400", placeholder="e.g., Lynn, Mom, John Smith", required=true) }}
+                {% if form.name.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.name.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                {{ form.email.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.email(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 placeholder-gray-400", placeholder="optional@example.com") }}
+                {% if form.email.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.email.errors[0] }}</p>
+                {% endif %}
+                <p class="text-xs text-gray-400 mt-1">
+                    If you provide their email, the wishlist will automatically convert when they register.
+                </p>
+            </div>
+
+            <div class="flex gap-4">
+                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
+                <a href="{{ url_for('wishlist.all_users') }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -20,7 +20,12 @@
     {% if claims_by_recipient %}
         {% for recipient_id, data in claims_by_recipient.items() %}
             <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-                <h2 class="text-2xl font-bold mb-4">Gifts for {{ data.recipient.name }}</h2>
+                <h2 class="text-2xl font-bold mb-4 flex items-center gap-3">
+                    Gifts for {{ data.recipient.name }}
+                    {% if data.is_proxy %}
+                        <span class="bg-yellow-600 text-white text-sm px-3 py-1 rounded-full">Pending Account</span>
+                    {% endif %}
+                </h2>
 
                 <div class="space-y-4">
                     {% for claim in data.claims %}

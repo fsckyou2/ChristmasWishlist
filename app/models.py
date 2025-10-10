@@ -74,13 +74,15 @@ class WishlistItem(db.Model):
     __tablename__ = "wishlist_items"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # Null for proxy wishlist items
+    proxy_wishlist_id = db.Column(db.Integer, db.ForeignKey("proxy_wishlists.id"), nullable=True)
     added_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # Who added this item (None = owner)
     name = db.Column(db.String(200), nullable=False)
     url = db.Column(db.String(500))
     description = db.Column(db.Text)
     price = db.Column(db.Float)
     image_url = db.Column(db.String(500))
+    available_images = db.Column(db.Text)  # JSON array of image URLs scraped from product page
     quantity = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -88,6 +90,7 @@ class WishlistItem(db.Model):
     # Relationships
     purchases = db.relationship("Purchase", backref="wishlist_item", lazy="dynamic", cascade="all, delete-orphan")
     added_by = db.relationship("User", foreign_keys=[added_by_id], backref="custom_gifts_added")
+    proxy_wishlist = db.relationship("ProxyWishlist", backref="items")
 
     @property
     def total_purchased(self):
@@ -102,7 +105,35 @@ class WishlistItem(db.Model):
     @property
     def is_custom_gift(self):
         """Check if this is a custom gift added by someone other than the owner"""
+        if self.proxy_wishlist_id:
+            # All items on proxy wishlists are custom gifts
+            return True
         return self.added_by_id is not None and self.added_by_id != self.user_id
+
+    @property
+    def is_proxy_item(self):
+        """Check if this item belongs to a proxy wishlist"""
+        return self.proxy_wishlist_id is not None
+
+    def get_available_images(self):
+        """Get list of available images from JSON field"""
+        import json
+
+        if not self.available_images:
+            return []
+        try:
+            return json.loads(self.available_images)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def set_available_images(self, images):
+        """Set available images from list"""
+        import json
+
+        if images:
+            self.available_images = json.dumps(images)
+        else:
+            self.available_images = None
 
     def __repr__(self):
         return f"<WishlistItem {self.name}>"
@@ -163,3 +194,22 @@ class Passkey(db.Model):
 
     def __repr__(self):
         return f"<Passkey user={self.user_id} device={self.device_name}>"
+
+
+class ProxyWishlist(db.Model):
+    """Proxy wishlist for people who don't have accounts yet"""
+
+    __tablename__ = "proxy_wishlists"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)  # Display name like "Lynn"
+    email = db.Column(db.String(120), index=True)  # Optional email for auto-association
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    created_by = db.relationship("User", backref="proxy_wishlists_created")
+
+    def __repr__(self):
+        return f"<ProxyWishlist {self.name} email={self.email}>"

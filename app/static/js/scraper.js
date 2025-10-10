@@ -70,7 +70,8 @@ function scrapeAmazon(doc) {
         }
     }
 
-    // Image - try multiple selectors
+    // Images - collect multiple
+    const images = [];
     const imgSelectors = [
         '#landingImage',
         '#imgBlkFront',
@@ -79,17 +80,37 @@ function scrapeAmazon(doc) {
         '[data-old-hires]'
     ];
 
+    // Get primary image
     for (const selector of imgSelectors) {
         const elem = doc.querySelector(selector);
         if (elem) {
-            const imgUrl = elem.getAttribute('data-old-hires') ||
+            let imgUrl = elem.getAttribute('data-old-hires') ||
                           elem.getAttribute('data-a-dynamic-image') ||
                           elem.src;
             if (imgUrl && imgUrl.startsWith('http')) {
-                data.image_url = imgUrl.split('._')[0] + '.jpg'; // Get full resolution
+                imgUrl = imgUrl.split('._')[0] + '.jpg'; // Get full resolution
+                images.push(imgUrl);
+                data.image_url = imgUrl;
                 break;
             }
         }
+    }
+
+    // Get additional gallery images
+    const galleryImgs = doc.querySelectorAll('.a-dynamic-image');
+    for (const img of galleryImgs) {
+        if (images.length >= 5) break;
+        let imgUrl = img.getAttribute('data-old-hires') || img.src;
+        if (imgUrl && imgUrl.startsWith('http')) {
+            imgUrl = imgUrl.split('._')[0] + '.jpg';
+            if (!images.includes(imgUrl)) {
+                images.push(imgUrl);
+            }
+        }
+    }
+
+    if (images.length > 0) {
+        data.images = images;
     }
 
     return data;
@@ -165,7 +186,8 @@ function scrapeEbay(doc) {
         }
     }
 
-    // Image - try multiple approaches including meta tags
+    // Images - collect multiple
+    const images = [];
     const imgSelectors = [
         'meta[property="og:image"]',
         '#icImg',
@@ -176,17 +198,33 @@ function scrapeEbay(doc) {
         '.vi-image-gallery img'
     ];
 
-    for (const selector of imgSelectors) {
+    // Get primary image
+    for (const selector of imgSelectors.slice(0, 3)) {
         const elem = doc.querySelector(selector);
         if (elem) {
             const imgUrl = elem.getAttribute('content') ||
                           elem.getAttribute('data-src') ||
                           elem.src || '';
             if (imgUrl && imgUrl.startsWith('http')) {
+                images.push(imgUrl);
                 data.image_url = imgUrl;
                 break;
             }
         }
+    }
+
+    // Get additional gallery images
+    const galleryImgs = doc.querySelectorAll('.ux-image-carousel-item img, .vi-image-gallery img');
+    for (const img of galleryImgs) {
+        if (images.length >= 5) break;
+        const imgUrl = img.getAttribute('data-src') || img.src;
+        if (imgUrl && imgUrl.startsWith('http') && !images.includes(imgUrl)) {
+            images.push(imgUrl);
+        }
+    }
+
+    if (images.length > 0) {
+        data.images = images;
     }
 
     return data;
@@ -249,19 +287,35 @@ function scrapeWalmart(doc) {
         }
     }
 
-    // Image
+    // Images - collect multiple
+    const images = [];
     const imgSelectors = [
         'img[itemprop="image"]',
         '.hover-zoom-hero-image',
         '[data-testid="hero-image-container"] img'
     ];
 
+    // Get primary image
     for (const selector of imgSelectors) {
         const elem = doc.querySelector(selector);
         if (elem && elem.src && elem.src.startsWith('http')) {
+            images.push(elem.src);
             data.image_url = elem.src;
             break;
         }
+    }
+
+    // Get additional gallery images
+    const galleryImgs = doc.querySelectorAll('.hover-zoom-hero-image, [class*="product-image"]');
+    for (const img of galleryImgs) {
+        if (images.length >= 5) break;
+        if (img.src && img.src.startsWith('http') && !images.includes(img.src)) {
+            images.push(img.src);
+        }
+    }
+
+    if (images.length > 0) {
+        data.images = images;
     }
 
     return data;
@@ -345,7 +399,8 @@ function scrapeGeneric(doc) {
         }
     }
 
-    // Image - try meta tags and common image patterns
+    // Images - collect multiple from meta tags and common patterns
+    const images = [];
     const imgSelectors = [
         'meta[property="og:image"]',
         'meta[property="og:image:secure_url"]',
@@ -359,17 +414,33 @@ function scrapeGeneric(doc) {
         'img[src*="product"]'
     ];
 
-    for (const selector of imgSelectors) {
+    // Get primary image from meta tags
+    for (const selector of imgSelectors.slice(0, 6)) {
         const elem = doc.querySelector(selector);
         if (elem) {
             const imgUrl = elem.getAttribute('content') ||
                           elem.getAttribute('src') ||
                           elem.getAttribute('data-src') || '';
             if (imgUrl && imgUrl.startsWith('http')) {
+                images.push(imgUrl);
                 data.image_url = imgUrl;
                 break;
             }
         }
+    }
+
+    // Get additional images
+    const additionalImgs = doc.querySelectorAll('img.product-image, .product-image img, [class*="product"] img');
+    for (const img of additionalImgs) {
+        if (images.length >= 5) break;
+        const imgUrl = img.src || img.getAttribute('data-src');
+        if (imgUrl && imgUrl.startsWith('http') && !images.includes(imgUrl)) {
+            images.push(imgUrl);
+        }
+    }
+
+    if (images.length > 0) {
+        data.images = images;
     }
 
     return data;

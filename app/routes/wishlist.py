@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from app import db
-from app.models import User, WishlistItem, Purchase, WishlistChange
-from app.forms import WishlistItemForm, PurchaseForm
+from app.models import User, WishlistItem, Purchase, WishlistChange, ProxyWishlist
+from app.forms import WishlistItemForm, PurchaseForm, ProxyWishlistForm
 
 bp = Blueprint("wishlist", __name__, url_prefix="/wishlist")
 
@@ -52,6 +52,12 @@ def add_item():
             image_url=form.image_url.data,
             quantity=form.quantity.data,
         )
+
+        # Handle available_images from form (hidden field populated by scraper)
+        available_images_json = request.form.get("available_images")
+        if available_images_json:
+            item.available_images = available_images_json
+
         db.session.add(item)
         db.session.flush()  # Get the item ID
 
@@ -132,6 +138,11 @@ def edit_item(item_id):
         item.image_url = form.image_url.data
         item.quantity = form.quantity.data
 
+        # Handle available_images from form (hidden field populated by scraper)
+        available_images_json = request.form.get("available_images")
+        if available_images_json:
+            item.available_images = available_images_json
+
         # Track the change
         change = WishlistChange(user_id=current_user.id, change_type="updated", item_name=item.name, item_id=item.id)
         db.session.add(change)
@@ -160,6 +171,7 @@ def delete_item(item_id):
     # Track the change before deleting
     item_name = item.name
     wishlist_owner_id = item.user_id
+    proxy_wishlist_id = item.proxy_wishlist_id
     is_custom_gift = item.is_custom_gift and item.added_by_id == current_user.id
 
     change = WishlistChange(
@@ -178,8 +190,12 @@ def delete_item(item_id):
         referrer = request.referrer
         if referrer and "my-claims" in referrer:
             return redirect(url_for("wishlist.my_claims"))
-        else:
+        elif wishlist_owner_id:
             return redirect(url_for("wishlist.view_user_list", user_id=wishlist_owner_id))
+        elif proxy_wishlist_id:
+            return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=proxy_wishlist_id))
+        else:
+            return redirect(url_for("wishlist.all_users"))
     else:
         flash("Item deleted from your wishlist.", "success")
         return redirect(url_for("wishlist.my_list"))
@@ -256,13 +272,19 @@ def unclaim_item(purchase_id):
 
     item = purchase.wishlist_item
     item_name = item.name
-    user_id = item.user_id
 
     db.session.delete(purchase)
     db.session.commit()
 
     flash(f'Unclaimed "{item_name}".', "success")
-    return redirect(url_for("wishlist.view_user_list", user_id=user_id))
+
+    # Redirect to appropriate wishlist view
+    if item.user_id:
+        return redirect(url_for("wishlist.view_user_list", user_id=item.user_id))
+    elif item.proxy_wishlist_id:
+        return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=item.proxy_wishlist_id))
+    else:
+        return redirect(url_for("wishlist.all_users"))
 
 
 # Keep old route for backward compatibility
@@ -353,6 +375,11 @@ def add_item_from_scraped_data():
         image_url=data.get("image_url"),
         quantity=int(data.get("quantity", 1)),
     )
+
+    # Handle available images
+    if "images" in data and data["images"]:
+        item.set_available_images(data["images"])
+
     db.session.add(item)
     db.session.flush()  # Get the item ID
 
@@ -369,7 +396,8 @@ def add_item_from_scraped_data():
 def all_users():
     """View all users to browse their wishlists"""
     users = User.query.filter(User.id != current_user.id).order_by(User.name).all()
-    return render_template("wishlist/all_users.html", users=users)
+    proxies = ProxyWishlist.query.order_by(ProxyWishlist.name).all()
+    return render_template("wishlist/all_users.html", users=users, proxies=proxies)
 
 
 @bp.route("/my-claims")
@@ -379,13 +407,27 @@ def my_claims():
     # Get all claims by current user with item and recipient info
     claims = Purchase.query.filter_by(purchased_by_id=current_user.id).order_by(Purchase.created_at.desc()).all()
 
-    # Group claims by recipient
+    # Group claims by recipient (user or proxy)
     claims_by_recipient = {}
     for claim in claims:
-        recipient = claim.wishlist_item.user
-        if recipient.id not in claims_by_recipient:
-            claims_by_recipient[recipient.id] = {"recipient": recipient, "claims": []}
-        claims_by_recipient[recipient.id]["claims"].append(claim)
+        item = claim.wishlist_item
+
+        # Determine if this is a user or proxy wishlist
+        if item.user:
+            # Regular user wishlist
+            recipient_key = f"user_{item.user.id}"
+            if recipient_key not in claims_by_recipient:
+                claims_by_recipient[recipient_key] = {"recipient": item.user, "is_proxy": False, "claims": []}
+        elif item.proxy_wishlist:
+            # Proxy wishlist
+            recipient_key = f"proxy_{item.proxy_wishlist.id}"
+            if recipient_key not in claims_by_recipient:
+                claims_by_recipient[recipient_key] = {"recipient": item.proxy_wishlist, "is_proxy": True, "claims": []}
+        else:
+            # Orphaned item (shouldn't happen, but handle gracefully)
+            continue
+
+        claims_by_recipient[recipient_key]["claims"].append(claim)
 
     return render_template("wishlist/my_claims.html", claims_by_recipient=claims_by_recipient)
 
@@ -414,3 +456,93 @@ def update_claim_status(claim_id):
     return jsonify(
         {"success": True, "purchased": claim.purchased, "received": claim.received, "wrapped": claim.wrapped}
     )
+
+
+@bp.route("/create-proxy-wishlist", methods=["GET", "POST"])
+@login_required
+def create_proxy_wishlist():
+    """Create a wishlist for someone who doesn't have an account yet"""
+    form = ProxyWishlistForm()
+
+    if form.validate_on_submit():
+        proxy = ProxyWishlist(
+            name=form.name.data,
+            email=form.email.data.lower() if form.email.data else None,
+            created_by_id=current_user.id,
+        )
+        db.session.add(proxy)
+        db.session.commit()
+
+        flash(f'Proxy wishlist created for "{proxy.name}"!', "success")
+        return redirect(url_for("wishlist.all_users"))
+
+    return render_template("wishlist/create_proxy_wishlist.html", form=form)
+
+
+@bp.route("/view-proxy/<int:proxy_id>")
+@login_required
+def view_proxy_wishlist(proxy_id):
+    """View a proxy wishlist"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).order_by(WishlistItem.created_at.desc()).all()
+    return render_template("wishlist/view_proxy_list.html", proxy=proxy, items=items)
+
+
+@bp.route("/add-to-proxy/<int:proxy_id>", methods=["GET", "POST"])
+@login_required
+def add_to_proxy_wishlist(proxy_id):
+    """Add a custom gift to a proxy wishlist"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+
+    form = WishlistItemForm()
+
+    if form.validate_on_submit():
+        item = WishlistItem(
+            proxy_wishlist_id=proxy.id,  # For the proxy wishlist
+            added_by_id=current_user.id,  # Added by current user (custom gift)
+            name=form.name.data,
+            url=form.url.data,
+            description=form.description.data,
+            price=form.price.data,
+            image_url=form.image_url.data,
+            quantity=form.quantity.data,
+        )
+        db.session.add(item)
+        db.session.flush()  # Get the item ID
+
+        # Automatically claim the custom gift for the person adding it
+        purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=current_user.id, quantity=item.quantity)
+        db.session.add(purchase)
+        db.session.commit()
+
+        flash(
+            f'Custom gift "{item.name}" added to {proxy.name}\'s wishlist and claimed by you!',
+            "success",
+        )
+        return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=proxy.id))
+
+    return render_template("wishlist/add_to_proxy.html", form=form, proxy=proxy)
+
+
+@bp.route("/edit-proxy/<int:proxy_id>", methods=["GET", "POST"])
+@login_required
+def edit_proxy_wishlist(proxy_id):
+    """Edit proxy wishlist name and email"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+
+    # Check permissions: creator or admin
+    if proxy.created_by_id != current_user.id and not current_user.is_admin:
+        flash("You can only edit proxy wishlists you created.", "danger")
+        return redirect(url_for("wishlist.all_users"))
+
+    form = ProxyWishlistForm(obj=proxy)
+
+    if form.validate_on_submit():
+        proxy.name = form.name.data
+        proxy.email = form.email.data.lower() if form.email.data else None
+        db.session.commit()
+
+        flash(f'Proxy wishlist for "{proxy.name}" updated!', "success")
+        return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=proxy.id))
+
+    return render_template("wishlist/edit_proxy.html", form=form, proxy=proxy)

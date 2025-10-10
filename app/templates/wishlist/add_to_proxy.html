@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Add Item{% endblock %}
+{% block title %}Add Gift to {{ proxy.name }}'s Wishlist{% endblock %}
 
 {% block head %}
 <script src="{{ url_for('static', filename='js/scraper.js') }}"></script>
@@ -9,15 +9,12 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Add Item to Wishlist</h1>
+    <h1 class="text-4xl font-bold mb-8">Add Gift to {{ proxy.name }}'s Wishlist</h1>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8">
-        <div class="mb-6 p-4 bg-blue-900 rounded">
+        <div class="mb-6 p-4 bg-purple-900 rounded">
             <p class="text-sm text-gray-200">
-                <strong>Tip:</strong> Paste a URL from Amazon, eBay, Walmart, or other shopping sites and click "Auto-Fill" to automatically extract product details!
-            </p>
-            <p class="text-xs text-gray-300 mt-2">
-                <strong>Note:</strong> Etsy has bot protection and won't auto-fill. For Etsy items, just paste the URL and manually enter the item details below.
+                <strong>Note:</strong> You're adding a gift to {{ proxy.name }}'s proxy wishlist. This will be automatically claimed by you and hidden from {{ proxy.name }} if they later create an account.
             </p>
         </div>
 
@@ -75,9 +72,6 @@
                 {% if form.image_url.errors %}
                     <p class="text-red-600 text-sm mt-1">{{ form.image_url.errors[0] }}</p>
                 {% endif %}
-                <p class="text-xs text-gray-400 mt-1">
-                    This field will be filled automatically when you scrape a URL. You can select a different image below.
-                </p>
             </div>
 
             <!-- Image selector container -->
@@ -85,7 +79,7 @@
 
             <div class="flex gap-4">
                 {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
-                <a href="{{ url_for('wishlist.my_list') }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
+                <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
                     Cancel
                 </a>
             </div>
@@ -114,19 +108,15 @@ document.getElementById('scrape-btn').addEventListener('click', async function()
         if (result.success && result.data) {
             const data = result.data;
 
-            // Fill form fields
             if (data.name) document.getElementById('name-input').value = data.name;
             if (data.description) document.getElementById('description-input').value = data.description;
             if (data.price) document.getElementById('price-input').value = data.price;
 
-            // Handle images with image selector
             if (data.images && data.images.length > 0) {
                 window.imageSelector.setImages(data.images);
             } else if (data.image_url) {
-                // Fallback to single image
                 window.imageSelector.setImages([data.image_url]);
             } else {
-                // No images found, show default
                 window.imageSelector.setImages([]);
             }
 
