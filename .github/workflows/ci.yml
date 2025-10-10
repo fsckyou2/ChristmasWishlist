@@ -80,23 +80,70 @@ jobs:
 
     - name: Test Docker container starts
       run: |
-        docker run -d --name test-container \
+        # Start container
+        CONTAINER_ID=$(docker run -d --name test-container \
           -e SECRET_KEY=test-secret-key \
           -e MAIL_USERNAME=test \
           -e MAIL_PASSWORD=test \
           -e ADMIN_EMAIL=test@example.com \
           -e ADMIN_NAME="Test Admin" \
-          christmas-wishlist:test
+          christmas-wishlist:test)
 
-        # Wait for container to start
-        sleep 5
+        echo "Container ID: $CONTAINER_ID"
 
-        # Check if container is running
-        docker ps | grep test-container
+        # Wait for container to initialize (with timeout)
+        echo "Waiting for container to start..."
+        for i in {1..30}; do
+          if docker ps --filter "id=$CONTAINER_ID" --format "{{.Status}}" | grep -q "Up"; then
+            echo "Container is running!"
+            break
+          fi
+          if [ $i -eq 30 ]; then
+            echo "ERROR: Container failed to start within 30 seconds"
+            docker ps -a
+            docker logs test-container
+            exit 1
+          fi
+          sleep 1
+        done
 
-        # Check logs for any startup errors
+        # Wait for app to be ready (check if gunicorn started)
+        echo "Waiting for gunicorn to start..."
+        for i in {1..15}; do
+          if docker logs test-container 2>&1 | grep -q "Booting worker"; then
+            echo "Gunicorn workers started!"
+            break
+          fi
+          if [ $i -eq 15 ]; then
+            echo "WARNING: Gunicorn workers not detected in logs"
+          fi
+          sleep 1
+        done
+
+        # Verify container is still running
+        if ! docker ps --filter "id=$CONTAINER_ID" --format "{{.Status}}" | grep -q "Up"; then
+          echo "ERROR: Container stopped running"
+          docker ps -a
+          docker logs test-container
+          docker stop test-container 2>/dev/null || true
+          docker rm test-container 2>/dev/null || true
+          exit 1
+        fi
+
+        # Show container info
+        echo "Container is healthy:"
+        docker ps --filter "id=$CONTAINER_ID"
+
+        # Check logs for startup
+        echo "Container logs:"
         docker logs test-container
 
+        # Check for errors in logs
+        if docker logs test-container 2>&1 | grep -i "error\|exception\|traceback" | grep -v "fail_ci_if_error"; then
+          echo "WARNING: Errors found in container logs (shown above)"
+        fi
+
         # Cleanup
+        echo "Cleaning up..."
         docker stop test-container
         docker rm test-container
