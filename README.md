@@ -247,10 +247,12 @@ Docker images are automatically built and pushed to Docker Hub when:
 - Version tags are created (e.g., `v1.2.3`)
 
 **Setup Required:**
-1. Add GitHub secrets:
+1. Enable GitHub Actions write permissions:
+   - Settings → Actions → General → "Read and write permissions"
+2. Add GitHub secrets:
    - `DOCKERHUB_USERNAME` - Your Docker Hub username
    - `DOCKERHUB_TOKEN` - Docker Hub access token
-2. See `DOCKER_HUB_SETUP.md` for detailed instructions
+3. See `GITHUB_ACTIONS_SETUP.md` for complete setup guide
 
 **Pull the latest image:**
 ```bash
@@ -267,9 +269,10 @@ GitHub Actions automatically runs on every push/PR:
 See `.github/workflows/` for workflow definitions.
 
 **Documentation:**
-- `VERSIONING.md` - Complete versioning guide
-- `DOCKER_HUB_SETUP.md` - Docker Hub deployment setup
-- `.github/workflows/README.md` - CI/CD workflow documentation
+- `GITHUB_ACTIONS_SETUP.md` - **START HERE** - Complete GitHub Actions setup guide
+- `VERSIONING.md` - Versioning and release workflow
+- `DOCKER_HUB_SETUP.md` - Docker Hub deployment details
+- `.github/workflows/README.md` - CI/CD workflow reference
 
 ## 🏗️ Project Structure
 
