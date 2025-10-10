@@ -11,7 +11,15 @@ bp = Blueprint("wishlist", __name__, url_prefix="/wishlist")
 @login_required
 def my_list():
     """View current user's wishlist"""
-    items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.created_at.desc()).all()
+    # Only show owner's items - hide custom gifts from others
+    items = (
+        WishlistItem.query.filter_by(user_id=current_user.id)
+        .filter(
+            (WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id)  # noqa: E711, E712
+        )
+        .order_by(WishlistItem.created_at.desc())
+        .all()
+    )
     return render_template("wishlist/my_list.html", items=items)
 
 
@@ -19,7 +27,15 @@ def my_list():
 @login_required
 def my_list_table():
     """View and edit wishlist as a table"""
-    items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.created_at.desc()).all()
+    # Only show owner's items - hide custom gifts from others
+    items = (
+        WishlistItem.query.filter_by(user_id=current_user.id)
+        .filter(
+            (WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id)  # noqa: E711, E712
+        )
+        .order_by(WishlistItem.created_at.desc())
+        .all()
+    )
     return render_template("wishlist/my_list_table.html", items=items)
 
 
@@ -32,6 +48,7 @@ def add_item():
     if form.validate_on_submit():
         item = WishlistItem(
             user_id=current_user.id,
+            added_by_id=None,  # Owner-added item
             name=form.name.data,
             url=form.url.data,
             description=form.description.data,
@@ -53,15 +70,60 @@ def add_item():
     return render_template("wishlist/add_item.html", form=form)
 
 
+@bp.route("/add-custom-gift/<int:user_id>", methods=["GET", "POST"])
+@login_required
+def add_custom_gift(user_id):
+    """Add a custom gift to another user's wishlist"""
+    target_user = User.query.get_or_404(user_id)
+
+    # Cannot add custom gifts to your own wishlist
+    if target_user.id == current_user.id:
+        flash("You cannot add custom gifts to your own wishlist!", "warning")
+        return redirect(url_for("wishlist.my_list"))
+
+    form = WishlistItemForm()
+
+    if form.validate_on_submit():
+        item = WishlistItem(
+            user_id=target_user.id,  # For the target user's wishlist
+            added_by_id=current_user.id,  # Added by current user (custom gift)
+            name=form.name.data,
+            url=form.url.data,
+            description=form.description.data,
+            price=form.price.data,
+            image_url=form.image_url.data,
+            quantity=form.quantity.data,
+        )
+        db.session.add(item)
+        db.session.flush()  # Get the item ID
+
+        # Automatically claim the custom gift for the person adding it
+        purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=current_user.id, quantity=item.quantity)
+        db.session.add(purchase)
+        db.session.commit()
+
+        flash(
+            f'Custom gift "{item.name}" added to {target_user.name}\'s wishlist and claimed by you! '
+            f"They won't see it, but other users will.",
+            "success",
+        )
+        return redirect(url_for("wishlist.view_user_list", user_id=target_user.id))
+
+    return render_template("wishlist/add_custom_gift.html", form=form, target_user=target_user)
+
+
 @bp.route("/edit/<int:item_id>", methods=["GET", "POST"])
 @login_required
 def edit_item(item_id):
     """Edit wishlist item"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item
-    if item.user_id != current_user.id:
-        flash("You can only edit your own wishlist items.", "danger")
+    # Check if user owns this item OR is the person who added it as a custom gift
+    is_owner = item.user_id == current_user.id
+    is_custom_gift_adder = item.added_by_id == current_user.id
+
+    if not (is_owner or is_custom_gift_adder):
+        flash("You can only edit items you added.", "danger")
         return redirect(url_for("wishlist.my_list"))
 
     form = WishlistItemForm(obj=item)
@@ -91,13 +153,19 @@ def delete_item(item_id):
     """Delete wishlist item"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item
-    if item.user_id != current_user.id:
-        flash("You can only delete your own wishlist items.", "danger")
+    # Check if user owns this item OR is the person who added it as a custom gift
+    is_owner = item.user_id == current_user.id
+    is_custom_gift_adder = item.added_by_id == current_user.id
+
+    if not (is_owner or is_custom_gift_adder):
+        flash("You can only delete items you added.", "danger")
         return redirect(url_for("wishlist.my_list"))
 
     # Track the change before deleting
     item_name = item.name
+    wishlist_owner_id = item.user_id
+    is_custom_gift = item.is_custom_gift and item.added_by_id == current_user.id
+
     change = WishlistChange(
         user_id=current_user.id,
         change_type="deleted",
@@ -108,8 +176,17 @@ def delete_item(item_id):
     db.session.delete(item)
     db.session.commit()
 
-    flash("Item deleted from your wishlist.", "success")
-    return redirect(url_for("wishlist.my_list"))
+    if is_custom_gift:
+        flash(f"Custom gift deleted.", "success")
+        # Check where the request came from via referrer
+        referrer = request.referrer
+        if referrer and "my-claims" in referrer:
+            return redirect(url_for("wishlist.my_claims"))
+        else:
+            return redirect(url_for("wishlist.view_user_list", user_id=wishlist_owner_id))
+    else:
+        flash("Item deleted from your wishlist.", "success")
+        return redirect(url_for("wishlist.my_list"))
 
 
 @bp.route("/view/<int:user_id>")
@@ -204,7 +281,7 @@ def unpurchase_item(purchase_id):
 @login_required
 def add_empty_item():
     """Add empty item for table editing"""
-    item = WishlistItem(user_id=current_user.id, name="New Item", quantity=1)
+    item = WishlistItem(user_id=current_user.id, added_by_id=None, name="New Item", quantity=1)
     db.session.add(item)
     db.session.commit()
 
@@ -232,8 +309,11 @@ def update_item_quick(item_id):
     """Quick update item via AJAX"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item
-    if item.user_id != current_user.id:
+    # Check if user owns this item OR is the person who added it as a custom gift
+    is_owner = item.user_id == current_user.id
+    is_custom_gift_adder = item.added_by_id == current_user.id
+
+    if not (is_owner or is_custom_gift_adder):
         return jsonify({"error": "Unauthorized"}), 403
 
     data = request.get_json()
@@ -269,6 +349,7 @@ def add_item_from_scraped_data():
     # Create new item with scraped data
     item = WishlistItem(
         user_id=current_user.id,
+        added_by_id=None,  # Owner-added item
         name=data.get("name", "New Item"),
         url=data.get("url"),
         description=data.get("description"),

@@ -1,0 +1,220 @@
+<!-- Welcome Tour Overlay -->
+{% if current_user.is_authenticated and not current_user.has_seen_tour %}
+<div id="welcome-tour" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 hidden">
+    <div class="bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full mx-4 p-8 relative">
+        <!-- Close Button -->
+        <button id="tour-skip" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+
+        <!-- Tour Content -->
+        <div id="tour-content" class="text-center">
+            <!-- Step 1: Welcome -->
+            <div class="tour-step" data-step="1">
+                <div class="text-6xl mb-6">🎁</div>
+                <h2 class="text-3xl font-bold mb-4">Welcome to Christmas Wishlist!</h2>
+                <p class="text-gray-300 mb-6">
+                    Let's take a quick tour to show you how to make your holiday gift-giving easier and more organized.
+                </p>
+                <p class="text-sm text-gray-400 mb-6">
+                    This will only take a minute, or you can skip it anytime.
+                </p>
+            </div>
+
+            <!-- Step 2: Your Wishlist -->
+            <div class="tour-step hidden" data-step="2">
+                <div class="text-6xl mb-6">📝</div>
+                <h2 class="text-3xl font-bold mb-4">Create Your Wishlist</h2>
+                <p class="text-gray-300 mb-4">
+                    Start by adding items to your own wishlist. You can add:
+                </p>
+                <ul class="text-left text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
+                    <li>✓ Products from any online store (we'll auto-fill details!)</li>
+                    <li>✓ Custom items with your own descriptions</li>
+                    <li>✓ Multiple quantities if you want more than one</li>
+                </ul>
+                <p class="text-sm text-gray-400">
+                    Click "My Wishlist" in the navigation bar to get started.
+                </p>
+            </div>
+
+            <!-- Step 3: Browse Others -->
+            <div class="tour-step hidden" data-step="3">
+                <div class="text-6xl mb-6">👀</div>
+                <h2 class="text-3xl font-bold mb-4">Browse Other Wishlists</h2>
+                <p class="text-gray-300 mb-4">
+                    See what your family members want! Click "Browse Wishlists" to:
+                </p>
+                <ul class="text-left text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
+                    <li>✓ View everyone's wishlists</li>
+                    <li>✓ Claim items you want to buy</li>
+                    <li>✓ See what others have claimed (to avoid duplicates)</li>
+                </ul>
+                <p class="text-sm text-yellow-400">
+                    Don't worry - wishlist owners can't see who claimed their items!
+                </p>
+            </div>
+
+            <!-- Step 4: Claim Gifts -->
+            <div class="tour-step hidden" data-step="4">
+                <div class="text-6xl mb-6">🎯</div>
+                <h2 class="text-3xl font-bold mb-4">Claim Gifts to Buy</h2>
+                <p class="text-gray-300 mb-4">
+                    When you find something you want to buy:
+                </p>
+                <ul class="text-left text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
+                    <li>✓ Click "Claim Gift" to reserve it</li>
+                    <li>✓ Other users will see it's claimed (no duplicates!)</li>
+                    <li>✓ The recipient won't see anything (keeps the surprise!)</li>
+                </ul>
+                <p class="text-sm text-gray-400">
+                    Track your claimed gifts in "My Gifts for Others".
+                </p>
+            </div>
+
+            <!-- Step 5: Track Progress -->
+            <div class="tour-step hidden" data-step="5">
+                <div class="text-6xl mb-6">✅</div>
+                <h2 class="text-3xl font-bold mb-4">Track Your Gift Progress</h2>
+                <p class="text-gray-300 mb-4">
+                    In "My Gifts for Others", you can track each gift:
+                </p>
+                <ul class="text-left text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
+                    <li>💳 <strong>Purchased</strong> - Mark when you buy it</li>
+                    <li>📦 <strong>Received</strong> - Mark when it arrives</li>
+                    <li>🎁 <strong>Wrapped</strong> - Mark when it's ready to give</li>
+                </ul>
+                <p class="text-sm text-gray-400">
+                    Stay organized throughout the holiday season!
+                </p>
+            </div>
+
+            <!-- Step 6: Custom Gifts -->
+            <div class="tour-step hidden" data-step="6">
+                <div class="text-6xl mb-6">✨</div>
+                <h2 class="text-3xl font-bold mb-4">Custom Gifts (Bonus Feature!)</h2>
+                <p class="text-gray-300 mb-4">
+                    Want to buy something not on their list?
+                </p>
+                <p class="text-gray-300 mb-6">
+                    Click <strong>"Add Custom Gift"</strong> on their wishlist to add it yourself.
+                    They won't see it, but others will - avoiding duplicate gifts!
+                </p>
+                <p class="text-sm text-purple-400">
+                    Perfect for those special surprises! 🎉
+                </p>
+            </div>
+
+            <!-- Step 7: Ready! -->
+            <div class="tour-step hidden" data-step="7">
+                <div class="text-6xl mb-6">🎉</div>
+                <h2 class="text-3xl font-bold mb-4">You're All Set!</h2>
+                <p class="text-gray-300 mb-6">
+                    You're ready to make this holiday season stress-free and organized.
+                </p>
+                <p class="text-xl font-semibold text-green-400 mb-4">
+                    Happy gift-giving! 🎁
+                </p>
+                <p class="text-sm text-gray-400">
+                    Click "Get Started" to begin using Christmas Wishlist!
+                </p>
+            </div>
+        </div>
+
+        <!-- Tour Navigation -->
+        <div class="mt-8 flex justify-between items-center">
+            <div class="text-sm text-gray-400">
+                <span id="tour-step-counter">Step 1 of 7</span>
+            </div>
+            <div class="flex gap-4">
+                <button id="tour-prev" class="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Previous
+                </button>
+                <button id="tour-next" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    Next
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tour = document.getElementById('welcome-tour');
+    if (!tour) return;
+
+    let currentStep = 1;
+    const totalSteps = 7;
+
+    const prevBtn = document.getElementById('tour-prev');
+    const nextBtn = document.getElementById('tour-next');
+    const skipBtn = document.getElementById('tour-skip');
+    const stepCounter = document.getElementById('tour-step-counter');
+
+    function showStep(step) {
+        // Hide all steps
+        document.querySelectorAll('.tour-step').forEach(el => {
+            el.classList.add('hidden');
+        });
+
+        // Show current step
+        const currentStepEl = document.querySelector(`.tour-step[data-step="${step}"]`);
+        if (currentStepEl) {
+            currentStepEl.classList.remove('hidden');
+        }
+
+        // Update counter
+        stepCounter.textContent = `Step ${step} of ${totalSteps}`;
+
+        // Update buttons
+        prevBtn.disabled = step === 1;
+
+        if (step === totalSteps) {
+            nextBtn.textContent = 'Get Started';
+        } else {
+            nextBtn.textContent = 'Next';
+        }
+
+        currentStep = step;
+    }
+
+    function completeTour() {
+        // Mark tour as completed via API
+        fetch('/auth/complete-tour', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        }).then(() => {
+            tour.classList.add('hidden');
+        });
+    }
+
+    // Next button
+    nextBtn.addEventListener('click', function() {
+        if (currentStep < totalSteps) {
+            showStep(currentStep + 1);
+        } else {
+            completeTour();
+        }
+    });
+
+    // Previous button
+    prevBtn.addEventListener('click', function() {
+        if (currentStep > 1) {
+            showStep(currentStep - 1);
+        }
+    });
+
+    // Skip button
+    skipBtn.addEventListener('click', completeTour);
+
+    // Show tour on page load
+    setTimeout(() => {
+        tour.classList.remove('hidden');
+    }, 500);
+});
+</script>
+{% endif %}

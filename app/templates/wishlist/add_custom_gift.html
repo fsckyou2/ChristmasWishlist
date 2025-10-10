@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Add Custom Gift{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='js/scraper.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-4xl font-bold mb-4">Add Custom Gift for {{ target_user.name }}</h1>
+    <p class="text-gray-400 mb-8">
+        Add an item you're planning to buy for {{ target_user.name }} that's not on their wishlist.
+        <strong>They won't see this</strong>, but other users will (to avoid duplicate gifts).
+    </p>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-8">
+        <div class="mb-6 p-4 bg-purple-900 rounded">
+            <p class="text-sm text-gray-200">
+                <strong>Custom Gift:</strong> This item will appear on {{ target_user.name }}'s wishlist for others to see, but {{ target_user.name }} won't see it themselves.
+            </p>
+            <p class="text-xs text-gray-300 mt-2">
+                <strong>Tip:</strong> You can paste a URL and click "Auto-Fill" to extract product details automatically!
+            </p>
+        </div>
+
+        <form method="POST" id="itemForm" class="space-y-4">
+            {{ form.hidden_tag() }}
+
+            <div>
+                {{ form.url.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.url(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600 placeholder-gray-400", id="url-input", placeholder="https://www.amazon.com/product...") }}
+                <button type="button" id="scrape-btn" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                    Auto-Fill from URL
+                </button>
+                {% if form.url.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.url.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                {{ form.name.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.name(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600 placeholder-gray-400", id="name-input", required=true) }}
+                {% if form.name.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.name.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                {{ form.description.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.description(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600 placeholder-gray-400", rows=3, id="description-input") }}
+                {% if form.description.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.description.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    {{ form.price.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ form.price(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600 placeholder-gray-400", step="0.01", id="price-input") }}
+                    {% if form.price.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ form.price.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    {{ form.quantity.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ form.quantity(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600 placeholder-gray-400") }}
+                    {% if form.quantity.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ form.quantity.errors[0] }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div>
+                {{ form.image_url.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.image_url(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600 placeholder-gray-400", id="image-input") }}
+                {% if form.image_url.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.image_url.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="flex gap-4">
+                {{ form.submit(class="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 cursor-pointer", value="Add Custom Gift") }}
+                <a href="{{ url_for('wishlist.view_user_list', user_id=target_user.id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('scrape-btn').addEventListener('click', async function() {
+    const url = document.getElementById('url-input').value;
+    if (!url) {
+        alert('Please enter a URL first');
+        return;
+    }
+
+    this.disabled = true;
+    this.textContent = 'Loading...';
+
+    try {
+        const result = await scrapeProductUrl(url);
+
+        if (result.success && result.data) {
+            const data = result.data;
+
+            // Fill form fields
+            if (data.name) document.getElementById('name-input').value = data.name;
+            if (data.description) document.getElementById('description-input').value = data.description;
+            if (data.price) document.getElementById('price-input').value = data.price;
+            if (data.image_url) document.getElementById('image-input').value = data.image_url;
+
+            alert('Product information loaded successfully!');
+        } else {
+            throw new Error(result.error || 'Could not extract product information');
+        }
+    } catch (error) {
+        console.error('Scraping error:', error);
+        alert('Could not load product information: ' + error.message + '\nPlease fill in manually.');
+    } finally {
+        this.disabled = false;
+        this.textContent = 'Auto-Fill from URL';
+    }
+});
+</script>
+{% endblock %}

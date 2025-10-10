@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}My Claims{% endblock %}
+{% block title %}My Gifts for Others{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
     <div class="flex justify-between items-center mb-8">
-        <h1 class="text-4xl font-bold">My Gift Claims</h1>
+        <h1 class="text-4xl font-bold">My Gifts for Others</h1>
         <a href="{{ url_for('wishlist.all_users') }}" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
             Browse Wishlists
         </a>
@@ -36,7 +36,12 @@
 
                                 <!-- Item Details -->
                                 <div class="flex-1">
-                                    <h3 class="text-xl font-bold mb-1">{{ item.name }}</h3>
+                                    <h3 class="text-xl font-bold mb-1">
+                                        {{ item.name }}
+                                        {% if item.is_custom_gift and item.added_by_id == current_user.id %}
+                                            <span class="ml-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full">✨ Custom Gift</span>
+                                        {% endif %}
+                                    </h3>
                                     <div class="flex gap-4 text-sm text-gray-400 mb-2">
                                         {% if item.price %}
                                             <span class="text-green-600 font-semibold">${{ "%.2f"|format(item.price * claim.quantity) }}</span>
@@ -83,13 +88,23 @@
                                     </label>
                                 </div>
 
-                                <!-- Unclaim Button -->
+                                <!-- Delete/Unclaim Button -->
                                 <div>
-                                    <form method="POST" action="{{ url_for('wishlist.unclaim_item', purchase_id=claim.id) }}" class="inline" onsubmit="return confirm('Unclaim this item?');">
-                                        <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
-                                            Unclaim
-                                        </button>
-                                    </form>
+                                    {% if item.is_custom_gift and item.added_by_id == current_user.id %}
+                                        <!-- Custom gift - Delete entire item -->
+                                        <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" onsubmit="return confirm('Delete this custom gift? This cannot be undone.');">
+                                            <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <!-- Regular claim - Unclaim only -->
+                                        <form method="POST" action="{{ url_for('wishlist.unclaim_item', purchase_id=claim.id) }}" class="inline" onsubmit="return confirm('Unclaim this item?');">
+                                            <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
+                                                Unclaim
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -97,15 +112,15 @@
                 </div>
 
                 <!-- Summary Stats for Recipient -->
-                <div class="mt-4 flex gap-6 text-sm text-gray-400">
+                <div class="mt-4 flex gap-6 text-sm text-gray-400" data-recipient-stats="{{ recipient_id }}">
                     {% set total_claims = data.claims|length %}
                     {% set purchased_count = data.claims|selectattr('purchased', 'equalto', true)|list|length %}
                     {% set received_count = data.claims|selectattr('received', 'equalto', true)|list|length %}
                     {% set wrapped_count = data.claims|selectattr('wrapped', 'equalto', true)|list|length %}
-                    <span>Total items: {{ total_claims }}</span>
-                    <span class="text-blue-600">Purchased: {{ purchased_count }}/{{ total_claims }}</span>
-                    <span class="text-green-600">Received: {{ received_count }}/{{ total_claims }}</span>
-                    <span class="text-purple-600">Wrapped: {{ wrapped_count }}/{{ total_claims }}</span>
+                    <span>Total items: <span data-total>{{ total_claims }}</span></span>
+                    <span class="text-blue-600">Purchased: <span data-purchased>{{ purchased_count }}</span>/<span data-total>{{ total_claims }}</span></span>
+                    <span class="text-green-600">Received: <span data-received>{{ received_count }}</span>/<span data-total>{{ total_claims }}</span></span>
+                    <span class="text-purple-600">Wrapped: <span data-wrapped>{{ wrapped_count }}</span>/<span data-total>{{ total_claims }}</span></span>
                 </div>
             </div>
         {% endfor %}
@@ -113,7 +128,7 @@
         <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
             <div class="text-6xl mb-4">🎁</div>
             <h2 class="text-2xl font-bold mb-4">You haven't claimed any gifts yet</h2>
-            <p class="text-gray-400 mb-6">Browse wishlists and claim items you'd like to gift!</p>
+            <p class="text-gray-400 mb-6">Browse wishlists and claim items you'd like to give!</p>
             <a href="{{ url_for('wishlist.all_users') }}" class="inline-block bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700">
                 Browse Wishlists
             </a>
@@ -123,12 +138,41 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Function to update stats for a recipient section
+    function updateRecipientStats(recipientSection) {
+        const statsDiv = recipientSection.querySelector('[data-recipient-stats]');
+        if (!statsDiv) return;
+
+        // Count all checkboxes of each type in this section
+        const allCheckboxes = recipientSection.querySelectorAll('.status-checkbox');
+        let purchasedCount = 0;
+        let receivedCount = 0;
+        let wrappedCount = 0;
+
+        allCheckboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                const status = checkbox.dataset.status;
+                if (status === 'purchased') purchasedCount++;
+                else if (status === 'received') receivedCount++;
+                else if (status === 'wrapped') wrappedCount++;
+            }
+        });
+
+        // Update the display
+        statsDiv.querySelector('[data-purchased]').textContent = purchasedCount;
+        statsDiv.querySelector('[data-received]').textContent = receivedCount;
+        statsDiv.querySelector('[data-wrapped]').textContent = wrappedCount;
+    }
+
     // Handle status checkbox changes
     document.querySelectorAll('.status-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', async function() {
             const claimId = this.dataset.claimId;
             const status = this.dataset.status;
             const isChecked = this.checked;
+
+            // Find the parent recipient section
+            const recipientSection = this.closest('.bg-gray-800');
 
             try {
                 const response = await fetch(`/wishlist/update-claim-status/${claimId}`, {
@@ -156,6 +200,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         label.classList.add('text-gray-400');
                         label.classList.remove('text-blue-600', 'text-green-600', 'text-purple-600');
                     }
+
+                    // Update the stats for this recipient
+                    updateRecipientStats(recipientSection);
                 } else {
                     // Revert checkbox on error
                     this.checked = !isChecked;

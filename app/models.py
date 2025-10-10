@@ -23,11 +23,14 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+    has_seen_tour = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    wishlist_items = db.relationship("WishlistItem", backref="user", lazy="dynamic", cascade="all, delete-orphan")
+    wishlist_items = db.relationship(
+        "WishlistItem", foreign_keys="WishlistItem.user_id", backref="user", lazy="dynamic", cascade="all, delete-orphan"
+    )
     purchases = db.relationship("Purchase", backref="purchased_by", lazy="dynamic", cascade="all, delete-orphan")
     # claims is an alias for purchases (view-only for convenience)
     claims = db.relationship(
@@ -68,6 +71,7 @@ class WishlistItem(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    added_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # Who added this item (None = owner)
     name = db.Column(db.String(200), nullable=False)
     url = db.Column(db.String(500))
     description = db.Column(db.Text)
@@ -79,6 +83,7 @@ class WishlistItem(db.Model):
 
     # Relationships
     purchases = db.relationship("Purchase", backref="wishlist_item", lazy="dynamic", cascade="all, delete-orphan")
+    added_by = db.relationship("User", foreign_keys=[added_by_id], backref="custom_gifts_added")
 
     @property
     def total_purchased(self):
@@ -89,6 +94,11 @@ class WishlistItem(db.Model):
     def is_fully_purchased(self):
         """Check if item is fully purchased"""
         return self.total_purchased >= self.quantity
+
+    @property
+    def is_custom_gift(self):
+        """Check if this is a custom gift added by someone other than the owner"""
+        return self.added_by_id is not None and self.added_by_id != self.user_id
 
     def __repr__(self):
         return f"<WishlistItem {self.name}>"
