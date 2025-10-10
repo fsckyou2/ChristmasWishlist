@@ -248,6 +248,7 @@ This project does not use Flask-Migrate/Alembic. Database schema changes are han
 
 **Available Migrations**:
 - `scripts/migrate_purchase_fields.py` - Adds purchased/received fields (v1.3.0)
+- `scripts/migrate_wishlist_changes_cascade.py` - Adds CASCADE DELETE to wishlist_changes (v1.3.0)
 
 See `MIGRATION_GUIDE.md` for detailed migration instructions and troubleshooting.
 
