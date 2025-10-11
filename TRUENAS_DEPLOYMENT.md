@@ -65,16 +65,11 @@ Then you need to run the migration.
 
 Run these migrations in order if upgrading from older versions:
 
-**v1.3.0 → v1.4.0**:
+**v1.3.0 → v3.0.0**:
 ```bash
 cd /app
 python scripts/migrate_purchase_fields.py
 python scripts/migrate_wishlist_changes_cascade.py
-```
-
-**v1.4.0 → v1.5.0**:
-```bash
-cd /app
 python scripts/migrate_custom_gifts.py
 python scripts/migrate_available_images.py
 python scripts/migrate_proxy_wishlists.py
