@@ -2,6 +2,10 @@
 
 {% block title %}Edit Item{% endblock %}
 
+{% block head %}
+<script src="{{ url_for('static', filename='js/image-selector.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-2xl mx-auto">
     <h1 class="text-4xl font-bold mb-8">Edit Wishlist Item</h1>
@@ -54,11 +58,17 @@
 
             <div>
                 {{ form.image_url.label(class="block text-gray-200 font-semibold mb-2") }}
-                {{ form.image_url(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 placeholder-gray-400") }}
+                {{ form.image_url(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 placeholder-gray-400", id="image-input", readonly=true) }}
                 {% if form.image_url.errors %}
                     <p class="text-red-600 text-sm mt-1">{{ form.image_url.errors[0] }}</p>
                 {% endif %}
+                <p class="text-xs text-gray-400 mt-1">
+                    Select a different image below if available.
+                </p>
             </div>
+
+            <!-- Image selector container -->
+            <div id="image-selector-container"></div>
 
             <div class="flex gap-4">
                 {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
@@ -69,4 +79,17 @@
         </form>
     </div>
 </div>
+
+<script>
+// Initialize image selector with existing data
+window.imageSelector = new ImageSelector('#image-selector-container');
+window.imageSelector.init('#image-input');
+
+// Load existing images if available
+{% if item %}
+const currentImageUrl = "{{ item.image_url | safe }}";
+const availableImages = {{ item.get_available_images() | tojson }};
+window.imageSelector.loadExisting(currentImageUrl, availableImages);
+{% endif %}
+</script>
 {% endblock %}

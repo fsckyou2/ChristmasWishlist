@@ -4,6 +4,32 @@ This guide covers how to handle database schema changes in this project.
 
 ## Current Migration Status
 
+### Migration: Proxy Wishlists (v1.5.0)
+
+**Date**: 2025-10-10
+**Changes**:
+- Added `proxy_wishlists` table for non-user wishlists
+- Added `proxy_wishlist_id` column to `wishlist_items` table
+- Makes `user_id` nullable in `wishlist_items` (for proxy items)
+- Enables creating wishlists for people without accounts
+- Auto-converts to user account when they register with matching email
+- Silent auto-merge of duplicate items on conversion
+
+**Status**: Migration scripts available:
+- `scripts/migrate_proxy_wishlists.py` - Adds proxy_wishlists table and proxy_wishlist_id column
+- `scripts/migrate_user_id_nullable.py` - **CRITICAL**: Makes user_id nullable (required for proxy items)
+
+### Migration: Image Selection (v1.5.0)
+
+**Date**: 2025-10-10
+**Changes**:
+- Added `available_images` column to `wishlist_items` table (TEXT field for JSON array)
+- Stores multiple image URLs scraped from product pages
+- Allows users to select which image they want to use
+- Provides default gift image fallback option
+
+**Status**: Migration script available at `scripts/migrate_available_images.py`
+
 ### Migration: Custom Gifts (v1.4.0)
 
 **Date**: 2025-10-10
@@ -39,13 +65,16 @@ This guide covers how to handle database schema changes in this project.
 
 ### For Docker Deployments
 
-If you're upgrading from a version before v1.4.0:
+If you're upgrading from a version before v1.5.0:
 
 ```bash
 # Run all migration scripts (preserves existing data)
 docker exec christmas-wishlist python scripts/migrate_purchase_fields.py
 docker exec christmas-wishlist python scripts/migrate_wishlist_changes_cascade.py
 docker exec christmas-wishlist python scripts/migrate_custom_gifts.py
+docker exec christmas-wishlist python scripts/migrate_available_images.py
+docker exec christmas-wishlist python scripts/migrate_proxy_wishlists.py
+docker exec christmas-wishlist python scripts/migrate_user_id_nullable.py
 
 # Then restart the container
 docker restart christmas-wishlist
@@ -61,6 +90,9 @@ source venv/bin/activate  # or venv\Scripts\activate on Windows
 python scripts/migrate_purchase_fields.py
 python scripts/migrate_wishlist_changes_cascade.py
 python scripts/migrate_custom_gifts.py
+python scripts/migrate_available_images.py
+python scripts/migrate_proxy_wishlists.py
+python scripts/migrate_user_id_nullable.py
 
 # Restart the app
 python run.py

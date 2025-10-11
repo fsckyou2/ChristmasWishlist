@@ -10,8 +10,14 @@ bp = Blueprint("main", __name__)
 def index():
     """Home page"""
     if current_user.is_authenticated:
-        # Count items on user's wishlist
-        my_items_count = WishlistItem.query.filter_by(user_id=current_user.id).count()
+        # Count items on user's wishlist (excluding custom gifts from others)
+        my_items_count = (
+            WishlistItem.query.filter_by(user_id=current_user.id)
+            .filter(
+                (WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id)  # noqa: E711, E712
+            )
+            .count()
+        )
 
         # Get other users
         other_users = User.query.filter(User.id != current_user.id).order_by(User.name).limit(10).all()

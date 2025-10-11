@@ -148,19 +148,38 @@ def scrape_ebay(soup):
                 data["description"] = desc[:500]
                 break
 
-    # Image
-    img_selectors = [("meta", {"property": "og:image"}), ("img", {"id": "icImg"}), ("img", {"itemprop": "image"})]
+    # Images - collect multiple
+    images = []
+    img_selectors = [
+        ("meta", {"property": "og:image"}),
+        ("img", {"id": "icImg"}),
+        ("img", {"itemprop": "image"}),
+        ("div", {"class": "ux-image-carousel-item"}),
+        ("img", {"class": "img-pct"}),
+    ]
 
-    for tag, attrs in img_selectors:
+    # First get the primary image
+    for tag, attrs in img_selectors[:3]:
         elem = soup.find(tag, attrs)
         if elem:
             if tag == "meta":
                 img_url = elem.get("content", "")
             else:
                 img_url = elem.get("src", "") or elem.get("data-src", "")
-            if img_url and img_url.startswith("http"):
+            if img_url and img_url.startswith("http") and img_url not in images:
+                images.append(img_url)
                 data["image"] = img_url
                 break
+
+    # Get additional gallery images
+    carousel_imgs = soup.find_all("img", {"class": "ux-image-carousel-item"})
+    for img in carousel_imgs[:5]:
+        img_url = img.get("src", "") or img.get("data-src", "")
+        if img_url and img_url.startswith("http") and img_url not in images:
+            images.append(img_url)
+
+    if images:
+        data["images"] = images[:5]  # Limit to 5 images
 
     return data
 
@@ -198,10 +217,29 @@ def scrape_amazon(soup):
     if desc_elem:
         data["description"] = desc_elem.get_text(strip=True)[:500]
 
-    # Image
+    # Images - collect multiple
+    images = []
+
+    # Primary image
     img_elem = soup.find("img", {"id": "landingImage"})
     if img_elem:
-        data["image"] = img_elem.get("src", "")
+        img_url = img_elem.get("src", "")
+        if img_url and img_url.startswith("http"):
+            # Get full resolution by removing size parameters
+            img_url = img_url.split("._")[0] + ".jpg" if "._" in img_url else img_url
+            images.append(img_url)
+            data["image"] = img_url
+
+    # Additional images from gallery thumbnails
+    thumb_imgs = soup.find_all("img", {"class": "a-dynamic-image"})
+    for img in thumb_imgs[:5]:
+        img_url = img.get("data-old-hires") or img.get("src", "")
+        if img_url and img_url.startswith("http") and img_url not in images:
+            img_url = img_url.split("._")[0] + ".jpg" if "._" in img_url else img_url
+            images.append(img_url)
+
+    if images:
+        data["images"] = images[:5]  # Limit to 5 images
 
     return data
 
@@ -231,10 +269,26 @@ def scrape_walmart(soup):
     if desc_elem:
         data["description"] = desc_elem.get_text(strip=True)[:500]
 
-    # Image
+    # Images - collect multiple
+    images = []
+
+    # Primary image
     img_elem = soup.find("img", {"itemprop": "image"})
     if img_elem:
-        data["image"] = img_elem.get("src", "")
+        img_url = img_elem.get("src", "")
+        if img_url and img_url.startswith("http"):
+            images.append(img_url)
+            data["image"] = img_url
+
+    # Additional images from gallery
+    gallery_imgs = soup.find_all("img", {"class": ["hover-zoom-hero-image", "prod-hero-image"]})
+    for img in gallery_imgs[:5]:
+        img_url = img.get("src", "")
+        if img_url and img_url.startswith("http") and img_url not in images:
+            images.append(img_url)
+
+    if images:
+        data["images"] = images[:5]  # Limit to 5 images
 
     return data
 
@@ -263,9 +317,33 @@ def scrape_generic(soup):
     if meta_desc:
         data["description"] = meta_desc.get("content", "").strip()[:500]
 
-    # Image from meta tags
+    # Images - collect multiple from meta tags and common patterns
+    images = []
+
+    # Primary og:image
     meta_img = soup.find("meta", {"property": "og:image"})
     if meta_img:
-        data["image"] = meta_img.get("content", "")
+        img_url = meta_img.get("content", "")
+        if img_url and img_url.startswith("http"):
+            images.append(img_url)
+            data["image"] = img_url
+
+    # Additional meta images
+    meta_imgs = soup.find_all("meta", {"property": ["og:image", "og:image:secure_url", "twitter:image"]})
+    for meta in meta_imgs[:5]:
+        img_url = meta.get("content", "")
+        if img_url and img_url.startswith("http") and img_url not in images:
+            images.append(img_url)
+
+    # Fallback to common image patterns
+    if len(images) < 3:
+        common_imgs = soup.find_all("img", {"class": ["product-image", "main-image"]}, limit=3)
+        for img in common_imgs:
+            img_url = img.get("src", "") or img.get("data-src", "")
+            if img_url and img_url.startswith("http") and img_url not in images:
+                images.append(img_url)
+
+    if images:
+        data["images"] = images[:5]  # Limit to 5 images
 
     return data

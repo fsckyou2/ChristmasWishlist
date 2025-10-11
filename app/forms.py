@@ -41,3 +41,11 @@ class PurchaseForm(FlaskForm):
 
     quantity = IntegerField("Quantity to Purchase", validators=[DataRequired(), NumberRange(min=1)])
     submit = SubmitField("Mark as Purchased")
+
+
+class ProxyWishlistForm(FlaskForm):
+    """Form for creating a proxy wishlist for someone without an account"""
+
+    name = StringField("Name", validators=[DataRequired()])
+    email = StringField("Email (Optional)", validators=[Optional(), Email()])
+    submit = SubmitField("Create Wishlist")

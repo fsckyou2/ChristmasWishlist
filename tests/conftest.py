@@ -45,6 +45,15 @@ def admin_user(app):
 
 
 @pytest.fixture
+def other_user(app):
+    """Create another test user"""
+    other = User(email="other@example.com", name="Other User", is_admin=False)
+    db.session.add(other)
+    db.session.commit()
+    return other
+
+
+@pytest.fixture
 def wishlist_item(app, user):
     """Create a test wishlist item"""
     item = WishlistItem(

@@ -4,11 +4,17 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Browse Wishlists</h1>
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-4xl font-bold">Browse Wishlists</h1>
+        <a href="{{ url_for('wishlist.create_proxy_wishlist') }}" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center gap-2">
+            <span>➕</span>
+            <span>Create Wishlist for Non-User</span>
+        </a>
+    </div>
 
-    {% if users %}
+    {% if users or proxies %}
         <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-            <div class="divide-y">
+            <div class="divide-y divide-gray-700">
                 {% for user in users %}
                     <a href="{{ url_for('wishlist.view_user_list', user_id=user.id) }}" class="block p-6 hover:bg-gray-700 transition">
                         <div class="flex justify-between items-center">
@@ -18,6 +24,26 @@
                             </div>
                             <div class="text-right">
                                 <p class="text-2xl font-bold text-red-600">{{ user.wishlist_items.count() }}</p>
+                                <p class="text-sm text-gray-400">items</p>
+                            </div>
+                        </div>
+                    </a>
+                {% endfor %}
+
+                {% for proxy in proxies %}
+                    <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="block p-6 hover:bg-gray-700 transition">
+                        <div class="flex justify-between items-center">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3">
+                                    <h3 class="text-xl font-bold text-gray-100">{{ proxy.name }}</h3>
+                                    <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded-full">Pending Account</span>
+                                </div>
+                                <p class="text-gray-400 text-sm">
+                                    {% if proxy.email %}{{ proxy.email }}{% else %}No email provided{% endif %}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl font-bold text-yellow-600">{{ proxy.items|length }}</p>
                                 <p class="text-sm text-gray-400">items</p>
                             </div>
                         </div>
