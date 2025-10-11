@@ -131,19 +131,31 @@ def add_item():
         db.session.add(item)
         db.session.flush()  # Get the item ID
 
-        # Check for duplicate items (including custom gifts from others)
+        # Check for duplicate items against ALL items (including hidden custom gifts)
         all_user_items = WishlistItem.query.filter_by(user_id=current_user.id).filter(WishlistItem.id != item.id).all()
         merged = False
 
         for existing_item in all_user_items:
             if similar_items(item, existing_item):
-                # Found a duplicate - merge the new item into the existing one
-                merge_items(existing_item, item)
+                # Check if existing_item is a custom gift from someone else
+                is_custom_gift_from_other = existing_item.added_by_id and existing_item.added_by_id != current_user.id
+
+                if is_custom_gift_from_other:
+                    # Merge custom gift INTO the new item (keep new item, delete custom gift)
+                    merge_items(item, existing_item)
+                    flash(
+                        "Item added to your wishlist!",
+                        "success",
+                    )
+                else:
+                    # Both are user's own items - merge new INTO existing (keep existing, delete new)
+                    merge_items(existing_item, item)
+                    flash(
+                        f'Item merged with existing item "{existing_item.name}" in your wishlist!',
+                        "info",
+                    )
+
                 merged = True
-                flash(
-                    f'Item merged with existing item "{existing_item.name}" in your wishlist!',
-                    "info",
-                )
                 db.session.commit()
                 return redirect(url_for("wishlist.my_list"))
 
@@ -470,22 +482,38 @@ def add_item_from_scraped_data():
     db.session.add(item)
     db.session.flush()  # Get the item ID
 
-    # Check for duplicate items (including custom gifts from others)
+    # Check for duplicate items against ALL items (including hidden custom gifts)
     all_user_items = WishlistItem.query.filter_by(user_id=current_user.id).filter(WishlistItem.id != item.id).all()
 
     for existing_item in all_user_items:
         if similar_items(item, existing_item):
-            # Found a duplicate - merge the new item into the existing one
-            merge_items(existing_item, item)
-            db.session.commit()
-            return jsonify(
-                {
-                    "success": True,
-                    "merged": True,
-                    "merged_with_id": existing_item.id,
-                    "message": f'Item merged with existing item "{existing_item.name}"',
-                }
-            )
+            # Check if existing_item is a custom gift from someone else
+            is_custom_gift_from_other = existing_item.added_by_id and existing_item.added_by_id != current_user.id
+
+            if is_custom_gift_from_other:
+                # Merge custom gift INTO the new item (keep new item, delete custom gift)
+                merge_items(item, existing_item)
+                db.session.commit()
+                return jsonify(
+                    {
+                        "success": True,
+                        "merged": True,
+                        "merged_with_id": item.id,
+                        "message": "Item added!",
+                    }
+                )
+            else:
+                # Both are user's own items - merge new INTO existing (keep existing, delete new)
+                merge_items(existing_item, item)
+                db.session.commit()
+                return jsonify(
+                    {
+                        "success": True,
+                        "merged": True,
+                        "merged_with_id": existing_item.id,
+                        "message": f'Item merged with existing item "{existing_item.name}"',
+                    }
+                )
 
     # No duplicates found - track the change and add normally
     change = WishlistChange(user_id=current_user.id, change_type="added", item_name=item.name, item_id=item.id)

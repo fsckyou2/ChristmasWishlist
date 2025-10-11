@@ -14,8 +14,8 @@ def index():
         my_items_count = (
             WishlistItem.query.filter_by(user_id=current_user.id)
             .filter(
-                (WishlistItem.added_by_id is None) | (WishlistItem.added_by_id == current_user.id)
-            )  # noqa: E711, E712
+                (WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id)  # noqa: E711, E712
+            )
             .count()
         )
 
