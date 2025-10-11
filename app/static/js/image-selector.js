@@ -112,8 +112,8 @@ class ImageSelector {
     render() {
         if (!this.container) return;
 
-        // Only show if there are multiple images to choose from
-        if (this.images.length <= 1) {
+        // Only show if there are images available (always show at least default)
+        if (this.images.length === 0) {
             this.container.innerHTML = '';
             this.container.style.display = 'none';
             return;

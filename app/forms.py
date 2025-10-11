@@ -4,6 +4,22 @@ from wtforms.validators import DataRequired, Email, ValidationError, URL, Option
 from app.models import User
 
 
+def flexible_url_validator(form, field):
+    """Validator that allows full URLs or relative paths (for static files)"""
+    if not field.data:
+        return  # Allow empty
+
+    # Allow relative paths starting with /
+    if field.data.startswith("/"):
+        return
+
+    # Otherwise, validate as full URL
+    try:
+        URL()(form, field)
+    except ValidationError:
+        raise ValidationError("Must be a valid URL or a relative path starting with /")
+
+
 class RegistrationForm(FlaskForm):
     """Passwordless registration form"""
 
@@ -31,7 +47,7 @@ class WishlistItemForm(FlaskForm):
     name = StringField("Item Name", validators=[DataRequired()])
     description = TextAreaField("Description", validators=[Optional()])
     price = FloatField("Price", validators=[Optional(), NumberRange(min=0)])
-    image_url = StringField("Image URL", validators=[Optional(), URL()])
+    image_url = StringField("Image URL", validators=[Optional(), flexible_url_validator])
     quantity = IntegerField("Quantity", validators=[DataRequired(), NumberRange(min=1)], default=1)
     submit = SubmitField("Add to Wishlist")
 
