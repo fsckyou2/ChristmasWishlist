@@ -18,15 +18,15 @@ You don't need to manually run migrations when deploying to production!
 All migration scripts are numbered in order of application:
 
 ```
-001_migrate_purchase_fields.py        - Rename 'acquired' to 'purchased', add 'received' field
-002_migrate_user_tour.py              - Add has_seen_tour field to users
-003_migrate_wishlist_changes_cascade.py - Add CASCADE DELETE to wishlist_changes
-004_migrate_custom_gifts.py           - Add added_by_id to track custom gifts
-005_migrate_available_images.py       - Add available_images column for image selection
-006_migrate_proxy_wishlists.py        - Create proxy_wishlists table
-007_migrate_user_id_nullable.py       - Make user_id nullable in wishlist_items
-008_migrate_username_password.py      - Add username and password_hash columns
-009_migrate_email_nullable.py         - Make email nullable for username-only users
+001_migrate_user_tour.py              - Add has_seen_tour field to users
+002_migrate_username_password.py      - Add username and password_hash columns
+003_migrate_email_nullable.py         - Make email nullable for username-only users
+004_migrate_purchase_fields.py        - Rename 'acquired' to 'purchased', add 'received' field
+005_migrate_wishlist_changes_cascade.py - Add CASCADE DELETE to wishlist_changes
+006_migrate_custom_gifts.py           - Add added_by_id to track custom gifts
+007_migrate_available_images.py       - Add available_images column for image selection
+008_migrate_proxy_wishlists.py        - Create proxy_wishlists table
+009_migrate_user_id_nullable.py       - Make user_id nullable in wishlist_items
 ```
 
 ## Running Migrations
@@ -238,16 +238,16 @@ docker restart christmas-wishlist
 
 ## Migration History
 
-Each migration corresponds to a feature or fix:
+Each migration corresponds to a feature or fix (reordered for dependency management):
 
-- **001**: Purchase status tracking improvements
-- **002**: Welcome tour feature
-- **003**: User deletion cascade fix
-- **004**: Custom gift tracking
-- **005**: Multi-image selection
-- **006**: Proxy wishlists for non-users
-- **007**: Support proxy wishlist items
-- **008**: Username/password authentication
-- **009**: Optional email addresses
+- **001**: Welcome tour feature (has_seen_tour column)
+- **002**: Username/password authentication
+- **003**: Optional email addresses
+- **004**: Purchase status tracking improvements
+- **005**: User deletion cascade fix
+- **006**: Custom gift tracking
+- **007**: Multi-image selection
+- **008**: Proxy wishlists for non-users
+- **009**: Support proxy wishlist items
 
 See individual migration files for detailed change descriptions.
