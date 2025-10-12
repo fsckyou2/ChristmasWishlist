@@ -23,17 +23,19 @@ docker exec christmas-wishlist flake8 app/ tests/ config.py run.py
 
 ### Docker (Recommended)
 ```bash
-# Build and start container
+# Build and start all services (web + scheduler)
 docker compose up -d --build
 
-# Stop and remove container
+# Stop and remove containers
 docker compose down
 
 # Clean volumes (WARNING: deletes database)
 docker compose down -v
 
 # View logs
-docker logs christmas-wishlist
+docker logs christmas-wishlist              # Web server logs
+docker logs christmas-wishlist-scheduler    # Scheduler logs
+docker compose logs -f                      # Follow all logs
 
 # Access container shell
 docker exec -it christmas-wishlist bash
@@ -132,10 +134,29 @@ Two-tier scraping system:
 - **send_daily_digest()**: Aggregates WishlistChange records, groups by user, sends one email per recipient
 - Uses Flask-Mail with Mailgun SMTP (configurable in .env)
 
-### Scheduler (app/scheduler.py)
-- Uses APScheduler with BackgroundScheduler
-- Runs daily digest at hour specified in `DAILY_DIGEST_HOUR` config (UTC)
-- Initialized in `create_app()` factory
+### Scheduler Architecture
+
+The application uses a **separate scheduler service** to run periodic tasks (like daily digest emails). This architecture prevents duplicate jobs when running multiple gunicorn workers.
+
+**Components**:
+- `scheduler_worker.py` - Standalone scheduler process (runs APScheduler in foreground)
+- `app/scheduler.py` - Scheduler configuration (legacy, only used if `SCHEDULER_ENABLED=true`)
+- `docker-compose.yml` - Defines both `web` and `scheduler` services
+
+**How it works**:
+1. Web service runs gunicorn with 4 workers (does NOT run scheduler)
+2. Scheduler service runs `scheduler_worker.py` as single process
+3. Both services share the same Docker image and database volume
+4. Scheduler creates Flask app context to access database and send emails
+
+**Environment Variables**:
+- `SCHEDULER_ENABLED=false` - Set on web service to disable in-process scheduler
+- `DAILY_DIGEST_HOUR` - Hour (0-23 UTC) for daily emails, default 9
+
+**Manual trigger**:
+```bash
+docker exec christmas-wishlist flask send-digest
+```
 
 ### Reverse Proxy Support
 - ProxyFix middleware configured for X-Forwarded-* headers (see `app/__init__.py`)
@@ -348,3 +369,4 @@ python scripts/bump_version.py [major|minor|patch]
 - See `WORKFLOW_SEQUENCE.md` for detailed execution flow
 - See `VERSIONING.md` for versioning guide
 - See `CHANGELOG.md` for version history and changes
+- Always check Black and Flake8 formatting

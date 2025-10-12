@@ -5,6 +5,7 @@ from flask_mail import Mail
 from dotenv import load_dotenv
 from werkzeug.middleware.proxy_fix import ProxyFix
 import os
+import logging
 from pathlib import Path
 
 # Load environment variables
@@ -18,6 +19,9 @@ __version__ = _version_file.read_text().strip() if _version_file.exists() else "
 db = SQLAlchemy()
 login_manager = LoginManager()
 mail = Mail()
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 
 def create_app(config_name="default"):
@@ -158,9 +162,15 @@ def create_app(config_name="default"):
                     db.session.rollback()
 
         # Initialize scheduler for daily digest emails
-        from app.scheduler import init_scheduler
+        # Only run scheduler in dedicated scheduler worker, not in gunicorn workers
+        # This prevents duplicate emails when running multiple gunicorn workers
+        if os.getenv("SCHEDULER_ENABLED", "false").lower() == "true":
+            from app.scheduler import init_scheduler
 
-        init_scheduler(app)
+            init_scheduler(app)
+            logger.info("Scheduler initialized in this process")
+        else:
+            logger.info("Scheduler disabled (running in separate scheduler_worker.py)")
 
         # Register CLI commands
         from app.cli import init_cli

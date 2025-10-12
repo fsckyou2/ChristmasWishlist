@@ -7,6 +7,7 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=production
+      - SCHEDULER_ENABLED=false  # Scheduler runs in separate service
     env_file:
       - .env
     volumes:
@@ -17,6 +18,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  scheduler:
+    build: .
+    container_name: christmas-wishlist-scheduler
+    restart: unless-stopped
+    command: ["scheduler"]  # Passed to entrypoint script
+    environment:
+      - FLASK_ENV=production
+      - SCHEDULER_ENABLED=true  # Not used by scheduler_worker.py, but for clarity
+    env_file:
+      - .env
+    volumes:
+      - ./instance:/app/instance
+    depends_on:
+      - web
 
 volumes:
   instance:
