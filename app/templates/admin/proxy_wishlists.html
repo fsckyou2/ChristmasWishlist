@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Proxy Wishlists{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8">Manage Proxy Wishlists</h1>
+
+    <div class="mb-4">
+        <a href="{{ url_for('wishlist.create_proxy_wishlist') }}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+            Create New Proxy Wishlist
+        </a>
+    </div>
+
+    {% if proxies %}
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-700">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Items</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Created By</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Created</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for proxy in proxies %}
+                    <tr class="hover:bg-gray-700">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ proxy.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if proxy.email %}
+                                {{ proxy.email }}
+                            {% else %}
+                                <span class="text-gray-400 italic">No email</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ proxy.items|length }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ proxy.created_by.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ proxy.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="text-blue-600 hover:underline mr-3">View</a>
+                            <a href="{{ url_for('admin.merge_proxy_wishlist', proxy_id=proxy.id) }}" class="text-green-600 hover:underline mr-3">Merge</a>
+                            <form method="POST" action="{{ url_for('admin.delete_proxy_wishlist', proxy_id=proxy.id) }}" class="inline">
+                                <button type="submit" onclick="return confirm('Delete this proxy wishlist and all its items?')" class="text-red-600 hover:underline">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="bg-gray-800 rounded-lg shadow-lg p-8 text-center">
+        <p class="text-gray-300">No proxy wishlists found.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

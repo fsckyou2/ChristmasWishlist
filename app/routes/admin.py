@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from functools import wraps
 from app import db
-from app.models import User, WishlistItem, Purchase
+from app.models import User, WishlistItem, Purchase, ProxyWishlist
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -203,3 +203,73 @@ def purchases():
     """View all purchases"""
     all_purchases = Purchase.query.order_by(Purchase.created_at.desc()).all()
     return render_template("admin/purchases.html", purchases=all_purchases)
+
+
+@bp.route("/proxy-wishlists")
+@login_required
+@admin_required
+def proxy_wishlists():
+    """View all proxy wishlists"""
+    all_proxies = ProxyWishlist.query.order_by(ProxyWishlist.created_at.desc()).all()
+    return render_template("admin/proxy_wishlists.html", proxies=all_proxies)
+
+
+@bp.route("/proxy-wishlist/<int:proxy_id>/merge", methods=["GET", "POST"])
+@login_required
+@admin_required
+def merge_proxy_wishlist(proxy_id):
+    """Merge a proxy wishlist into a user's account"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+
+    if request.method == "POST":
+        user_id = request.form.get("user_id")
+        if not user_id:
+            flash("Please select a user to merge with.", "danger")
+            return redirect(url_for("admin.merge_proxy_wishlist", proxy_id=proxy_id))
+
+        user = User.query.get_or_404(user_id)
+
+        # Import the merge function from auth routes
+        from app.routes.auth import merge_proxy_wishlist_to_user
+
+        try:
+            total_items, merged_count = merge_proxy_wishlist_to_user(proxy, user)
+            db.session.commit()
+
+            transferred_count = total_items - merged_count
+            message_parts = []
+            if transferred_count > 0:
+                message_parts.append(f"{transferred_count} item(s) transferred")
+            if merged_count > 0:
+                message_parts.append(f"{merged_count} item(s) merged with existing items")
+
+            flash(
+                f"Proxy wishlist for '{proxy.name}' merged into {user.name}'s wishlist. "
+                f"{', '.join(message_parts)}.",
+                "success",
+            )
+            return redirect(url_for("admin.proxy_wishlists"))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error merging proxy wishlist: {str(e)}", "danger")
+            return redirect(url_for("admin.merge_proxy_wishlist", proxy_id=proxy_id))
+
+    # GET request - show merge form
+    all_users = User.query.order_by(User.name).all()
+    items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).all()
+    return render_template("admin/merge_proxy_wishlist.html", proxy=proxy, users=all_users, items=items)
+
+
+@bp.route("/proxy-wishlist/<int:proxy_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_proxy_wishlist(proxy_id):
+    """Delete a proxy wishlist"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    proxy_name = proxy.name
+
+    db.session.delete(proxy)
+    db.session.commit()
+
+    flash(f"Proxy wishlist for '{proxy_name}' has been deleted.", "success")
+    return redirect(url_for("admin.proxy_wishlists"))
