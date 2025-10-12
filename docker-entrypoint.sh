@@ -5,6 +5,11 @@ echo "================================"
 echo "Starting Christmas Wishlist App"
 echo "================================"
 
+# Ensure instance directory exists
+echo ""
+echo "Ensuring instance directory exists..."
+mkdir -p instance
+
 # Run database migrations
 echo ""
 echo "Running database migrations..."
