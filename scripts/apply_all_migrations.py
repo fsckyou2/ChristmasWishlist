@@ -93,11 +93,20 @@ for filepath in migration_files:
         print(f"   {type(e).__name__}: {str(e)}")
         failed_migrations.append(filename)
 
-        # Ask if we should continue with remaining migrations
-        print(f"\n⚠️  Failed on migration: {filename}")
-        response = input("   Continue with remaining migrations? (y/n): ").lower().strip()
-        if response != "y":
-            print("\n🛑 Migration process stopped by user")
+        # Check if running in interactive mode
+        import sys
+
+        if sys.stdin.isatty():
+            # Interactive mode - ask user
+            print(f"\n⚠️  Failed on migration: {filename}")
+            response = input("   Continue with remaining migrations? (y/n): ").lower().strip()
+            if response != "y":
+                print("\n🛑 Migration process stopped by user")
+                break
+        else:
+            # Non-interactive mode (Docker/automated) - stop on first failure
+            print(f"\n⚠️  Failed on migration: {filename}")
+            print("🛑 Stopping migration process (non-interactive mode)")
             break
 
 # Print summary

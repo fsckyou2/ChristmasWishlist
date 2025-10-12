@@ -2,6 +2,17 @@
 
 This directory contains all database migration scripts for the Christmas Wishlist application.
 
+## Automatic Migrations on Container Startup
+
+**Important**: When the Docker container starts, it **automatically runs all migrations** before starting the application. This ensures the database is always up-to-date.
+
+- ✅ Fresh deployments: Database schema is automatically created
+- ✅ Updates: New migrations are automatically applied
+- ✅ Idempotent: Safe to run multiple times (skips already-applied migrations)
+- ✅ Fail-safe: Container will not start if migrations fail
+
+You don't need to manually run migrations when deploying to production!
+
 ## Migration System
 
 All migration scripts are numbered in order of application:
