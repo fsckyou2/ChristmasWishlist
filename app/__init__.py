@@ -71,10 +71,10 @@ def create_app(config_name="default"):
     app.register_blueprint(scraper.bp)
     app.register_blueprint(passkey.bp)
 
-    # Add version to template context
+    # Add version and app name to template context
     @app.context_processor
-    def inject_version():
-        return {"app_version": __version__}
+    def inject_globals():
+        return {"app_version": __version__, "app_name": app.config["APP_NAME"]}
 
     # Create database tables
     with app.app_context():

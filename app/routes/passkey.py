@@ -38,12 +38,15 @@ def register_begin():
         for passkey in current_user.passkeys:
             existing_credentials.append(PublicKeyCredentialDescriptor(id=passkey.credential_id))
 
+        # Use email or username for passkey user_name (required field)
+        user_name = current_user.email or current_user.username or f"user_{current_user.id}"
+
         # Generate registration options
         options = generate_registration_options(
             rp_id=rp_id,
             rp_name=rp_name,
             user_id=str(current_user.id).encode(),
-            user_name=current_user.email,
+            user_name=user_name,
             user_display_name=current_user.name,
             exclude_credentials=existing_credentials,
             authenticator_selection=AuthenticatorSelectionCriteria(

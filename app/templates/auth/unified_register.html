@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8 text-center">Create Your Account</h1>
+
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- Email Registration -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-4">📧 Register with Email</h2>
+            <p class="text-gray-400 mb-6">No password needed! We'll send you a secure login link.</p>
+
+            <form method="POST" action="{{ url_for('auth.register') }}" class="space-y-4">
+                {{ email_form.hidden_tag() }}
+
+                <div>
+                    {{ email_form.name.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ email_form.name(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600", placeholder="Your Name") }}
+                    {% if email_form.name.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ email_form.name.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    {{ email_form.email.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ email_form.email(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600", placeholder="your@email.com") }}
+                    {% if email_form.email.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ email_form.email.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <p class="text-xs text-gray-400">
+                    We'll send you a welcome email with a login link. No password required!
+                </p>
+
+                {{ email_form.submit(class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 cursor-pointer") }}
+            </form>
+        </div>
+
+        <!-- Username/Password Registration -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-4">🔐 Register with Password</h2>
+            <p class="text-gray-400 mb-6">Create a username and password for your account.</p>
+
+            <form method="POST" action="{{ url_for('auth.register_username') }}" class="space-y-4">
+                {{ password_form.hidden_tag() }}
+
+                <div>
+                    {{ password_form.name.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ password_form.name(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600", placeholder="Your Name") }}
+                    {% if password_form.name.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ password_form.name.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    {{ password_form.username.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ password_form.username(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600", placeholder="username") }}
+                    {% if password_form.username.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ password_form.username.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    {{ password_form.password.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ password_form.password(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600") }}
+                    {% if password_form.password.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ password_form.password.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    {{ password_form.confirm_password.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ password_form.confirm_password(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600") }}
+                    {% if password_form.confirm_password.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ password_form.confirm_password.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <p class="text-xs text-gray-400">
+                    Password must be at least 8 characters.
+                </p>
+
+                {{ password_form.submit(class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 cursor-pointer") }}
+            </form>
+        </div>
+    </div>
+
+    <div class="mt-6 text-center">
+        <p class="text-gray-400">Already have an account? <a href="{{ url_for('auth.login') }}" class="text-red-600 hover:underline">Login</a></p>
+    </div>
+</div>
+{% endblock %}

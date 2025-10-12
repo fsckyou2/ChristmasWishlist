@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify
+from flask import Blueprint, render_template, jsonify, current_app
 from flask_login import current_user
 from app.models import User, WishlistItem
 from app import __version__
@@ -35,4 +35,25 @@ def about():
 @bp.route("/version")
 def version():
     """Return application version"""
-    return jsonify({"version": __version__, "app": "Christmas Wishlist"})
+    return jsonify({"version": __version__, "app": current_app.config["APP_NAME"]})
+
+
+@bp.route("/manifest.json")
+def manifest():
+    """Return PWA manifest with dynamic app name"""
+    app_name = current_app.config["APP_NAME"]
+    return jsonify(
+        {
+            "name": app_name,
+            "short_name": app_name,
+            "description": f"{app_name} - Share your holiday wishes",
+            "start_url": "/",
+            "display": "standalone",
+            "background_color": "#111827",
+            "theme_color": "#dc2626",
+            "icons": [
+                {"src": "/static/images/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                {"src": "/static/images/icon-512.png", "sizes": "512x512", "type": "image/png"},
+            ],
+        }
+    )

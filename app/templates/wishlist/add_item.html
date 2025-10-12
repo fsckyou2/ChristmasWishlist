@@ -109,10 +109,12 @@ document.getElementById('scrape-btn').addEventListener('click', async function()
     this.textContent = 'Loading...';
 
     try {
+        console.log('Attempting client-side scraping...');
         const result = await scrapeProductUrl(url);
 
         if (result.success && result.data) {
             const data = result.data;
+            console.log('Client-side scraping successful:', data);
 
             // Fill form fields
             if (data.name) document.getElementById('name-input').value = data.name;
@@ -134,9 +136,53 @@ document.getElementById('scrape-btn').addEventListener('click', async function()
         } else {
             throw new Error(result.error || 'Could not extract product information');
         }
-    } catch (error) {
-        console.error('Scraping error:', error);
-        alert('Could not load product information: ' + error.message + '\nPlease fill in manually.');
+    } catch (clientError) {
+        console.warn('Client-side scraping failed:', clientError.message);
+        console.log('Falling back to server-side scraping...');
+
+        // Fallback to server-side scraping
+        try {
+            const response = await fetch('/scraper/scrape', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: url })
+            });
+
+            const serverResult = await response.json();
+
+            if (response.ok && (serverResult.title || serverResult.name)) {
+                console.log('Server-side scraping successful:', serverResult);
+
+                // Fill form fields (server returns 'title' instead of 'name')
+                if (serverResult.title || serverResult.name) {
+                    document.getElementById('name-input').value = serverResult.title || serverResult.name;
+                }
+                if (serverResult.description) {
+                    document.getElementById('description-input').value = serverResult.description;
+                }
+                if (serverResult.price) {
+                    document.getElementById('price-input').value = serverResult.price;
+                }
+
+                // Handle images
+                if (serverResult.images && serverResult.images.length > 0) {
+                    window.imageSelector.setImages(serverResult.images);
+                } else if (serverResult.image) {
+                    window.imageSelector.setImages([serverResult.image]);
+                } else {
+                    window.imageSelector.setImages([]);
+                }
+
+                alert('Product information loaded successfully!');
+            } else {
+                throw new Error(serverResult.error || 'Could not extract product information');
+            }
+        } catch (serverError) {
+            console.error('Both client and server scraping failed:', serverError);
+            alert('Could not load product information from either method.\nPlease fill in manually.\n\nDetails: ' + clientError.message);
+        }
     } finally {
         this.disabled = false;
         this.textContent = 'Auto-Fill from URL';

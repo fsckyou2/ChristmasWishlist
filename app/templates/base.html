@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Scimone Christmas Wishlist - Share your holiday wishes with your family">
+    <meta name="description" content="{{ app_name }} - Share your holiday wishes with your family">
     <meta name="theme-color" content="#dc2626">
-    <title>{% block title %}Scimone Christmas Wishlist{% endblock %}</title>
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -14,7 +14,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎁</text></svg>">
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="manifest" href="{{ url_for('main.manifest') }}">
 
     {% block head %}{% endblock %}
 </head>
@@ -25,8 +25,8 @@
             <div class="flex justify-between items-center py-4">
                 <a href="{{ url_for('main.index') }}" class="text-xl md:text-2xl font-bold flex items-center gap-2">
                     <span class="text-2xl md:text-3xl">🎁</span>
-                    <span class="hidden sm:inline">Scimone Christmas Wishlist</span>
-                    <span class="sm:hidden">Christmas</span>
+                    <span class="hidden sm:inline">{{ app_name }}</span>
+                    <span class="sm:hidden">Wishlist</span>
                 </a>
 
                 <!-- Mobile Menu Button -->
@@ -50,11 +50,11 @@
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline">My Wishlist</a>
                             <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">My Gifts for Others</a>
                             <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline">Browse Wishlists</a>
-                            <a href="{{ url_for('passkey.manage') }}" class="hover:underline">Passkeys</a>
                             {% if current_user.is_admin %}
                                 <a href="{{ url_for('admin.dashboard') }}" class="hover:underline">Admin</a>
                             {% endif %}
-                            <a href="{{ url_for('auth.logout') }}" class="hover:underline">Logout ({{ current_user.name }})</a>
+                            <a href="{{ url_for('auth.settings') }}" class="hover:underline">Account Settings</a>
+                            <a href="{{ url_for('auth.logout') }}" class="hover:underline">Logout</a>
                         {% endif %}
                     {% else %}
                         <a href="{{ url_for('auth.login') }}" class="hover:underline">Login</a>
@@ -80,11 +80,11 @@
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline py-2">My Wishlist</a>
                             <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">My Gifts for Others</a>
                             <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline py-2">Browse Wishlists</a>
-                            <a href="{{ url_for('passkey.manage') }}" class="hover:underline py-2">Passkeys</a>
                             {% if current_user.is_admin %}
                                 <a href="{{ url_for('admin.dashboard') }}" class="hover:underline py-2">Admin</a>
                             {% endif %}
-                            <a href="{{ url_for('auth.logout') }}" class="hover:underline py-2">Logout ({{ current_user.name }})</a>
+                            <a href="{{ url_for('auth.settings') }}" class="hover:underline py-2">Account Settings</a>
+                            <a href="{{ url_for('auth.logout') }}" class="hover:underline py-2">Logout</a>
                         {% endif %}
                     {% else %}
                         <a href="{{ url_for('auth.login') }}" class="hover:underline py-2">Login</a>
@@ -118,7 +118,7 @@
     <!-- Footer -->
     <footer class="bg-gray-950 text-gray-300 mt-12 py-6">
         <div class="container mx-auto px-4 text-center">
-            <p>&copy; 2025 Scimone Christmas Wishlist. Made with ❤️ for the holidays.</p>
+            <p>&copy; 2025 {{ app_name }}. Made with ❤️ for the holidays.</p>
             <p class="text-gray-500 text-sm mt-2">Version {{ app_version }}</p>
         </div>
     </footer>
