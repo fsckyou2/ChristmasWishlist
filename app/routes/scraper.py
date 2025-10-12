@@ -82,7 +82,20 @@ def scrape_url():
                 current_app.logger.error(f"Failed to extract any product data from {url}")
                 return jsonify({"error": "Could not extract product information from this URL"}), 400
 
-        return jsonify(product_data), 200
+        # Normalize keys for consistency with client-side scraper
+        # Server uses "title" and "image", client uses "name" and "image_url"
+        normalized_data = {
+            "success": True,
+            "data": {
+                "name": product_data.get("title", ""),
+                "price": product_data.get("price"),
+                "description": product_data.get("description", ""),
+                "image_url": product_data.get("image", ""),
+                "images": product_data.get("images", []),
+            },
+        }
+
+        return jsonify(normalized_data), 200
 
     except requests.RequestException as e:
         return jsonify({"error": f"Failed to fetch URL: {str(e)}"}), 400
@@ -194,23 +207,38 @@ def scrape_amazon(soup):
     """Extract product data from Amazon"""
     data = {}
 
-    # Title - try multiple selectors
+    # Title - try multiple selectors (prioritize actual product title over meta tags)
     title_selectors = [
         ("span", {"id": "productTitle"}),
         ("h1", {"id": "title"}),
         ("meta", {"property": "og:title"}),
-        ("meta", {"name": "title"}),
     ]
 
     for tag, attrs in title_selectors:
         elem = soup.find(tag, attrs)
         if elem:
             if tag == "meta":
-                data["title"] = elem.get("content", "").strip()
+                title = elem.get("content", "").strip()
             else:
-                data["title"] = elem.get_text(strip=True)
-            if data["title"]:
+                title = elem.get_text(strip=True)
+
+            # Skip if we got "Amazon.com" or similar site name
+            if title and not title.lower().startswith("amazon"):
+                data["title"] = title
                 break
+
+    # Fallback to meta title tag, but clean it up
+    if not data.get("title"):
+        meta_title = soup.find("meta", {"name": "title"})
+        if meta_title:
+            title = meta_title.get("content", "").strip()
+            # Remove "Amazon.com: " prefix if present
+            if title.startswith("Amazon.com: "):
+                title = title.replace("Amazon.com: ", "", 1)
+            # Remove trailing store name like " : Tools & Home Improvement"
+            if " : " in title:
+                title = title.split(" : ")[0]
+            data["title"] = title
 
     # Price - try multiple selectors
     price_selectors = [

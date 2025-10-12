@@ -219,11 +219,12 @@ def edit_item(item_id):
     """Edit wishlist item"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item OR is the person who added it as a custom gift
+    # Check if user owns this item OR is the person who added it as a custom gift OR is admin editing proxy item
     is_owner = item.user_id == current_user.id
     is_custom_gift_adder = item.added_by_id == current_user.id
+    is_admin_editing_proxy = current_user.is_admin and item.is_proxy_item
 
-    if not (is_owner or is_custom_gift_adder):
+    if not (is_owner or is_custom_gift_adder or is_admin_editing_proxy):
         flash("You can only edit items you added.", "danger")
         return redirect(url_for("wishlist.my_list"))
 
@@ -259,11 +260,12 @@ def delete_item(item_id):
     """Delete wishlist item"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item OR is the person who added it as a custom gift
+    # Check if user owns this item OR is the person who added it as a custom gift OR is admin editing proxy item
     is_owner = item.user_id == current_user.id
     is_custom_gift_adder = item.added_by_id == current_user.id
+    is_admin_editing_proxy = current_user.is_admin and item.is_proxy_item
 
-    if not (is_owner or is_custom_gift_adder):
+    if not (is_owner or is_custom_gift_adder or is_admin_editing_proxy):
         flash("You can only delete items you added.", "danger")
         return redirect(url_for("wishlist.my_list"))
 
@@ -426,11 +428,12 @@ def update_item_quick(item_id):
     """Quick update item via AJAX"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item OR is the person who added it as a custom gift
+    # Check if user owns this item OR is the person who added it as a custom gift OR is admin editing proxy item
     is_owner = item.user_id == current_user.id
     is_custom_gift_adder = item.added_by_id == current_user.id
+    is_admin_editing_proxy = current_user.is_admin and item.is_proxy_item
 
-    if not (is_owner or is_custom_gift_adder):
+    if not (is_owner or is_custom_gift_adder or is_admin_editing_proxy):
         return jsonify({"error": "Unauthorized"}), 403
 
     data = request.get_json()
