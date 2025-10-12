@@ -501,14 +501,31 @@ function scrapeGeneric(doc) {
 async function fetchWithProxy(url) {
     let lastError;
 
+    // More realistic browser headers to avoid bot detection
+    const realisticHeaders = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    };
+
     for (const proxy of CORS_PROXIES) {
         try {
             const proxyUrl = proxy + encodeURIComponent(url);
             const response = await fetch(proxyUrl, {
                 method: 'GET',
-                headers: {
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                }
+                headers: realisticHeaders,
+                credentials: 'omit',
+                cache: 'no-cache',
+                redirect: 'follow'
             });
 
             if (!response.ok) {
@@ -519,6 +536,13 @@ async function fetchWithProxy(url) {
 
             if (!html || html.length < 100) {
                 throw new Error('Invalid response');
+            }
+
+            // Check for bot detection pages
+            if (html.includes('api-services-support@amazon') ||
+                html.includes('Robot Check') ||
+                html.includes('Type the characters you see in this image')) {
+                throw new Error('Bot detection page received');
             }
 
             return html;
@@ -589,6 +613,14 @@ async function scrapeProductUrl(url) {
             if (!data.name) {
                 throw new Error('Could not extract product information');
             }
+        }
+
+        // Reject if we only got "Amazon.com" or similar site names (bot detection page)
+        if (data.name && (data.name.toLowerCase() === 'amazon.com' ||
+                          data.name.toLowerCase().includes('amazon.com:') ||
+                          data.name.toLowerCase() === 'ebay.com' ||
+                          data.name.toLowerCase() === 'walmart.com')) {
+            throw new Error('Received bot detection page instead of product page');
         }
 
         return { success: true, data: data };

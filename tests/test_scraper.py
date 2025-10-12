@@ -85,3 +85,169 @@ class TestScraperFunctionality:
         assert response.status_code in [400, 422], "Should return error for missing URL"
         data = response.get_json()
         assert "error" in data, "Should return error message"
+
+    def test_scraper_requires_authentication(self, client, app):
+        """Test that scraper endpoint requires authentication"""
+        # Don't login - should get redirected
+        response = client.post(
+            "/scraper/scrape",
+            json={"url": "https://www.amazon.com/test"},
+            content_type="application/json",
+        )
+
+        # Should redirect to login or return 401
+        assert response.status_code in [302, 401], "Should redirect or return unauthorized"
+
+    def test_scraper_validates_url_format(self, client, app, user):
+        """Test that scraper validates URL format"""
+        self.login_user(client, app, user)
+
+        # Test invalid URLs
+        invalid_urls = [
+            "not-a-url",
+            "ftp://invalid.com",
+            "javascript:alert(1)",
+            "",
+            "   ",
+        ]
+
+        for invalid_url in invalid_urls:
+            response = client.post(
+                "/scraper/scrape",
+                json={"url": invalid_url},
+                content_type="application/json",
+            )
+
+            data = response.get_json()
+            assert "error" in data, f"Should return error for invalid URL: {invalid_url}"
+
+    def test_scraper_handles_missing_json_body(self, client, app, user):
+        """Test that scraper handles requests without JSON body"""
+        self.login_user(client, app, user)
+
+        response = client.post("/scraper/scrape")
+
+        # Should return error (400 or 500 is acceptable)
+        assert response.status_code in [400, 500]
+        data = response.get_json()
+        if data:
+            assert "error" in data
+
+    def test_scraper_etsy_url_accepted(self, client, app, user):
+        """Test that Etsy URLs are now accepted (with ScraperAPI)"""
+        self.login_user(client, app, user)
+
+        # Note: This will likely fail to scrape in tests (no ScraperAPI key)
+        # but should not return the old "Etsy has strong bot protection" error
+        response = client.post(
+            "/scraper/scrape",
+            json={"url": "https://www.etsy.com/listing/123456"},
+            content_type="application/json",
+        )
+
+        data = response.get_json()
+        # Should not contain the old Etsy blocking error message
+        if "error" in data:
+            assert "strong bot protection" not in data["error"].lower()
+
+    def test_scraper_normalizes_response_format(self, client, app, user):
+        """Test that scraper normalizes response format consistently"""
+        self.login_user(client, app, user)
+
+        # Use a real URL that might work (or fail gracefully)
+        response = client.post(
+            "/scraper/scrape",
+            json={"url": "https://www.amazon.com/test"},
+            content_type="application/json",
+        )
+
+        data = response.get_json()
+
+        # Should have either success or error
+        assert "success" in data or "error" in data
+
+        # If success, should have normalized data structure
+        if "success" in data and data["success"]:
+            assert "data" in data
+            assert isinstance(data["data"], dict)
+            # Should have normalized keys (not "title", should be "name")
+            expected_keys = ["name", "price", "description", "image_url", "images"]
+            for key in expected_keys:
+                assert key in data["data"], f"Missing normalized key: {key}"
+
+    def test_scraper_handles_amazon_url(self, client, app, user):
+        """Test scraper endpoint with Amazon URL"""
+        self.login_user(client, app, user)
+
+        response = client.post(
+            "/scraper/scrape",
+            json={"url": "https://www.amazon.com/dp/B00TEST123"},
+            content_type="application/json",
+        )
+
+        assert response.status_code in [200, 400]
+        data = response.get_json()
+        assert data is not None
+
+    def test_scraper_handles_walmart_url(self, client, app, user):
+        """Test scraper endpoint with Walmart URL"""
+        self.login_user(client, app, user)
+
+        response = client.post(
+            "/scraper/scrape",
+            json={"url": "https://www.walmart.com/ip/123456"},
+            content_type="application/json",
+        )
+
+        assert response.status_code in [200, 400]
+        data = response.get_json()
+        assert data is not None
+
+    def test_scraper_handles_generic_url(self, client, app, user):
+        """Test scraper endpoint with generic URL"""
+        self.login_user(client, app, user)
+
+        response = client.post(
+            "/scraper/scrape",
+            json={"url": "https://www.example.com/product/123"},
+            content_type="application/json",
+        )
+
+        assert response.status_code in [200, 400]
+        data = response.get_json()
+        assert data is not None
+
+    def test_scraper_returns_images_array(self, client, app, user):
+        """Test that scraper returns images array even if empty"""
+        self.login_user(client, app, user)
+
+        response = client.post(
+            "/scraper/scrape",
+            json={"url": "https://www.example.com/test"},
+            content_type="application/json",
+        )
+
+        data = response.get_json()
+
+        if "success" in data and data["success"]:
+            assert "data" in data
+            assert "images" in data["data"]
+            assert isinstance(data["data"]["images"], list)
+
+    def test_scraper_handles_url_with_special_chars(self, client, app, user):
+        """Test scraper handles URLs with special characters"""
+        self.login_user(client, app, user)
+
+        # URL with query params and special chars
+        url = "https://www.ebay.com/itm/123?_trkparms=amclksrc%3DITM%26aid%3D777008&test=value"
+
+        response = client.post(
+            "/scraper/scrape",
+            json={"url": url},
+            content_type="application/json",
+        )
+
+        assert response.status_code in [200, 400]
+        data = response.get_json()
+        assert data is not None
+        assert response.content_type == "application/json"

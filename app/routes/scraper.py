@@ -30,28 +30,65 @@ def scrape_url():
         # Detect site type
         hostname = requests.utils.urlparse(url).hostname.lower()
 
-        # Check for Etsy (has strong bot protection)
-        if "etsy." in hostname:
-            error_msg = (
-                "Etsy has strong bot protection. " "Please manually copy the product details from the Etsy page."
-            )
-            return jsonify({"error": error_msg}), 400
+        # Optional: Use ScraperAPI if configured (bypasses bot detection)
+        scraper_api_key = current_app.config.get("SCRAPER_API_KEY")
+        if scraper_api_key and ("amazon." in hostname or "etsy." in hostname):
+            scraper_api_url = f"http://api.scraperapi.com/?api_key={scraper_api_key}&url={url}"
+            response = requests.get(scraper_api_url, timeout=30)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
 
-        # Fetch the page
+            # Use appropriate scraper based on site
+            if "amazon." in hostname:
+                product_data = scrape_amazon(soup)
+            elif "etsy." in hostname:
+                product_data = scrape_etsy(soup)
+            else:
+                product_data = scrape_generic(soup)
+
+            # Normalize and return
+            normalized_data = {
+                "success": True,
+                "data": {
+                    "name": product_data.get("title", ""),
+                    "price": product_data.get("price"),
+                    "description": product_data.get("description", ""),
+                    "image_url": product_data.get("image", ""),
+                    "images": product_data.get("images", []),
+                },
+            }
+            return jsonify(normalized_data), 200
+
+        # Fetch the page with more realistic browser headers
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate",
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9," "image/avif,image/webp,image/apng,*/*;q=0.8"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
         }
 
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
+
+        # Check for bot detection pages
+        if "api-services-support@amazon" in response.text or "Robot Check" in response.text:
+            error_msg = (
+                "Amazon detected automated access. "
+                "Please manually copy the product details, or try again in a few minutes."
+            )
+            return jsonify({"error": error_msg}), 400
 
         # Parse HTML
         soup = BeautifulSoup(response.text, "html.parser")
@@ -68,6 +105,9 @@ def scrape_url():
         elif "walmart." in hostname:
             product_data = scrape_walmart(soup)
             current_app.logger.info(f"Walmart scrape result: {product_data}")
+        elif "etsy." in hostname:
+            product_data = scrape_etsy(soup)
+            current_app.logger.info(f"Etsy scrape result: {product_data}")
         else:
             product_data = scrape_generic(soup)
             current_app.logger.info(f"Generic scrape result: {product_data}")
@@ -383,6 +423,103 @@ def scrape_walmart(soup):
         img_url = img.get("src", "")
         if img_url and img_url.startswith("http") and img_url not in images:
             images.append(img_url)
+
+    if images:
+        data["images"] = images[:5]  # Limit to 5 images
+
+    return data
+
+
+def scrape_etsy(soup):
+    """Extract product data from Etsy"""
+    data = {}
+
+    # Title
+    title_selectors = [
+        ("h1", {"data-buy-box-listing-title": True}),
+        ("h1", {"class": "wt-text-body-03"}),
+        ("meta", {"property": "og:title"}),
+        ("h1", {}),
+    ]
+
+    for tag, attrs in title_selectors:
+        elem = soup.find(tag, attrs)
+        if elem:
+            if tag == "meta":
+                data["title"] = elem.get("content", "").strip()
+            else:
+                data["title"] = elem.get_text(strip=True)
+            if data["title"]:
+                break
+
+    # Price
+    price_selectors = [
+        ("div", {"class": "wt-text-title-03"}),
+        ("p", {"class": "wt-text-title-03"}),
+        ("meta", {"property": "product:price:amount"}),
+    ]
+
+    for tag, attrs in price_selectors:
+        elem = soup.find(tag, attrs)
+        if elem:
+            if tag == "meta":
+                price_text = elem.get("content", "")
+            else:
+                price_text = elem.get_text(strip=True)
+
+            # Extract numeric price
+            match = re.search(r"[\d,]+\.?\d*", price_text.replace(",", ""))
+            if match:
+                try:
+                    data["price"] = float(match.group())
+                    break
+                except ValueError:
+                    pass
+
+    # Description
+    desc_selectors = [
+        ("meta", {"property": "og:description"}),
+        ("meta", {"name": "description"}),
+        ("div", {"data-product-details-description": True}),
+        ("p", {"class": "wt-text-body-01"}),
+    ]
+
+    for tag, attrs in desc_selectors:
+        elem = soup.find(tag, attrs)
+        if elem:
+            if tag == "meta":
+                desc = elem.get("content", "").strip()
+            else:
+                desc = elem.get_text(strip=True)
+            if desc and len(desc) > 20:
+                data["description"] = desc[:500]
+                break
+
+    # Images - collect multiple
+    images = []
+
+    # Primary image from meta tag
+    og_img = soup.find("meta", {"property": "og:image"})
+    if og_img:
+        img_url = og_img.get("content", "")
+        if img_url and img_url.startswith("http"):
+            images.append(img_url)
+            data["image"] = img_url
+
+    # Additional images from gallery
+    gallery_imgs = soup.find_all("img", {"data-listing-card-listing-image": True})
+    for img in gallery_imgs[:5]:
+        img_url = img.get("src", "") or img.get("data-src", "")
+        if img_url and img_url.startswith("http") and img_url not in images:
+            images.append(img_url)
+
+    # Fallback to common image patterns
+    if len(images) < 3:
+        product_imgs = soup.find_all("img", {"class": ["wt-max-width-full", "listing-image"]}, limit=5)
+        for img in product_imgs:
+            img_url = img.get("src", "") or img.get("data-src", "")
+            if img_url and img_url.startswith("http") and img_url not in images:
+                images.append(img_url)
 
     if images:
         data["images"] = images[:5]  # Limit to 5 images

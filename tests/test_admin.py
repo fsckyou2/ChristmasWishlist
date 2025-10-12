@@ -152,3 +152,95 @@ class TestAdminRoutes:
         self.login_user(client, app, admin_user)
         response = client.get("/admin/purchases")
         assert response.status_code == 200
+
+    def test_admin_can_edit_any_item_from_admin_area(self, client, app, admin_user, user):
+        """Test admin can edit any user's item from admin area"""
+        self.login_user(client, app, admin_user)
+
+        # Create item owned by regular user
+        with app.app_context():
+            item = WishlistItem(user_id=user.id, name="User's Item", quantity=1)
+            db.session.add(item)
+            db.session.commit()
+            item_id = item.id
+
+        # Admin edits item from admin area
+        response = client.post(
+            f"/admin/item/{item_id}/edit",
+            data={
+                "name": "Admin Edited Item",
+                "url": "https://example.com",
+                "description": "Edited by admin",
+                "price": 99.99,
+                "quantity": 2,
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+        assert b"updated" in response.data
+
+        # Verify update
+        with app.app_context():
+            updated_item = WishlistItem.query.get(item_id)
+            assert updated_item.name == "Admin Edited Item"
+            assert updated_item.description == "Edited by admin"
+            assert updated_item.price == 99.99
+
+    def test_admin_can_edit_any_item_via_wishlist_route(self, client, app, admin_user, user):
+        """Test admin can edit any user's item via wishlist edit route"""
+        self.login_user(client, app, admin_user)
+
+        # Create item owned by regular user
+        with app.app_context():
+            item = WishlistItem(user_id=user.id, name="User's Item", quantity=1)
+            db.session.add(item)
+            db.session.commit()
+            item_id = item.id
+
+        # Admin edits item via wishlist route
+        response = client.post(
+            f"/wishlist/edit/{item_id}",
+            data={
+                "name": "Admin Edited via Wishlist",
+                "url": "https://example.com",
+                "description": "Edited by admin via wishlist",
+                "price": 55.55,
+                "quantity": 3,
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+
+        # Verify update
+        with app.app_context():
+            updated_item = WishlistItem.query.get(item_id)
+            assert updated_item.name == "Admin Edited via Wishlist"
+            assert updated_item.description == "Edited by admin via wishlist"
+
+    def test_non_admin_cannot_edit_others_items(self, client, app, user, other_user):
+        """Test non-admin cannot edit other users' items"""
+        self.login_user(client, app, user)
+
+        # Create item owned by other user
+        with app.app_context():
+            item = WishlistItem(user_id=other_user.id, name="Other User's Item", quantity=1)
+            db.session.add(item)
+            db.session.commit()
+            item_id = item.id
+
+        # User tries to edit other user's item
+        response = client.post(
+            f"/wishlist/edit/{item_id}",
+            data={"name": "Hacked Item", "quantity": 1},
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+        assert b"You can only edit items you added" in response.data
+
+        # Verify item was not changed
+        with app.app_context():
+            item = WishlistItem.query.get(item_id)
+            assert item.name == "Other User's Item"

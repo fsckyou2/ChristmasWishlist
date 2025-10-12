@@ -194,6 +194,37 @@ def items():
     return render_template("admin/items.html", items=all_items)
 
 
+@bp.route("/item/<int:item_id>/edit", methods=["GET", "POST"])
+@login_required
+@admin_required
+def edit_item(item_id):
+    """Edit a wishlist item"""
+    item = WishlistItem.query.get_or_404(item_id)
+    from app.forms import WishlistItemForm
+
+    form = WishlistItemForm(obj=item)
+
+    if form.validate_on_submit():
+        item.name = form.name.data
+        item.url = form.url.data
+        item.description = form.description.data
+        item.price = form.price.data
+        item.image_url = form.image_url.data
+        item.quantity = form.quantity.data
+
+        # Handle available_images from form (hidden field populated by scraper)
+        available_images_json = request.form.get("available_images")
+        if available_images_json:
+            item.available_images = available_images_json
+
+        db.session.commit()
+
+        flash(f'Item "{item.name}" has been updated.', "success")
+        return redirect(url_for("admin.items"))
+
+    return render_template("admin/edit_item.html", form=form, item=item)
+
+
 @bp.route("/item/<int:item_id>/delete", methods=["POST"])
 @login_required
 @admin_required

@@ -1162,3 +1162,116 @@ class TestProxyWishlist:
             # Item2 should now have 2 purchases
             item2 = WishlistItem.query.get(item2_id)
             assert item2.purchases.count() == 2
+
+
+class TestCustomGiftEditing:
+    """Test that custom gift adder can edit custom gifts"""
+
+    def login_user(self, client, app, user):
+        """Helper to login a user"""
+        with app.app_context():
+            token = user.generate_magic_link_token()
+        client.get(f"/auth/magic-login/{token}")
+
+    def test_custom_gift_adder_can_edit(self, client, app, user, other_user):
+        """Test that person who added custom gift can edit it"""
+        # Create custom gift added by user to other_user's wishlist
+        with app.app_context():
+            item = WishlistItem(
+                user_id=other_user.id,  # On other user's wishlist
+                added_by_id=user.id,  # But added by current user
+                name="Custom Gift",
+                quantity=1,
+            )
+            db.session.add(item)
+            db.session.commit()
+            item_id = item.id
+
+        # Login as user (the person who added the gift)
+        self.login_user(client, app, user)
+
+        # Edit the custom gift
+        response = client.post(
+            f"/wishlist/edit/{item_id}",
+            data={
+                "name": "Updated Custom Gift",
+                "url": "https://example.com",
+                "description": "Updated description",
+                "price": "99.99",
+                "quantity": "2",
+                "submit": "Update",
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+
+        # Verify update
+        with app.app_context():
+            updated_item = WishlistItem.query.get(item_id)
+            assert updated_item.name == "Updated Custom Gift"
+            assert updated_item.description == "Updated description"
+            assert updated_item.price == 99.99
+
+    def test_custom_gift_owner_cannot_edit(self, client, app, user, other_user):
+        """Test that wishlist owner cannot edit custom gifts added by others"""
+        # Create custom gift added by other_user to user's wishlist
+        with app.app_context():
+            item = WishlistItem(
+                user_id=user.id,  # On user's wishlist
+                added_by_id=other_user.id,  # But added by other user
+                name="Custom Gift from Other",
+                quantity=1,
+            )
+            db.session.add(item)
+            db.session.commit()
+            item_id = item.id
+
+        # Login as user (the wishlist owner)
+        self.login_user(client, app, user)
+
+        # Try to edit the custom gift (should fail)
+        response = client.post(
+            f"/wishlist/edit/{item_id}",
+            data={
+                "name": "Hacked Gift",
+                "quantity": "1",
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+        assert b"can only edit items you added" in response.data
+
+        # Verify item was not changed
+        with app.app_context():
+            item = WishlistItem.query.get(item_id)
+            assert item.name == "Custom Gift from Other"
+
+    def test_custom_gift_adder_can_delete(self, client, app, user, other_user):
+        """Test that person who added custom gift can delete it"""
+        # Create custom gift
+        with app.app_context():
+            item = WishlistItem(
+                user_id=other_user.id,  # On other user's wishlist
+                added_by_id=user.id,  # But added by current user
+                name="Deletable Gift",
+                quantity=1,
+            )
+            db.session.add(item)
+            db.session.commit()
+            item_id = item.id
+
+        # Login as user
+        self.login_user(client, app, user)
+
+        # Delete the custom gift
+        response = client.post(f"/wishlist/delete/{item_id}", follow_redirects=True)
+
+        assert response.status_code == 200
+        assert b"Custom gift deleted" in response.data
+
+        # Verify deletion
+        with app.app_context():
+            item = WishlistItem.query.get(item_id)
+            assert item is None
