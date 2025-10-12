@@ -8,6 +8,7 @@ services:
     environment:
       - FLASK_ENV=production
       - SCHEDULER_ENABLED=false  # Scheduler runs in separate service
+      - TZ=America/New_York  # Set timezone for consistent time handling
     env_file:
       - .env
     volumes:
@@ -27,6 +28,7 @@ services:
     environment:
       - FLASK_ENV=production
       - SCHEDULER_ENABLED=true  # Not used by scheduler_worker.py, but for clarity
+      - TZ=America/New_York  # Set timezone for scheduler (affects DAILY_DIGEST_HOUR)
     env_file:
       - .env
     volumes:

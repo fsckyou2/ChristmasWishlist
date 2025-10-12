@@ -151,7 +151,10 @@ The application uses a **separate scheduler service** to run periodic tasks (lik
 
 **Environment Variables**:
 - `SCHEDULER_ENABLED=false` - Set on web service to disable in-process scheduler
-- `DAILY_DIGEST_HOUR` - Hour (0-23 UTC) for daily emails, default 9
+- `DAILY_DIGEST_HOUR` - Hour (0-23 **local time**) for daily emails, default 9
+  - **Important**: Timezone is set to `America/New_York` in docker-compose.yml
+  - Hour is in Eastern Time (ET) and automatically adjusts for daylight saving
+  - Example: `9` = 9 AM ET (either EDT or EST depending on time of year)
 
 **Manual trigger**:
 ```bash
@@ -245,7 +248,7 @@ ADMIN_NAME=<admin-name>
 
 ### Optional Variables
 - `DATABASE_URL` - Defaults to SQLite
-- `DAILY_DIGEST_HOUR` - Hour (0-23 UTC) for daily emails, default 9
+- `DAILY_DIGEST_HOUR` - Hour (0-23 **local time**) for daily emails, default 9. Timezone is America/New_York (see docker-compose.yml)
 - `PASSWORD_RESET_TOKEN_EXPIRY` - Seconds, default 3600
 - `MAGIC_LINK_TOKEN_EXPIRY` - Seconds, default 1800
 - `SESSION_COOKIE_SECURE` - Set to True for HTTPS, default False

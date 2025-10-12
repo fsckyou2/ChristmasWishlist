@@ -58,10 +58,10 @@ def main():
 
     app = create_app("production")
 
-    # Get the hour to send emails from config (default to 9 AM UTC)
+    # Get the hour to send emails from config (default to 9 AM local time)
     digest_hour = app.config.get("DAILY_DIGEST_HOUR", 9)
 
-    logger.info(f"Daily digest will run at {digest_hour}:00 UTC")
+    logger.info(f"Daily digest will run at {digest_hour}:00 local time")
     logger.info("=" * 70)
 
     # Create blocking scheduler (runs in foreground)
