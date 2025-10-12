@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Login or Register - {{ app_name }}{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8 text-center">Welcome to {{ app_name }}</h1>
+
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- Email Magic Link Auth -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-4">📧 Login with Email</h2>
+            <p class="text-gray-400 mb-6">No password needed! We'll send you a secure login link.</p>
+
+            <form method="POST" action="{{ url_for('auth.login') }}" class="space-y-4">
+                {{ email_form.hidden_tag() }}
+
+                <div>
+                    {{ email_form.email.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ email_form.email(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600", placeholder="your@email.com") }}
+                    {% if email_form.email.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ email_form.email.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                {{ email_form.submit(class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 cursor-pointer") }}
+            </form>
+
+            <div class="mt-4 text-center text-sm text-gray-400">
+                New user? Just enter your email and we'll create your account!
+            </div>
+        </div>
+
+        <!-- Username/Password Auth -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-4">🔐 Login with Password</h2>
+            <p class="text-gray-400 mb-6">Use your username and password.</p>
+
+            <form method="POST" action="{{ url_for('auth.login_username') }}" class="space-y-4">
+                {{ password_form.hidden_tag() }}
+
+                <div>
+                    {{ password_form.username.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ password_form.username(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600", placeholder="username") }}
+                    {% if password_form.username.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ password_form.username.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    {{ password_form.password.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ password_form.password(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600") }}
+                    {% if password_form.password.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ password_form.password.errors[0] }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="flex items-center">
+                    {{ password_form.remember_me(class="mr-2") }}
+                    {{ password_form.remember_me.label(class="text-gray-200 text-sm") }}
+                </div>
+
+                {{ password_form.submit(class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 cursor-pointer") }}
+            </form>
+
+            <div class="mt-4 text-center">
+                <a href="{{ url_for('auth.register_username') }}" class="text-sm text-red-600 hover:underline">
+                    Create username account
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Passkey Login (if supported) -->
+    <div id="passkey-login" class="mt-6 bg-gray-800 rounded-lg shadow-lg p-8 text-center" style="display: none;">
+        <h2 class="text-2xl font-bold mb-4">🔑 Login with Passkey</h2>
+        <p class="text-gray-400 mb-6">Use your device's biometric authentication.</p>
+
+        <button type="button" id="passkey-login-btn" class="bg-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-purple-700 flex items-center justify-center gap-2 mx-auto">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+            </svg>
+            Login with Passkey
+        </button>
+        <div id="passkey-error" class="mt-4 text-red-600 text-sm" style="display: none;"></div>
+    </div>
+</div>
+
+<script>
+    // Check if passkey is supported
+    if (window.passkey.isSupported()) {
+        document.getElementById('passkey-login').style.display = 'block';
+
+        // Handle passkey login
+        document.getElementById('passkey-login-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('passkey-login-btn');
+            const errorDiv = document.getElementById('passkey-error');
+
+            btn.disabled = true;
+            btn.textContent = 'Authenticating...';
+            errorDiv.style.display = 'none';
+
+            try {
+                const result = await window.passkey.authenticate();
+                // Redirect to home page on success
+                window.location.href = '/';
+            } catch (error) {
+                errorDiv.textContent = error.message || 'Failed to authenticate with passkey';
+                errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg> Login with Passkey';
+            }
+        });
+    }
+</script>
+{% endblock %}

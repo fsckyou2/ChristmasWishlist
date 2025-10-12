@@ -3,7 +3,14 @@ from flask_login import login_user, logout_user, current_user, login_required
 from difflib import SequenceMatcher
 from app import db
 from app.models import User, ProxyWishlist, WishlistItem, Purchase
-from app.forms import RegistrationForm, LoginForm
+from app.forms import (
+    RegistrationForm,
+    LoginForm,
+    UsernamePasswordRegistrationForm,
+    UsernamePasswordLoginForm,
+    AccountSettingsForm,
+    ChangePasswordForm,
+)
 from app.email import send_magic_link_email, send_welcome_email
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -82,14 +89,17 @@ def merge_items(existing_item, new_item):
 
 @bp.route("/register", methods=["GET", "POST"])
 def register():
-    """Passwordless user registration"""
+    """Unified registration page showing all registration options"""
     if current_user.is_authenticated:
         return redirect(url_for("main.index"))
 
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        user_email = form.email.data.lower()
-        user = User(email=user_email, name=form.name.data)
+    email_form = RegistrationForm()
+    password_form = UsernamePasswordRegistrationForm()
+
+    # Handle email registration form submission
+    if email_form.validate_on_submit() and email_form.submit.data:
+        user_email = email_form.email.data.lower()
+        user = User(email=user_email, name=email_form.name.data)
         db.session.add(user)
         db.session.flush()  # Get the user ID before committing
 
@@ -134,25 +144,70 @@ def register():
         flash("Registration successful! Check your email for a welcome message with your login link.", "success")
         return redirect(url_for("auth.login"))
 
-    return render_template("auth/register.html", form=form)
+    # Show unified registration page
+    return render_template("auth/unified_register.html", email_form=email_form, password_form=password_form)
+
+
+@bp.route("/register-username", methods=["GET", "POST"])
+def register_username():
+    """Username/password registration"""
+    if current_user.is_authenticated:
+        return redirect(url_for("main.index"))
+
+    form = UsernamePasswordRegistrationForm()
+    if form.validate_on_submit():
+        user = User(username=form.username.data.lower(), name=form.name.data)
+        user.set_password(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+
+        flash("Registration successful! You can now log in.", "success")
+        return redirect(url_for("auth.login_username"))
+
+    return render_template("auth/register_username.html", form=form)
 
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    """Passwordless login - sends magic link"""
+    """Unified login page showing all auth options"""
     if current_user.is_authenticated:
         return redirect(url_for("main.index"))
 
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data.lower()).first()
+    email_form = LoginForm()
+    password_form = UsernamePasswordLoginForm()
+
+    # Handle email form submission
+    if email_form.validate_on_submit() and email_form.submit.data:
+        user = User.query.filter_by(email=email_form.email.data.lower()).first()
         if user:
             send_magic_link_email(user)
         # Always show success message to prevent email enumeration
         flash("If an account exists with that email, a login link has been sent.", "info")
         return redirect(url_for("auth.login"))
 
-    return render_template("auth/login.html", form=form)
+    # Handle password form submission (via separate route for clarity)
+    # This GET request shows the unified auth page
+
+    return render_template("auth/unified_auth.html", email_form=email_form, password_form=password_form)
+
+
+@bp.route("/login-username", methods=["GET", "POST"])
+def login_username():
+    """Username/password login"""
+    if current_user.is_authenticated:
+        return redirect(url_for("main.index"))
+
+    form = UsernamePasswordLoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data.lower()).first()
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=form.remember_me.data)
+            flash(f"Welcome, {user.name}!", "success")
+            return redirect(url_for("main.index"))
+        else:
+            flash("Invalid username or password.", "danger")
+
+    return render_template("auth/login_username.html", form=form)
 
 
 @bp.route("/magic-login/<token>")
@@ -191,3 +246,74 @@ def complete_tour():
     current_user.has_seen_tour = True
     db.session.commit()
     return jsonify({"success": True})
+
+
+@bp.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings():
+    """Account settings page"""
+    account_form = AccountSettingsForm()
+    password_form = ChangePasswordForm()
+
+    # Pre-populate account form
+    if account_form.validate_on_submit():
+        # Update account info
+        current_user.name = account_form.name.data
+
+        # Handle email update
+        new_email = account_form.email.data.lower() if account_form.email.data else None
+        if new_email and new_email != current_user.email:
+            # Check if email is already taken
+            existing_user = User.query.filter_by(email=new_email).first()
+            if existing_user and existing_user.id != current_user.id:
+                flash("Email already in use by another account.", "danger")
+            else:
+                current_user.email = new_email
+                flash("Email updated successfully!", "success")
+
+        # Handle username update
+        new_username = account_form.username.data.lower() if account_form.username.data else None
+        if new_username and new_username != current_user.username:
+            # Check if username is already taken
+            existing_user = User.query.filter_by(username=new_username).first()
+            if existing_user and existing_user.id != current_user.id:
+                flash("Username already taken.", "danger")
+            else:
+                current_user.username = new_username
+                flash("Username updated successfully!", "success")
+
+        # Validate that user has either email OR username
+        if not current_user.email and not current_user.username:
+            flash("You must have either an email or username.", "danger")
+        else:
+            db.session.commit()
+            flash("Account updated successfully!", "success")
+            return redirect(url_for("auth.settings"))
+
+    elif password_form.validate_on_submit() and password_form.submit.data:
+        # Handle password change
+        # If user already has a password, verify current password
+        if current_user.password_hash:
+            if not password_form.current_password.data:
+                flash("Current password is required.", "danger")
+            elif not current_user.check_password(password_form.current_password.data):
+                flash("Current password is incorrect.", "danger")
+            else:
+                current_user.set_password(password_form.new_password.data)
+                db.session.commit()
+                flash("Password changed successfully!", "success")
+                return redirect(url_for("auth.settings"))
+        else:
+            # User doesn't have a password yet, set it
+            current_user.set_password(password_form.new_password.data)
+            db.session.commit()
+            flash("Password set successfully! You can now log in with your username/password.", "success")
+            return redirect(url_for("auth.settings"))
+
+    # Pre-populate form with current values
+    if not account_form.is_submitted():
+        account_form.name.data = current_user.name
+        account_form.email.data = current_user.email
+        account_form.username.data = current_user.username
+
+    return render_template("auth/settings.html", account_form=account_form, password_form=password_form)

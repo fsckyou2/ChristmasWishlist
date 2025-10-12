@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Login - Scimone Christmas Wishlist{% endblock %}
+{% block title %}Login - {{ app_name }}{% endblock %}
 
 {% block content %}
 <div class="max-w-md mx-auto bg-gray-800 rounded-lg shadow-lg p-8">
@@ -39,6 +39,7 @@
 
     <div class="mt-6 text-center">
         <p class="text-gray-400">Don't have an account? <a href="{{ url_for('auth.register') }}" class="text-red-600 hover:underline">Register</a></p>
+        <p class="text-gray-400 mt-2">Or <a href="{{ url_for('auth.login_username') }}" class="text-red-600 hover:underline">login with username/password</a></p>
     </div>
 </div>
 

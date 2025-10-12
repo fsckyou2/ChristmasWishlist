@@ -3,6 +3,7 @@ from flask_login import UserMixin
 from itsdangerous import URLSafeTimedSerializer
 from flask import current_app, session
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 @login_manager.user_loader
@@ -15,12 +16,14 @@ def load_user(user_id):
 
 
 class User(UserMixin, db.Model):
-    """User model - Passwordless authentication via magic links and passkeys"""
+    """User model - Supports both passwordless (magic links/passkeys) and username/password authentication"""
 
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=True, index=True)  # Optional for username/password users
+    username = db.Column(db.String(80), unique=True, nullable=True, index=True)  # For username/password auth
+    password_hash = db.Column(db.String(255), nullable=True)  # For username/password auth
     name = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     has_seen_tour = db.Column(db.Boolean, default=False)
@@ -48,6 +51,8 @@ class User(UserMixin, db.Model):
 
     def generate_magic_link_token(self):
         """Generate magic link login token"""
+        if not self.email:
+            return None
         serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
         return serializer.dumps(self.email, salt="magic-link-salt")
 
@@ -64,8 +69,18 @@ class User(UserMixin, db.Model):
             return None
         return User.query.filter_by(email=email).first()
 
+    def set_password(self, password):
+        """Set password hash"""
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        """Check password against hash"""
+        if not self.password_hash:
+            return False
+        return check_password_hash(self.password_hash, password)
+
     def __repr__(self):
-        return f"<User {self.email}>"
+        return f"<User {self.email or self.username}>"
 
 
 class WishlistItem(db.Model):

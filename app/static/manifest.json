@@ -1,6 +1,6 @@
 {
-  "name": "Scimone Christmas Wishlist",
-  "short_name": "Scimone Wishlists",
+  "name": "Christmas Wishlists",
+  "short_name": "Christmas Wishlists",
   "description": "Share your Christmas wishlist with your family",
   "start_url": "/",
   "display": "standalone",

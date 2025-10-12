@@ -15,8 +15,10 @@ const CORS_PROXIES = [
 function scrapeAmazon(doc) {
     const data = {};
 
-    // Title - try multiple selectors
+    // Title - prioritize meta tags (more reliable when Amazon detects bots)
     const titleSelectors = [
+        'meta[property="og:title"]',
+        'meta[name="title"]',
         '#productTitle',
         '#title',
         'h1#title',
@@ -26,14 +28,19 @@ function scrapeAmazon(doc) {
 
     for (const selector of titleSelectors) {
         const elem = doc.querySelector(selector);
-        if (elem && elem.textContent.trim()) {
-            data.name = elem.textContent.trim();
-            break;
+        if (elem) {
+            const title = elem.getAttribute('content') || elem.textContent || '';
+            if (title.trim()) {
+                data.name = title.trim();
+                break;
+            }
         }
     }
 
-    // Price - try multiple selectors
+    // Price - prioritize meta tags and try multiple selectors
     const priceSelectors = [
+        'meta[property="product:price:amount"]',
+        'meta[property="og:price:amount"]',
         '.a-price .a-offscreen',
         '.a-price-whole',
         '#priceblock_ourprice',
@@ -54,8 +61,10 @@ function scrapeAmazon(doc) {
         }
     }
 
-    // Description - try multiple selectors
+    // Description - prioritize meta tags
     const descSelectors = [
+        'meta[property="og:description"]',
+        'meta[name="description"]',
         '#feature-bullets',
         '#productDescription',
         '[data-feature-name="featurebullets"]',
@@ -64,14 +73,30 @@ function scrapeAmazon(doc) {
 
     for (const selector of descSelectors) {
         const elem = doc.querySelector(selector);
-        if (elem && elem.textContent.trim()) {
-            data.description = elem.textContent.trim().substring(0, 500);
-            break;
+        if (elem) {
+            const desc = elem.getAttribute('content') || elem.textContent || '';
+            if (desc.trim() && desc.trim().length > 20) {
+                data.description = desc.trim().substring(0, 500);
+                break;
+            }
         }
     }
 
-    // Images - collect multiple
+    // Images - collect multiple, prioritize meta tags
     const images = [];
+
+    // Try og:image first (most reliable)
+    const ogImg = doc.querySelector('meta[property="og:image"]');
+    if (ogImg) {
+        let imgUrl = ogImg.getAttribute('content');
+        if (imgUrl && imgUrl.startsWith('http')) {
+            imgUrl = imgUrl.split('._')[0] + '.jpg'; // Get full resolution
+            images.push(imgUrl);
+            data.image_url = imgUrl;
+        }
+    }
+
+    // Try other image sources
     const imgSelectors = [
         '#landingImage',
         '#imgBlkFront',
@@ -80,18 +105,22 @@ function scrapeAmazon(doc) {
         '[data-old-hires]'
     ];
 
-    // Get primary image
-    for (const selector of imgSelectors) {
-        const elem = doc.querySelector(selector);
-        if (elem) {
-            let imgUrl = elem.getAttribute('data-old-hires') ||
-                          elem.getAttribute('data-a-dynamic-image') ||
-                          elem.src;
-            if (imgUrl && imgUrl.startsWith('http')) {
-                imgUrl = imgUrl.split('._')[0] + '.jpg'; // Get full resolution
-                images.push(imgUrl);
-                data.image_url = imgUrl;
-                break;
+    // Get primary image if we don't have one yet
+    if (!data.image_url) {
+        for (const selector of imgSelectors) {
+            const elem = doc.querySelector(selector);
+            if (elem) {
+                let imgUrl = elem.getAttribute('data-old-hires') ||
+                              elem.getAttribute('data-a-dynamic-image') ||
+                              elem.src;
+                if (imgUrl && imgUrl.startsWith('http')) {
+                    imgUrl = imgUrl.split('._')[0] + '.jpg'; // Get full resolution
+                    if (!images.includes(imgUrl)) {
+                        images.push(imgUrl);
+                    }
+                    data.image_url = imgUrl;
+                    break;
+                }
             }
         }
     }

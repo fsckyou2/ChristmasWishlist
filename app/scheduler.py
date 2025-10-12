@@ -28,9 +28,14 @@ def init_scheduler(app):
     # Get the hour to send emails from config (default to 9 AM)
     digest_hour = app.config.get("DAILY_DIGEST_HOUR", 9)
 
+    # Create a wrapper function that runs within app context
+    def send_digest_with_context():
+        with app.app_context():
+            send_daily_digest_job()
+
     # Schedule daily digest to run at the specified hour every day
     scheduler.add_job(
-        func=send_daily_digest_job,
+        func=send_digest_with_context,
         trigger=CronTrigger(hour=digest_hour, minute=0),
         id="daily_wishlist_digest",
         name="Send daily wishlist digest emails",

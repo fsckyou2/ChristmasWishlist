@@ -2,7 +2,7 @@
 Server-side product scraping routes
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required
 import requests
 from bs4 import BeautifulSoup
@@ -61,19 +61,25 @@ def scrape_url():
 
         if "ebay." in hostname:
             product_data = scrape_ebay(soup)
+            current_app.logger.info(f"eBay scrape result: {product_data}")
         elif "amazon." in hostname:
             product_data = scrape_amazon(soup)
+            current_app.logger.info(f"Amazon scrape result: {product_data}")
         elif "walmart." in hostname:
             product_data = scrape_walmart(soup)
+            current_app.logger.info(f"Walmart scrape result: {product_data}")
         else:
             product_data = scrape_generic(soup)
+            current_app.logger.info(f"Generic scrape result: {product_data}")
 
         # Ensure we got at least a title
         if not product_data.get("title") and not product_data.get("name"):
             # Try generic scraper as fallback
+            current_app.logger.warning(f"No title found with primary scraper, trying generic for {hostname}")
             product_data = scrape_generic(soup)
 
             if not product_data.get("title") and not product_data.get("name"):
+                current_app.logger.error(f"Failed to extract any product data from {url}")
                 return jsonify({"error": "Could not extract product information from this URL"}), 400
 
         return jsonify(product_data), 200
@@ -188,22 +194,45 @@ def scrape_amazon(soup):
     """Extract product data from Amazon"""
     data = {}
 
-    # Title
-    title_elem = soup.find("span", {"id": "productTitle"})
-    if title_elem:
-        data["title"] = title_elem.get_text(strip=True)
+    # Title - try multiple selectors
+    title_selectors = [
+        ("span", {"id": "productTitle"}),
+        ("h1", {"id": "title"}),
+        ("meta", {"property": "og:title"}),
+        ("meta", {"name": "title"}),
+    ]
 
-    # Price
+    for tag, attrs in title_selectors:
+        elem = soup.find(tag, attrs)
+        if elem:
+            if tag == "meta":
+                data["title"] = elem.get("content", "").strip()
+            else:
+                data["title"] = elem.get_text(strip=True)
+            if data["title"]:
+                break
+
+    # Price - try multiple selectors
     price_selectors = [
         ("span", {"class": "a-price-whole"}),
+        ("span", {"class": "a-offscreen"}),
         ("span", {"id": "priceblock_ourprice"}),
         ("span", {"id": "priceblock_dealprice"}),
+        ("span", {"id": "price_inside_buybox"}),
+        ("meta", {"property": "product:price:amount"}),
+        ("meta", {"property": "og:price:amount"}),
     ]
 
     for tag, attrs in price_selectors:
         elem = soup.find(tag, attrs)
         if elem:
-            price_text = elem.get_text(strip=True).replace(",", "")
+            if tag == "meta":
+                price_text = elem.get("content", "")
+            else:
+                price_text = elem.get_text(strip=True)
+
+            # Remove currency symbols and extract number
+            price_text = price_text.replace("$", "").replace(",", "").strip()
             match = re.search(r"[\d.]+", price_text)
             if match:
                 try:
@@ -212,28 +241,68 @@ def scrape_amazon(soup):
                 except ValueError:
                     pass
 
-    # Description
-    desc_elem = soup.find("div", {"id": "feature-bullets"})
-    if desc_elem:
-        data["description"] = desc_elem.get_text(strip=True)[:500]
+    # Description - try multiple selectors
+    desc_selectors = [
+        ("div", {"id": "feature-bullets"}),
+        ("div", {"id": "productDescription"}),
+        ("meta", {"property": "og:description"}),
+        ("meta", {"name": "description"}),
+    ]
 
-    # Images - collect multiple
+    for tag, attrs in desc_selectors:
+        elem = soup.find(tag, attrs)
+        if elem:
+            if tag == "meta":
+                desc = elem.get("content", "").strip()
+            else:
+                desc = elem.get_text(strip=True)
+            if desc and len(desc) > 20:
+                data["description"] = desc[:500]
+                break
+
+    # Images - collect multiple from various sources
     images = []
 
-    # Primary image
-    img_elem = soup.find("img", {"id": "landingImage"})
-    if img_elem:
-        img_url = img_elem.get("src", "")
+    # Try og:image first (most reliable)
+    og_img = soup.find("meta", {"property": "og:image"})
+    if og_img:
+        img_url = og_img.get("content", "")
         if img_url and img_url.startswith("http"):
-            # Get full resolution by removing size parameters
+            # Remove size parameters for full resolution
             img_url = img_url.split("._")[0] + ".jpg" if "._" in img_url else img_url
             images.append(img_url)
             data["image"] = img_url
+
+    # Primary product image
+    img_selectors = [
+        ("img", {"id": "landingImage"}),
+        ("img", {"id": "imgBlkFront"}),
+        ("img", {"data-a-image-name": "landingImage"}),
+    ]
+
+    for tag, attrs in img_selectors:
+        img_elem = soup.find(tag, attrs)
+        if img_elem:
+            img_url = img_elem.get("src", "") or img_elem.get("data-old-hires", "")
+            if img_url and img_url.startswith("http") and img_url not in images:
+                # Get full resolution by removing size parameters
+                img_url = img_url.split("._")[0] + ".jpg" if "._" in img_url else img_url
+                images.append(img_url)
+                if not data.get("image"):
+                    data["image"] = img_url
 
     # Additional images from gallery thumbnails
     thumb_imgs = soup.find_all("img", {"class": "a-dynamic-image"})
     for img in thumb_imgs[:5]:
         img_url = img.get("data-old-hires") or img.get("src", "")
+        if img_url and img_url.startswith("http") and img_url not in images:
+            img_url = img_url.split("._")[0] + ".jpg" if "._" in img_url else img_url
+            images.append(img_url)
+
+    # Try alternate gallery structure
+    alt_imgs = soup.find_all("img", {"class": "imageThumbnail"})
+    for img in alt_imgs[:5]:
+        img_url = img.get("src", "")
         if img_url and img_url.startswith("http") and img_url not in images:
             img_url = img_url.split("._")[0] + ".jpg" if "._" in img_url else img_url
             images.append(img_url)

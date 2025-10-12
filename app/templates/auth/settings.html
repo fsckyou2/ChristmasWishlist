@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Account Settings - {{ app_name }}{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8">Account Settings</h1>
+
+    <!-- Account Information Section -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4">Account Information</h2>
+        <form method="POST" class="space-y-4">
+            {{ account_form.hidden_tag() }}
+
+            <div>
+                {{ account_form.name.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ account_form.name(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600") }}
+                {% if account_form.name.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ account_form.name.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                {{ account_form.email.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ account_form.email(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600", placeholder="your@email.com") }}
+                {% if account_form.email.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ account_form.email.errors[0] }}</p>
+                {% endif %}
+                <p class="text-xs text-gray-400 mt-1">Email is optional if you have a username. Used for magic link login.</p>
+            </div>
+
+            <div>
+                {{ account_form.username.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ account_form.username(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600", placeholder="username") }}
+                {% if account_form.username.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ account_form.username.errors[0] }}</p>
+                {% endif %}
+                <p class="text-xs text-gray-400 mt-1">Username is optional if you have an email. Used for password login.</p>
+            </div>
+
+            <div class="bg-blue-900 border border-blue-600 rounded p-3 text-sm">
+                <strong>Note:</strong> You must have either an email address OR a username (or both).
+            </div>
+
+            {{ account_form.submit(class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
+        </form>
+    </div>
+
+    <!-- Password Section -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4">
+            {% if current_user.password_hash %}
+                Change Password
+            {% else %}
+                Set Password
+            {% endif %}
+        </h2>
+
+        <form method="POST" class="space-y-4">
+            {{ password_form.hidden_tag() }}
+
+            {% if current_user.password_hash %}
+                <div>
+                    {{ password_form.current_password.label(class="block text-gray-200 font-semibold mb-2") }}
+                    {{ password_form.current_password(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600") }}
+                    {% if password_form.current_password.errors %}
+                        <p class="text-red-600 text-sm mt-1">{{ password_form.current_password.errors[0] }}</p>
+                    {% endif %}
+                </div>
+            {% else %}
+                <p class="text-gray-400 mb-4">You haven't set a password yet. Set one now to enable username/password login.</p>
+            {% endif %}
+
+            <div>
+                {{ password_form.new_password.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ password_form.new_password(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600") }}
+                {% if password_form.new_password.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ password_form.new_password.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                {{ password_form.confirm_password.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ password_form.confirm_password(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600") }}
+                {% if password_form.confirm_password.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ password_form.confirm_password.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            {{ password_form.submit(class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 cursor-pointer") }}
+        </form>
+    </div>
+
+    <!-- Passkeys Section -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">Passkeys</h2>
+            <button id="register-passkey-btn" class="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700">
+                Add Passkey
+            </button>
+        </div>
+
+        <p class="text-gray-400 mb-4">Passkeys provide secure, passwordless authentication using your device's biometrics or PIN.</p>
+
+        <div id="passkey-list" class="space-y-2">
+            <p class="text-gray-500">Loading passkeys...</p>
+        </div>
+
+        <div id="passkey-error" class="mt-4 text-red-600 text-sm" style="display: none;"></div>
+    </div>
+
+    <!-- Logout Section -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold mb-4">Logout</h2>
+        <p class="text-gray-400 mb-4">Sign out of your account on this device.</p>
+        <a href="{{ url_for('auth.logout') }}" class="inline-block bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700">
+            Logout
+        </a>
+    </div>
+</div>
+
+<script>
+// Passkey management
+let passkeys = [];
+
+async function loadPasskeys() {
+    try {
+        const response = await fetch('/passkey/list');
+        const data = await response.json();
+        passkeys = data.passkeys || [];
+        renderPasskeys();
+    } catch (error) {
+        console.error('Error loading passkeys:', error);
+        document.getElementById('passkey-list').innerHTML = '<p class="text-red-600">Failed to load passkeys</p>';
+    }
+}
+
+function renderPasskeys() {
+    const container = document.getElementById('passkey-list');
+
+    if (passkeys.length === 0) {
+        container.innerHTML = '<p class="text-gray-500">No passkeys registered yet.</p>';
+        return;
+    }
+
+    container.innerHTML = passkeys.map(passkey => `
+        <div class="flex justify-between items-center bg-gray-700 p-4 rounded">
+            <div>
+                <p class="font-semibold">${passkey.device_name || 'Unnamed Device'}</p>
+                <p class="text-sm text-gray-400">
+                    Created: ${new Date(passkey.created_at).toLocaleDateString()}
+                    ${passkey.last_used ? `| Last used: ${new Date(passkey.last_used).toLocaleDateString()}` : ''}
+                </p>
+            </div>
+            <button onclick="deletePasskey(${passkey.id})" class="text-red-600 hover:text-red-800 font-semibold">
+                Delete
+            </button>
+        </div>
+    `).join('');
+}
+
+async function deletePasskey(passkeyId) {
+    if (!confirm('Are you sure you want to delete this passkey?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/passkey/delete/${passkeyId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            await loadPasskeys();
+        } else {
+            alert('Failed to delete passkey');
+        }
+    } catch (error) {
+        console.error('Error deleting passkey:', error);
+        alert('Failed to delete passkey');
+    }
+}
+
+// Register passkey
+document.getElementById('register-passkey-btn').addEventListener('click', async () => {
+    const deviceName = prompt('Enter a name for this device (e.g., "My iPhone"):');
+    if (!deviceName) return;
+
+    const errorDiv = document.getElementById('passkey-error');
+    errorDiv.style.display = 'none';
+
+    try {
+        const result = await window.passkey.register(deviceName);
+        if (result.success) {
+            await loadPasskeys();
+            alert('Passkey registered successfully!');
+        }
+    } catch (error) {
+        console.error('Passkey registration error:', error);
+        errorDiv.textContent = error.message || 'Failed to register passkey';
+        errorDiv.style.display = 'block';
+    }
+});
+
+// Load passkeys on page load
+loadPasskeys();
+</script>
+{% endblock %}
