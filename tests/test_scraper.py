@@ -51,8 +51,11 @@ class TestScraperFunctionality:
         data = response.get_json()
         assert data is not None, "Response should be valid JSON"
 
-        # Should have either success or error field
-        assert "error" in data or "title" in data or "name" in data, "Response should have error or product data"
+        # Should have normalized format with success/error and data fields
+        assert "error" in data or "success" in data, "Response should have error or success field"
+        if "success" in data and data["success"]:
+            assert "data" in data, "Successful response should have data field"
+            assert "name" in data["data"], "Product data should have name field"
 
     def test_scraper_returns_json_on_error(self, client, app, user):
         """Test that scraper returns JSON even on errors"""

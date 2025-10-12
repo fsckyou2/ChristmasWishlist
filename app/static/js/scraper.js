@@ -15,24 +15,44 @@ const CORS_PROXIES = [
 function scrapeAmazon(doc) {
     const data = {};
 
-    // Title - prioritize meta tags (more reliable when Amazon detects bots)
+    // Title - prioritize actual product title over meta tags
     const titleSelectors = [
-        'meta[property="og:title"]',
-        'meta[name="title"]',
         '#productTitle',
-        '#title',
-        'h1#title',
         'h1 span#productTitle',
-        '[data-feature-name="title"] h1'
+        'h1#title',
+        '#title',
+        '[data-feature-name="title"] h1',
+        'meta[property="og:title"]'
     ];
 
     for (const selector of titleSelectors) {
         const elem = doc.querySelector(selector);
         if (elem) {
             const title = elem.getAttribute('content') || elem.textContent || '';
+            const trimmedTitle = title.trim();
+            // Skip if we got "Amazon.com" or similar site name
+            if (trimmedTitle && !trimmedTitle.toLowerCase().startsWith('amazon')) {
+                data.name = trimmedTitle;
+                break;
+            }
+        }
+    }
+
+    // Fallback to meta title tag, but clean it up
+    if (!data.name) {
+        const metaTitle = doc.querySelector('meta[name="title"]');
+        if (metaTitle) {
+            let title = metaTitle.getAttribute('content') || '';
+            // Remove "Amazon.com: " prefix if present
+            if (title.startsWith('Amazon.com: ')) {
+                title = title.replace('Amazon.com: ', '');
+            }
+            // Remove trailing store name like " : Tools & Home Improvement"
+            if (title.includes(' : ')) {
+                title = title.split(' : ')[0];
+            }
             if (title.trim()) {
                 data.name = title.trim();
-                break;
             }
         }
     }
