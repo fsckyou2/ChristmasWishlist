@@ -103,7 +103,7 @@ class TestEmailFunctions:
             time.sleep(0.5)
 
             # Check that change is marked as notified
-            notified_change = WishlistChange.query.get(change_id)
+            notified_change = db.session.get(WishlistChange, change_id)
             assert notified_change.notified is True
             print(f"\n✅ Change #{change_id} marked as notified")
 

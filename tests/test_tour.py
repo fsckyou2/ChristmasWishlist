@@ -4,6 +4,7 @@ Tests for the welcome tour feature
 
 import pytest
 from app.models import User
+from app import db
 from flask import session
 
 
@@ -19,7 +20,7 @@ class TestTourFeature:
     def test_new_user_has_not_seen_tour(self, app, user):
         """Test that new users have has_seen_tour set to False"""
         with app.app_context():
-            test_user = User.query.get(user.id)
+            test_user = db.session.get(User, user.id)
             assert test_user.has_seen_tour is False
 
     def test_tour_included_in_base_template(self, client, user, app):
@@ -40,7 +41,7 @@ class TestTourFeature:
 
         # User should not have seen tour initially
         with app.app_context():
-            user_db = User.query.get(user.id)
+            user_db = db.session.get(User, user.id)
             assert user_db.has_seen_tour is False
 
         # Complete the tour
@@ -56,13 +57,11 @@ class TestTourFeature:
 
         # User should now have seen tour
         with app.app_context():
-            user_db = User.query.get(user.id)
+            user_db = db.session.get(User, user.id)
             assert user_db.has_seen_tour is True
 
     def test_tour_only_shows_for_users_who_havent_seen_it(self, client, app):
         """Test that tour visibility is controlled by has_seen_tour flag"""
-        from app import db
-
         # Create a user who has seen the tour
         with app.app_context():
             seen_user = User(
@@ -76,7 +75,7 @@ class TestTourFeature:
 
         # Login as user who has seen tour
         with app.app_context():
-            seen_user_obj = User.query.get(seen_user_id)
+            seen_user_obj = db.session.get(User, seen_user_id)
         self.login_user(client, app, seen_user_obj)
 
         # The tour HTML is still in the template, but JavaScript won't show it

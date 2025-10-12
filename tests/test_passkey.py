@@ -110,7 +110,7 @@ class TestPasskeyRoutes:
 
         # Verify deletion
         with app.app_context():
-            deleted_passkey = Passkey.query.get(passkey_id)
+            deleted_passkey = db.session.get(Passkey, passkey_id)
             assert deleted_passkey is None
 
     def test_cannot_delete_others_passkey(self, client, app, user, admin_user):
@@ -182,7 +182,7 @@ class TestPasskeyModel:
             db.session.add_all([passkey1, passkey2])
             db.session.commit()
 
-            user_with_passkeys = User.query.get(user.id)
+            user_with_passkeys = db.session.get(User, user.id)
             assert len(user_with_passkeys.passkeys.all()) == 2
 
     def test_passkey_last_used_tracking(self, app, user):
@@ -205,5 +205,5 @@ class TestPasskeyModel:
             passkey.last_used = datetime.utcnow()
             db.session.commit()
 
-            updated_passkey = Passkey.query.get(passkey.id)
+            updated_passkey = db.session.get(Passkey, passkey.id)
             assert updated_passkey.last_used is not None

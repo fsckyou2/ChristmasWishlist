@@ -52,7 +52,7 @@ class TestAdminRoutes:
 
         # Verify update
         with app.app_context():
-            updated_user = User.query.get(user.id)
+            updated_user = db.session.get(User, user.id)
             assert updated_user.name == "Updated Name"
 
     def test_admin_toggle_admin_status(self, client, app, admin_user, user):
@@ -66,7 +66,7 @@ class TestAdminRoutes:
 
         # Verify status changed
         with app.app_context():
-            updated_user = User.query.get(user.id)
+            updated_user = db.session.get(User, user.id)
             assert updated_user.is_admin is True
 
     def test_admin_cannot_toggle_own_status(self, client, app, admin_user):
@@ -86,7 +86,7 @@ class TestAdminRoutes:
 
         # Verify deletion
         with app.app_context():
-            deleted_user = User.query.get(user_id)
+            deleted_user = db.session.get(User, user_id)
             assert deleted_user is None
 
     def test_admin_cannot_delete_self(self, client, app, admin_user):
@@ -144,7 +144,7 @@ class TestAdminRoutes:
 
         # Verify deletion
         with app.app_context():
-            deleted_item = WishlistItem.query.get(item_id)
+            deleted_item = db.session.get(WishlistItem, item_id)
             assert deleted_item is None
 
     def test_admin_purchases_page(self, client, app, admin_user):
@@ -182,7 +182,7 @@ class TestAdminRoutes:
 
         # Verify update
         with app.app_context():
-            updated_item = WishlistItem.query.get(item_id)
+            updated_item = db.session.get(WishlistItem, item_id)
             assert updated_item.name == "Admin Edited Item"
             assert updated_item.description == "Edited by admin"
             assert updated_item.price == 99.99
@@ -215,7 +215,7 @@ class TestAdminRoutes:
 
         # Verify update
         with app.app_context():
-            updated_item = WishlistItem.query.get(item_id)
+            updated_item = db.session.get(WishlistItem, item_id)
             assert updated_item.name == "Admin Edited via Wishlist"
             assert updated_item.description == "Edited by admin via wishlist"
 
@@ -242,5 +242,5 @@ class TestAdminRoutes:
 
         # Verify item was not changed
         with app.app_context():
-            item = WishlistItem.query.get(item_id)
+            item = db.session.get(WishlistItem, item_id)
             assert item.name == "Other User's Item"

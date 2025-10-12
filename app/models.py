@@ -11,8 +11,8 @@ def load_user(user_id):
     """Load user for Flask-Login - supports impersonation"""
     # Check if admin is impersonating another user
     if "impersonate_user_id" in session:
-        return User.query.get(int(session["impersonate_user_id"]))
-    return User.query.get(int(user_id))
+        return db.session.get(User, int(session["impersonate_user_id"]))
+    return db.session.get(User, int(user_id))
 
 
 class User(UserMixin, db.Model):
