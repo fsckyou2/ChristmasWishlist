@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from functools import wraps
 from app import db
-from app.models import User, WishlistItem, Purchase
+from app.models import User, WishlistItem, Purchase, ProxyWishlist
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -67,21 +67,23 @@ def edit_user(user_id):
 
     if request.method == "POST":
         new_name = request.form.get("name", "").strip()
-        new_email = request.form.get("email", "").strip()
+        new_email = request.form.get("email", "").strip() or None  # Convert empty string to None
 
         if not new_name:
             flash("Name cannot be empty.", "danger")
             return redirect(url_for("admin.edit_user", user_id=user_id))
 
-        if not new_email:
-            flash("Email cannot be empty.", "danger")
+        # Validate that user has either email OR username
+        if not new_email and not user.username:
+            flash("User must have either an email or username.", "danger")
             return redirect(url_for("admin.edit_user", user_id=user_id))
 
-        # Check if email is already taken by another user
-        existing_user = User.query.filter_by(email=new_email).first()
-        if existing_user and existing_user.id != user.id:
-            flash("Email address is already in use.", "danger")
-            return redirect(url_for("admin.edit_user", user_id=user_id))
+        # Check if email is already taken by another user (if email is provided)
+        if new_email:
+            existing_user = User.query.filter_by(email=new_email).first()
+            if existing_user and existing_user.id != user.id:
+                flash("Email address is already in use.", "danger")
+                return redirect(url_for("admin.edit_user", user_id=user_id))
 
         user.name = new_name
         user.email = new_email
@@ -137,10 +139,18 @@ def delete_user(user_id):
 def send_user_login_link(user_id):
     """Send magic link login email to user"""
     user = User.query.get_or_404(user_id)
+
+    if not user.email:
+        flash(f"{user.name} does not have an email address. They must log in with username/password.", "warning")
+        return redirect(url_for("admin.view_user", user_id=user_id))
+
     from app.email import send_magic_link_email
 
-    send_magic_link_email(user)
-    flash(f"Login link sent to {user.email}.", "success")
+    success = send_magic_link_email(user)
+    if success:
+        flash(f"Login link sent to {user.email}.", "success")
+    else:
+        flash(f"Could not send login link to {user.name}.", "danger")
     return redirect(url_for("admin.view_user", user_id=user_id))
 
 
@@ -203,3 +213,73 @@ def purchases():
     """View all purchases"""
     all_purchases = Purchase.query.order_by(Purchase.created_at.desc()).all()
     return render_template("admin/purchases.html", purchases=all_purchases)
+
+
+@bp.route("/proxy-wishlists")
+@login_required
+@admin_required
+def proxy_wishlists():
+    """View all proxy wishlists"""
+    all_proxies = ProxyWishlist.query.order_by(ProxyWishlist.created_at.desc()).all()
+    return render_template("admin/proxy_wishlists.html", proxies=all_proxies)
+
+
+@bp.route("/proxy-wishlist/<int:proxy_id>/merge", methods=["GET", "POST"])
+@login_required
+@admin_required
+def merge_proxy_wishlist(proxy_id):
+    """Merge a proxy wishlist into a user's account"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+
+    if request.method == "POST":
+        user_id = request.form.get("user_id")
+        if not user_id:
+            flash("Please select a user to merge with.", "danger")
+            return redirect(url_for("admin.merge_proxy_wishlist", proxy_id=proxy_id))
+
+        user = User.query.get_or_404(user_id)
+
+        # Import the merge function from auth routes
+        from app.routes.auth import merge_proxy_wishlist_to_user
+
+        try:
+            total_items, merged_count = merge_proxy_wishlist_to_user(proxy, user)
+            db.session.commit()
+
+            transferred_count = total_items - merged_count
+            message_parts = []
+            if transferred_count > 0:
+                message_parts.append(f"{transferred_count} item(s) transferred")
+            if merged_count > 0:
+                message_parts.append(f"{merged_count} item(s) merged with existing items")
+
+            flash(
+                f"Proxy wishlist for '{proxy.name}' merged into {user.name}'s wishlist. "
+                f"{', '.join(message_parts)}.",
+                "success",
+            )
+            return redirect(url_for("admin.proxy_wishlists"))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error merging proxy wishlist: {str(e)}", "danger")
+            return redirect(url_for("admin.merge_proxy_wishlist", proxy_id=proxy_id))
+
+    # GET request - show merge form
+    all_users = User.query.order_by(User.name).all()
+    items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).all()
+    return render_template("admin/merge_proxy_wishlist.html", proxy=proxy, users=all_users, items=items)
+
+
+@bp.route("/proxy-wishlist/<int:proxy_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_proxy_wishlist(proxy_id):
+    """Delete a proxy wishlist"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    proxy_name = proxy.name
+
+    db.session.delete(proxy)
+    db.session.commit()
+
+    flash(f"Proxy wishlist for '{proxy_name}' has been deleted.", "success")
+    return redirect(url_for("admin.proxy_wishlists"))

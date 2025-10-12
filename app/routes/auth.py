@@ -87,6 +87,49 @@ def merge_items(existing_item, new_item):
     return existing_item
 
 
+def merge_proxy_wishlist_to_user(proxy, user):
+    """
+    Merge a proxy wishlist into a user's account.
+
+    For each proxy item:
+    - If similar to existing user item: merge proxy item into existing item
+    - If no match: transfer proxy item to user's wishlist as custom gift
+
+    Returns tuple: (total_items_transferred, items_merged_count)
+    """
+    # Get all items from proxy wishlist
+    proxy_items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy.id).all()
+
+    # Get existing items the user might already have
+    existing_items = WishlistItem.query.filter_by(user_id=user.id).all()
+
+    total_items = len(proxy_items)
+    merged_count = 0
+
+    # Process each proxy item - check for duplicates and merge if needed
+    for proxy_item in proxy_items:
+        # Check if this item should be merged with an existing item
+        merged = False
+        for existing_item in existing_items:
+            if similar_items(proxy_item, existing_item):
+                # Merge proxy_item into existing_item
+                merge_items(existing_item, proxy_item)
+                merged = True
+                merged_count += 1
+                break
+
+        if not merged:
+            # No match found - transfer to user's wishlist as custom gift
+            proxy_item.proxy_wishlist_id = None
+            proxy_item.user_id = user.id
+            # Keep added_by_id to preserve who added custom gifts
+
+    # Delete the proxy wishlist
+    db.session.delete(proxy)
+
+    return total_items, merged_count
+
+
 @bp.route("/register", methods=["GET", "POST"])
 def register():
     """Unified registration page showing all registration options"""
@@ -105,36 +148,8 @@ def register():
 
         # Check for proxy wishlists with matching email
         proxy = ProxyWishlist.query.filter_by(email=user_email).first()
-        merged_count = 0
         if proxy:
-            # Get all items from proxy wishlist
-            proxy_items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy.id).all()
-
-            # Get existing items the user might already have (shouldn't happen on first registration, but be safe)
-            existing_items = WishlistItem.query.filter_by(user_id=user.id).all()
-
-            # Process each proxy item - check for duplicates and merge if needed
-            items_to_transfer = []
-            for proxy_item in proxy_items:
-                # Check if this item should be merged with an existing item
-                merged = False
-                for existing_item in existing_items:
-                    if similar_items(proxy_item, existing_item):
-                        # Merge proxy_item into existing_item
-                        merge_items(existing_item, proxy_item)
-                        merged = True
-                        merged_count += 1
-                        break
-
-                if not merged:
-                    # No match found - transfer to user's wishlist
-                    proxy_item.proxy_wishlist_id = None
-                    proxy_item.user_id = user.id
-                    # Keep added_by_id to preserve who added custom gifts
-                    items_to_transfer.append(proxy_item)
-
-            # Delete the proxy wishlist
-            db.session.delete(proxy)
+            merge_proxy_wishlist_to_user(proxy, user)
 
         db.session.commit()
 
