@@ -27,7 +27,14 @@ def send_email(subject, recipients, text_body, html_body):
 
 def send_magic_link_email(user):
     """Send magic link login email"""
+    # Skip users without email (username-only users)
+    if not user.email:
+        return False
+
     token = user.generate_magic_link_token()
+    if not token:
+        return False
+
     login_url = f"{current_app.config['APP_URL']}/auth/magic-login/{token}"
 
     send_email(
@@ -56,11 +63,19 @@ Best regards,
 {current_app.config['APP_NAME']} Team</p>
 """,
     )
+    return True
 
 
 def send_welcome_email(user):
     """Send welcome email to new users with magic login link"""
+    # Skip users without email (username-only users)
+    if not user.email:
+        return False
+
     token = user.generate_magic_link_token()
+    if not token:
+        return False
+
     login_url = f"{current_app.config['APP_URL']}/auth/magic-login/{token}"
 
     send_email(
@@ -130,6 +145,7 @@ Best regards,
 </div>
 """,
     )
+    return True
 
 
 def send_daily_wishlist_digest():
@@ -226,13 +242,14 @@ def send_daily_wishlist_digest():
 
         text_body = "\n".join(text_body_lines)
 
-        # Send the email
-        send_email(
-            subject="Wishlist Updates from Your Family",
-            recipients=recipient_user.email,
-            text_body=text_body,
-            html_body=html_body,
-        )
+        # Send the email only if user has an email address
+        if recipient_user.email:
+            send_email(
+                subject="Wishlist Updates from Your Family",
+                recipients=recipient_user.email,
+                text_body=text_body,
+                html_body=html_body,
+            )
 
     # Mark all changes as notified
     WishlistChange.query.filter(

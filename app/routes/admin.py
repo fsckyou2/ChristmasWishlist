@@ -67,21 +67,23 @@ def edit_user(user_id):
 
     if request.method == "POST":
         new_name = request.form.get("name", "").strip()
-        new_email = request.form.get("email", "").strip()
+        new_email = request.form.get("email", "").strip() or None  # Convert empty string to None
 
         if not new_name:
             flash("Name cannot be empty.", "danger")
             return redirect(url_for("admin.edit_user", user_id=user_id))
 
-        if not new_email:
-            flash("Email cannot be empty.", "danger")
+        # Validate that user has either email OR username
+        if not new_email and not user.username:
+            flash("User must have either an email or username.", "danger")
             return redirect(url_for("admin.edit_user", user_id=user_id))
 
-        # Check if email is already taken by another user
-        existing_user = User.query.filter_by(email=new_email).first()
-        if existing_user and existing_user.id != user.id:
-            flash("Email address is already in use.", "danger")
-            return redirect(url_for("admin.edit_user", user_id=user_id))
+        # Check if email is already taken by another user (if email is provided)
+        if new_email:
+            existing_user = User.query.filter_by(email=new_email).first()
+            if existing_user and existing_user.id != user.id:
+                flash("Email address is already in use.", "danger")
+                return redirect(url_for("admin.edit_user", user_id=user_id))
 
         user.name = new_name
         user.email = new_email
@@ -137,10 +139,18 @@ def delete_user(user_id):
 def send_user_login_link(user_id):
     """Send magic link login email to user"""
     user = User.query.get_or_404(user_id)
+
+    if not user.email:
+        flash(f"{user.name} does not have an email address. They must log in with username/password.", "warning")
+        return redirect(url_for("admin.view_user", user_id=user_id))
+
     from app.email import send_magic_link_email
 
-    send_magic_link_email(user)
-    flash(f"Login link sent to {user.email}.", "success")
+    success = send_magic_link_email(user)
+    if success:
+        flash(f"Login link sent to {user.email}.", "success")
+    else:
+        flash(f"Could not send login link to {user.name}.", "danger")
     return redirect(url_for("admin.view_user", user_id=user_id))
 
 
