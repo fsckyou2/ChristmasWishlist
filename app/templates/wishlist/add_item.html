@@ -3,8 +3,7 @@
 {% block title %}Add Item{% endblock %}
 
 {% block head %}
-<script src="{{ url_for('static', filename='js/scraper.js') }}"></script>
-<script src="{{ url_for('static', filename='js/image-selector.js') }}"></script>
+<script src="{{ url_for('static', filename='js/image-selector.js') }}?v=10002"></script>
 {% endblock %}
 
 {% block content %}
@@ -109,26 +108,37 @@ document.getElementById('scrape-btn').addEventListener('click', async function()
     this.textContent = 'Loading...';
 
     try {
-        console.log('Attempting client-side scraping...');
-        const result = await scrapeProductUrl(url);
+        console.log('Scraping via server...');
+        const response = await fetch('/scraper/scrape', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url: url })
+        });
 
-        if (result.success && result.data) {
-            const data = result.data;
-            console.log('Client-side scraping successful:', data);
+        const result = await response.json();
+
+        if (response.ok && result.success && result.data) {
+            console.log('Server-side scraping successful:', result);
 
             // Fill form fields
-            if (data.name) document.getElementById('name-input').value = data.name;
-            if (data.description) document.getElementById('description-input').value = data.description;
-            if (data.price) document.getElementById('price-input').value = data.price;
+            if (result.data.name) {
+                document.getElementById('name-input').value = result.data.name;
+            }
+            if (result.data.description) {
+                document.getElementById('description-input').value = result.data.description;
+            }
+            if (result.data.price) {
+                document.getElementById('price-input').value = result.data.price;
+            }
 
-            // Handle images with image selector
-            if (data.images && data.images.length > 0) {
-                window.imageSelector.setImages(data.images);
-            } else if (data.image_url) {
-                // Fallback to single image
-                window.imageSelector.setImages([data.image_url]);
+            // Handle images
+            if (result.data.images && result.data.images.length > 0) {
+                window.imageSelector.setImages(result.data.images);
+            } else if (result.data.image_url) {
+                window.imageSelector.setImages([result.data.image_url]);
             } else {
-                // No images found, show default
                 window.imageSelector.setImages([]);
             }
 
@@ -136,53 +146,9 @@ document.getElementById('scrape-btn').addEventListener('click', async function()
         } else {
             throw new Error(result.error || 'Could not extract product information');
         }
-    } catch (clientError) {
-        console.warn('Client-side scraping failed:', clientError.message);
-        console.log('Falling back to server-side scraping...');
-
-        // Fallback to server-side scraping
-        try {
-            const response = await fetch('/scraper/scrape', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ url: url })
-            });
-
-            const serverResult = await response.json();
-
-            if (response.ok && (serverResult.title || serverResult.name)) {
-                console.log('Server-side scraping successful:', serverResult);
-
-                // Fill form fields (server returns 'title' instead of 'name')
-                if (serverResult.title || serverResult.name) {
-                    document.getElementById('name-input').value = serverResult.title || serverResult.name;
-                }
-                if (serverResult.description) {
-                    document.getElementById('description-input').value = serverResult.description;
-                }
-                if (serverResult.price) {
-                    document.getElementById('price-input').value = serverResult.price;
-                }
-
-                // Handle images
-                if (serverResult.images && serverResult.images.length > 0) {
-                    window.imageSelector.setImages(serverResult.images);
-                } else if (serverResult.image) {
-                    window.imageSelector.setImages([serverResult.image]);
-                } else {
-                    window.imageSelector.setImages([]);
-                }
-
-                alert('Product information loaded successfully!');
-            } else {
-                throw new Error(serverResult.error || 'Could not extract product information');
-            }
-        } catch (serverError) {
-            console.error('Both client and server scraping failed:', serverError);
-            alert('Could not load product information from either method.\nPlease fill in manually.\n\nDetails: ' + clientError.message);
-        }
+    } catch (error) {
+        console.error('Server scraping failed:', error);
+        alert('Could not load product information.\nPlease fill in manually.\n\nError: ' + error.message);
     } finally {
         this.disabled = false;
         this.textContent = 'Auto-Fill from URL';

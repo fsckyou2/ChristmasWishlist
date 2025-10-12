@@ -189,7 +189,7 @@ def send_daily_wishlist_digest():
         html_body_parts.append("<p>Here's what's new with wishlists from your family:</p>")
 
         for user_id, user_changes in changes_by_user.items():
-            changer_user = User.query.get(user_id)
+            changer_user = db.session.get(User, user_id)
             if not changer_user:
                 continue
 

@@ -219,12 +219,17 @@ def edit_item(item_id):
     """Edit wishlist item"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item OR is the person who added it as a custom gift OR is admin editing proxy item
-    is_owner = item.user_id == current_user.id
+    # Check permissions:
+    # - Owner can edit their own items (but not custom gifts added by others)
+    # - Custom gift adder can edit custom gifts they added
+    # - Admin can edit any item
+    is_owner_item = item.user_id == current_user.id and (
+        item.added_by_id is None or item.added_by_id == current_user.id
+    )  # noqa: E711
     is_custom_gift_adder = item.added_by_id == current_user.id
-    is_admin_editing_proxy = current_user.is_admin and item.is_proxy_item
+    is_admin = current_user.is_admin
 
-    if not (is_owner or is_custom_gift_adder or is_admin_editing_proxy):
+    if not (is_owner_item or is_custom_gift_adder or is_admin):
         flash("You can only edit items you added.", "danger")
         return redirect(url_for("wishlist.my_list"))
 
@@ -260,12 +265,17 @@ def delete_item(item_id):
     """Delete wishlist item"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item OR is the person who added it as a custom gift OR is admin editing proxy item
-    is_owner = item.user_id == current_user.id
+    # Check permissions (same as edit):
+    # - Owner can delete their own items (but not custom gifts added by others)
+    # - Custom gift adder can delete custom gifts they added
+    # - Admin can delete any item
+    is_owner_item = item.user_id == current_user.id and (
+        item.added_by_id is None or item.added_by_id == current_user.id
+    )  # noqa: E711
     is_custom_gift_adder = item.added_by_id == current_user.id
-    is_admin_editing_proxy = current_user.is_admin and item.is_proxy_item
+    is_admin = current_user.is_admin
 
-    if not (is_owner or is_custom_gift_adder or is_admin_editing_proxy):
+    if not (is_owner_item or is_custom_gift_adder or is_admin):
         flash("You can only delete items you added.", "danger")
         return redirect(url_for("wishlist.my_list"))
 
@@ -428,12 +438,17 @@ def update_item_quick(item_id):
     """Quick update item via AJAX"""
     item = WishlistItem.query.get_or_404(item_id)
 
-    # Check if user owns this item OR is the person who added it as a custom gift OR is admin editing proxy item
-    is_owner = item.user_id == current_user.id
+    # Check permissions (same as edit):
+    # - Owner can update their own items (but not custom gifts added by others)
+    # - Custom gift adder can update custom gifts they added
+    # - Admin can update any item
+    is_owner_item = item.user_id == current_user.id and (
+        item.added_by_id is None or item.added_by_id == current_user.id
+    )  # noqa: E711
     is_custom_gift_adder = item.added_by_id == current_user.id
-    is_admin_editing_proxy = current_user.is_admin and item.is_proxy_item
+    is_admin = current_user.is_admin
 
-    if not (is_owner or is_custom_gift_adder or is_admin_editing_proxy):
+    if not (is_owner_item or is_custom_gift_adder or is_admin):
         return jsonify({"error": "Unauthorized"}), 403
 
     data = request.get_json()

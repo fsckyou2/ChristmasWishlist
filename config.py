@@ -25,6 +25,9 @@ class Config:
     MAGIC_LINK_TOKEN_EXPIRY = int(os.getenv("MAGIC_LINK_TOKEN_EXPIRY", 1800))
     DAILY_DIGEST_HOUR = int(os.getenv("DAILY_DIGEST_HOUR", 9))  # Hour (0-23, UTC) for daily digest emails
 
+    # ScraperAPI configuration (optional, for bypassing bot detection)
+    SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY")
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""
@@ -39,6 +42,9 @@ class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
+
+    # Disable ScraperAPI in tests to avoid consuming API quota
+    SCRAPER_API_KEY = None
 
 
 class ProductionConfig(Config):
