@@ -132,22 +132,30 @@ def create_app(config_name="default"):
                 print("=" * 70 + "\n")
 
         # Create admin user if it doesn't exist (passwordless)
+        # Skip during migrations to avoid querying models with outdated schema
         # Wrap in try/except to handle race condition with multiple gunicorn workers
-        from app.models import User
-        from sqlalchemy.exc import IntegrityError
+        skip_admin_creation = os.getenv("SKIP_ADMIN_CREATION", "").lower() == "true"
 
-        admin_email = os.getenv("ADMIN_EMAIL")
-        admin_name = os.getenv("ADMIN_NAME")
-        if admin_email:
-            try:
-                admin = User.query.filter_by(email=admin_email).first()
-                if not admin:
-                    admin = User(email=admin_email, name=admin_name, is_admin=True)
-                    db.session.add(admin)
-                    db.session.commit()
-            except IntegrityError:
-                # Another worker already created the admin user
-                db.session.rollback()
+        if not skip_admin_creation:
+            from app.models import User
+            from sqlalchemy.exc import IntegrityError, OperationalError
+
+            admin_email = os.getenv("ADMIN_EMAIL")
+            admin_name = os.getenv("ADMIN_NAME")
+            if admin_email:
+                try:
+                    admin = User.query.filter_by(email=admin_email).first()
+                    if not admin:
+                        admin = User(email=admin_email, name=admin_name, is_admin=True)
+                        db.session.add(admin)
+                        db.session.commit()
+                except IntegrityError:
+                    # Another worker already created the admin user
+                    db.session.rollback()
+                except OperationalError:
+                    # Database schema outdated (during/after migrations)
+                    # Skip admin creation - will be created on next restart
+                    db.session.rollback()
 
         # Initialize scheduler for daily digest emails
         from app.scheduler import init_scheduler

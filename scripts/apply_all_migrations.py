@@ -16,6 +16,9 @@ import sys
 import os
 import glob
 
+# Skip admin user creation during migrations to avoid schema mismatch errors
+os.environ["SKIP_ADMIN_CREATION"] = "true"
+
 # Add parent directory to path to import app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
