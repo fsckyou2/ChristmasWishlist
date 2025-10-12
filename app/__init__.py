@@ -78,12 +78,16 @@ def create_app(config_name="default"):
 
     # Create database tables
     with app.app_context():
-        db.create_all()
-
-        # Check if migrations are needed (for existing databases)
         from sqlalchemy import inspect
 
+        # Only create tables if they don't exist
+        # (db.create_all() should be idempotent but can fail in race conditions)
         inspector = inspect(db.engine)
+        existing_tables = inspector.get_table_names()
+
+        if not existing_tables or "users" not in existing_tables:
+            # Fresh database - create all tables
+            db.create_all()
 
         # Check for missing columns (added in v1.5.0)
         if "wishlist_items" in inspector.get_table_names():
@@ -128,16 +132,22 @@ def create_app(config_name="default"):
                 print("=" * 70 + "\n")
 
         # Create admin user if it doesn't exist (passwordless)
+        # Wrap in try/except to handle race condition with multiple gunicorn workers
         from app.models import User
+        from sqlalchemy.exc import IntegrityError
 
         admin_email = os.getenv("ADMIN_EMAIL")
         admin_name = os.getenv("ADMIN_NAME")
         if admin_email:
-            admin = User.query.filter_by(email=admin_email).first()
-            if not admin:
-                admin = User(email=admin_email, name=admin_name, is_admin=True)
-                db.session.add(admin)
-                db.session.commit()
+            try:
+                admin = User.query.filter_by(email=admin_email).first()
+                if not admin:
+                    admin = User(email=admin_email, name=admin_name, is_admin=True)
+                    db.session.add(admin)
+                    db.session.commit()
+            except IntegrityError:
+                # Another worker already created the admin user
+                db.session.rollback()
 
         # Initialize scheduler for daily digest emails
         from app.scheduler import init_scheduler

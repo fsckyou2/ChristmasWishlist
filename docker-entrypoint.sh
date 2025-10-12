@@ -10,19 +10,26 @@ echo ""
 echo "Ensuring instance directory exists..."
 mkdir -p instance
 
-# Run database migrations
-echo ""
-echo "Running database migrations..."
-python scripts/apply_all_migrations.py
+# Check if database file exists
+if [ -f "instance/wishlist.db" ]; then
+    # Database exists - run migrations
+    echo ""
+    echo "Database found - running migrations..."
+    python scripts/apply_all_migrations.py
 
-# Check if migrations succeeded
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "✅ Migrations completed successfully"
+    # Check if migrations succeeded
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "✅ Migrations completed successfully"
+    else
+        echo ""
+        echo "❌ Migrations failed! Container will not start."
+        exit 1
+    fi
 else
+    # No database - fresh deployment
     echo ""
-    echo "❌ Migrations failed! Container will not start."
-    exit 1
+    echo "No database found - fresh deployment (tables will be created on first request)"
 fi
 
 echo ""
