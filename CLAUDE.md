@@ -372,4 +372,6 @@ python scripts/bump_version.py [major|minor|patch]
 - See `WORKFLOW_SEQUENCE.md` for detailed execution flow
 - See `VERSIONING.md` for versioning guide
 - See `CHANGELOG.md` for version history and changes
+
+**Things that must ALWAYS happen whenever there are code changes**
 - Always check Black and Flake8 formatting
