@@ -375,3 +375,4 @@ python scripts/bump_version.py [major|minor|patch]
 
 **Things that must ALWAYS happen whenever there are code changes**
 - Always check Black and Flake8 formatting
+- Always put changed files into the container or rebuild the container instead

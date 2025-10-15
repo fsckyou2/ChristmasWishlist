@@ -921,6 +921,233 @@ class TestProxyWishlist:
             assert user is not None
             assert item.user_id == user.id
 
+    def test_proxy_conversion_by_name_exact_match(self, client, app):
+        """Test that proxy wishlist is converted when user registers with matching name"""
+        # Create proxy with items (no email)
+        with app.app_context():
+            proxy = ProxyWishlist(name="Westley", email=None, created_by_id=1)
+            db.session.add(proxy)
+            db.session.flush()
+
+            item = WishlistItem(
+                proxy_wishlist_id=proxy.id,
+                added_by_id=1,
+                name="Cool Gift",
+                quantity=1,
+            )
+            db.session.add(item)
+            db.session.commit()
+            proxy_id = proxy.id
+            item_id = item.id
+
+        # Register user with matching name (exact)
+        response = client.post(
+            "/auth/register",
+            data={
+                "name": "Westley",
+                "email": "westley@example.com",
+                "submit": "Register",
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+
+        # Verify proxy was converted
+        with app.app_context():
+            # Proxy should be deleted
+            proxy = db.session.get(ProxyWishlist, proxy_id)
+            assert proxy is None
+
+            # Item should be transferred to new user
+            item = db.session.get(WishlistItem, item_id)
+            assert item is not None
+            assert item.proxy_wishlist_id is None
+            assert item.user_id is not None
+
+            # New user should exist
+            user = User.query.filter_by(email="westley@example.com").first()
+            assert user is not None
+            assert item.user_id == user.id
+
+    def test_proxy_conversion_by_name_full_name_match(self, client, app):
+        """Test that proxy wishlist is converted when user registers with full name containing proxy name"""
+        # Create proxy with first name only
+        with app.app_context():
+            proxy = ProxyWishlist(name="Westley", email=None, created_by_id=1)
+            db.session.add(proxy)
+            db.session.flush()
+
+            item = WishlistItem(
+                proxy_wishlist_id=proxy.id,
+                added_by_id=1,
+                name="Another Gift",
+                quantity=1,
+            )
+            db.session.add(item)
+            db.session.commit()
+            proxy_id = proxy.id
+            item_id = item.id
+
+        # Register user with full name (first + last)
+        response = client.post(
+            "/auth/register",
+            data={
+                "name": "Westley Welch",
+                "email": "westley.welch@example.com",
+                "submit": "Register",
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+
+        # Verify proxy was converted
+        with app.app_context():
+            # Proxy should be deleted
+            proxy = db.session.get(ProxyWishlist, proxy_id)
+            assert proxy is None
+
+            # Item should be transferred to new user
+            item = db.session.get(WishlistItem, item_id)
+            assert item is not None
+            assert item.proxy_wishlist_id is None
+            assert item.user_id is not None
+
+            # New user should exist
+            user = User.query.filter_by(email="westley.welch@example.com").first()
+            assert user is not None
+            assert item.user_id == user.id
+
+    def test_proxy_conversion_by_name_short_name_match(self, client, app):
+        """Test that proxy wishlist is converted when user registers with shortened name"""
+        # Create proxy with first name
+        with app.app_context():
+            proxy = ProxyWishlist(name="Westley", email=None, created_by_id=1)
+            db.session.add(proxy)
+            db.session.flush()
+
+            item = WishlistItem(
+                proxy_wishlist_id=proxy.id,
+                added_by_id=1,
+                name="Short Name Gift",
+                quantity=1,
+            )
+            db.session.add(item)
+            db.session.commit()
+            proxy_id = proxy.id
+            item_id = item.id
+
+        # Register user with shortened name
+        response = client.post(
+            "/auth/register",
+            data={
+                "name": "West",
+                "email": "west@example.com",
+                "submit": "Register",
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+
+        # Verify proxy was converted
+        with app.app_context():
+            # Proxy should be deleted
+            proxy = db.session.get(ProxyWishlist, proxy_id)
+            assert proxy is None
+
+            # Item should be transferred to new user
+            item = db.session.get(WishlistItem, item_id)
+            assert item is not None
+            assert item.proxy_wishlist_id is None
+            assert item.user_id is not None
+
+            # New user should exist
+            user = User.query.filter_by(email="west@example.com").first()
+            assert user is not None
+            assert item.user_id == user.id
+
+    def test_proxy_conversion_by_name_username_registration(self, client, app):
+        """Test that proxy wishlist is converted when user registers with username/password"""
+        # Create proxy with items (no email)
+        with app.app_context():
+            proxy = ProxyWishlist(name="Westley", email=None, created_by_id=1)
+            db.session.add(proxy)
+            db.session.flush()
+
+            item = WishlistItem(
+                proxy_wishlist_id=proxy.id,
+                added_by_id=1,
+                name="Username Gift",
+                quantity=1,
+            )
+            db.session.add(item)
+            db.session.commit()
+            proxy_id = proxy.id
+            item_id = item.id
+
+        # Register user with username/password and matching name
+        response = client.post(
+            "/auth/register-username",
+            data={
+                "name": "Westley Welch",
+                "username": "westleyw",
+                "password": "password123",
+                "confirm_password": "password123",
+                "submit": "Register",
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+
+        # Verify proxy was converted
+        with app.app_context():
+            # Proxy should be deleted
+            proxy = db.session.get(ProxyWishlist, proxy_id)
+            assert proxy is None
+
+            # Item should be transferred to new user
+            item = db.session.get(WishlistItem, item_id)
+            assert item is not None
+            assert item.proxy_wishlist_id is None
+            assert item.user_id is not None
+
+            # New user should exist
+            user = User.query.filter_by(username="westleyw").first()
+            assert user is not None
+            assert item.user_id == user.id
+
+    def test_proxy_no_conversion_different_names(self, client, app):
+        """Test that proxy wishlist is NOT converted when names don't match"""
+        # Create proxy
+        with app.app_context():
+            proxy = ProxyWishlist(name="Westley", email=None, created_by_id=1)
+            db.session.add(proxy)
+            db.session.commit()
+            proxy_id = proxy.id
+
+        # Register user with completely different name
+        response = client.post(
+            "/auth/register",
+            data={
+                "name": "John Doe",
+                "email": "john@example.com",
+                "submit": "Register",
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+
+        # Verify proxy was NOT converted
+        with app.app_context():
+            # Proxy should still exist
+            proxy = db.session.get(ProxyWishlist, proxy_id)
+            assert proxy is not None
+            assert proxy.name == "Westley"
+
     def test_auto_merge_on_conversion_url_match(self, client, app, user):
         """Test that duplicate items are merged when proxy is converted (URL match)"""
         # Create user first
