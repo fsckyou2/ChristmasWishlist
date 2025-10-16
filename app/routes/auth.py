@@ -87,6 +87,52 @@ def merge_items(existing_item, new_item):
     return existing_item
 
 
+def names_match(proxy_name, user_name):
+    """
+    Check if a proxy wishlist name matches a user's name.
+
+    Matches if:
+    - Exact match (case-insensitive)
+    - User name contains the proxy name (e.g., "Westley Welch" contains "Westley")
+    - Proxy name contains the user name (e.g., "Westley" contains "West")
+
+    Args:
+        proxy_name: Name from ProxyWishlist
+        user_name: Name from User
+
+    Returns:
+        bool: True if names match
+    """
+    if not proxy_name or not user_name:
+        return False
+
+    proxy_lower = proxy_name.lower().strip()
+    user_lower = user_name.lower().strip()
+
+    # Exact match
+    if proxy_lower == user_lower:
+        return True
+
+    # Check if user name contains proxy name (e.g., "Westley Welch" contains "Westley")
+    if proxy_lower in user_lower:
+        return True
+
+    # Check if proxy name contains user name (e.g., "Westley" contains "West")
+    if user_lower in proxy_lower:
+        return True
+
+    # Check if first word matches (common nickname/full name pattern)
+    proxy_first = proxy_lower.split()[0] if proxy_lower.split() else ""
+    user_first = user_lower.split()[0] if user_lower.split() else ""
+
+    if proxy_first and user_first:
+        # Match if one is contained in the other (e.g., "West" in "Westley")
+        if proxy_first in user_first or user_first in proxy_first:
+            return True
+
+    return False
+
+
 def merge_proxy_wishlist_to_user(proxy, user):
     """
     Merge a proxy wishlist into a user's account.
@@ -146,9 +192,22 @@ def register():
         db.session.add(user)
         db.session.flush()  # Get the user ID before committing
 
-        # Check for proxy wishlists with matching email
-        proxy = ProxyWishlist.query.filter_by(email=user_email).first()
-        if proxy:
+        # Check for proxy wishlists with matching email OR matching name
+        proxies_to_merge = []
+
+        # First, check for email match (most specific)
+        proxy_by_email = ProxyWishlist.query.filter_by(email=user_email).first()
+        if proxy_by_email:
+            proxies_to_merge.append(proxy_by_email)
+
+        # Then, check for name matches (may find additional proxies)
+        all_proxies = ProxyWishlist.query.all()
+        for proxy in all_proxies:
+            if proxy not in proxies_to_merge and names_match(proxy.name, user.name):
+                proxies_to_merge.append(proxy)
+
+        # Merge all matching proxy wishlists
+        for proxy in proxies_to_merge:
             merge_proxy_wishlist_to_user(proxy, user)
 
         db.session.commit()
@@ -174,6 +233,19 @@ def register_username():
         user = User(username=form.username.data.lower(), name=form.name.data)
         user.set_password(form.password.data)
         db.session.add(user)
+        db.session.flush()  # Get the user ID before committing
+
+        # Check for proxy wishlists with matching name
+        proxies_to_merge = []
+        all_proxies = ProxyWishlist.query.all()
+        for proxy in all_proxies:
+            if names_match(proxy.name, user.name):
+                proxies_to_merge.append(proxy)
+
+        # Merge all matching proxy wishlists
+        for proxy in proxies_to_merge:
+            merge_proxy_wishlist_to_user(proxy, user)
+
         db.session.commit()
 
         flash("Registration successful! You can now log in.", "success")
