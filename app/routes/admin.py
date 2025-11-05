@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from functools import wraps
 from app import db
-from app.models import User, WishlistItem, Purchase, ProxyWishlist
+from app.models import User, WishlistItem, Purchase, ProxyWishlist, WishlistDelegate
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -314,3 +314,98 @@ def delete_proxy_wishlist(proxy_id):
 
     flash(f"Proxy wishlist for '{proxy_name}' has been deleted.", "success")
     return redirect(url_for("admin.proxy_wishlists"))
+
+
+# ======================================
+# Delegate Management Routes
+# ======================================
+
+
+@bp.route("/proxy-wishlist/<int:proxy_id>/delegates")
+@login_required
+@admin_required
+def manage_delegates(proxy_id):
+    """Manage delegates for a proxy wishlist"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    delegates = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy_id).all()
+
+    # Get all users who could be delegates (not already delegates)
+    existing_delegate_ids = [d.user_id for d in delegates]
+    available_users = (
+        User.query.filter(
+            User.id.notin_(existing_delegate_ids), User.id != proxy.created_by_id  # Don't include creator
+        )
+        .order_by(User.name)
+        .all()
+    )
+
+    return render_template(
+        "admin/manage_delegates.html", proxy=proxy, delegates=delegates, available_users=available_users
+    )
+
+
+@bp.route("/proxy-wishlist/<int:proxy_id>/delegates/add", methods=["POST"])
+@login_required
+@admin_required
+def add_delegate(proxy_id):
+    """Add a delegate to a proxy wishlist"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    user_id = request.form.get("user_id", type=int)
+
+    if not user_id:
+        flash("Please select a user.", "danger")
+        return redirect(url_for("admin.manage_delegates", proxy_id=proxy_id))
+
+    user = User.query.get_or_404(user_id)
+
+    # Check if already a delegate
+    existing = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy_id, user_id=user_id).first()
+
+    if existing:
+        flash(f"{user.name} is already a delegate for {proxy.name}'s wishlist.", "warning")
+        return redirect(url_for("admin.manage_delegates", proxy_id=proxy_id))
+
+    # Create delegate
+    delegate = WishlistDelegate(
+        proxy_wishlist_id=proxy_id, user_id=user_id, can_add_items=True, can_edit_items=True, can_remove_items=True
+    )
+
+    db.session.add(delegate)
+    db.session.commit()
+
+    flash(f"{user.name} added as delegate for {proxy.name}'s wishlist!", "success")
+    return redirect(url_for("admin.manage_delegates", proxy_id=proxy_id))
+
+
+@bp.route("/delegate/<int:delegate_id>/remove", methods=["POST"])
+@login_required
+@admin_required
+def remove_delegate(delegate_id):
+    """Remove a delegate"""
+    delegate = WishlistDelegate.query.get_or_404(delegate_id)
+    proxy_id = delegate.proxy_wishlist_id
+    user_name = delegate.user.name
+    proxy_name = delegate.proxy_wishlist.name
+
+    db.session.delete(delegate)
+    db.session.commit()
+
+    flash(f"{user_name} removed as delegate for {proxy_name}'s wishlist.", "success")
+    return redirect(url_for("admin.manage_delegates", proxy_id=proxy_id))
+
+
+@bp.route("/delegate/<int:delegate_id>/update-permissions", methods=["POST"])
+@login_required
+@admin_required
+def update_delegate_permissions(delegate_id):
+    """Update delegate permissions"""
+    delegate = WishlistDelegate.query.get_or_404(delegate_id)
+
+    delegate.can_add_items = request.form.get("can_add_items") == "on"
+    delegate.can_edit_items = request.form.get("can_edit_items") == "on"
+    delegate.can_remove_items = request.form.get("can_remove_items") == "on"
+
+    db.session.commit()
+
+    flash(f"Permissions updated for {delegate.user.name}.", "success")
+    return redirect(url_for("admin.manage_delegates", proxy_id=delegate.proxy_wishlist_id))

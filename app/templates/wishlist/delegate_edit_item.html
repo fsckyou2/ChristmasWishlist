@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Add Item{% endblock %}
+{% block title %}Edit Item on {{ proxy.name }}'s Wishlist{% endblock %}
 
 {% block head %}
 <script src="{{ url_for('static', filename='js/image-selector.js') }}?v=10002"></script>
@@ -8,24 +8,16 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Add Item to Wishlist</h1>
+    <h1 class="text-4xl font-bold mb-2">Edit Item on {{ proxy.name }}'s Wishlist</h1>
+    <p class="text-gray-400 mb-8">Managing as delegate</p>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8">
-        <div class="mb-6 p-4 bg-blue-900 rounded">
-            <p class="text-sm text-gray-200">
-                <strong>Tip:</strong> Paste a URL from Amazon, eBay, Walmart, or other shopping sites and click "Auto-Fill" to automatically extract product details!
-            </p>
-        </div>
-
         <form method="POST" id="itemForm" class="space-y-4">
             {{ form.hidden_tag() }}
 
             <div>
                 {{ form.url.label(class="block text-gray-200 font-semibold mb-2") }}
                 {{ form.url(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 placeholder-gray-400", id="url-input", placeholder="https://www.amazon.com/product...") }}
-                <button type="button" id="scrape-btn" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
-                    Auto-Fill from URL
-                </button>
                 {% if form.url.errors %}
                     <p class="text-red-600 text-sm mt-1">{{ form.url.errors[0] }}</p>
                 {% endif %}
@@ -71,9 +63,6 @@
                 {% if form.image_url.errors %}
                     <p class="text-red-600 text-sm mt-1">{{ form.image_url.errors[0] }}</p>
                 {% endif %}
-                <p class="text-xs text-gray-400 mt-1">
-                    Enter an image URL manually, use Auto-Fill, or select from available images below.
-                </p>
             </div>
 
             <!-- Image selector container -->
@@ -81,7 +70,7 @@
 
             <div class="flex gap-4">
                 {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
-                <a href="{{ url_for('wishlist.my_list') }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
+                <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=proxy.id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
                     Cancel
                 </a>
             </div>
@@ -94,62 +83,12 @@
 window.imageSelector = new ImageSelector('#image-selector-container');
 window.imageSelector.init('#image-input');
 
-document.getElementById('scrape-btn').addEventListener('click', async function() {
-    const url = document.getElementById('url-input').value;
-    if (!url) {
-        alert('Please enter a URL first');
-        return;
-    }
-
-    this.disabled = true;
-    this.textContent = 'Loading...';
-
-    try {
-        console.log('Scraping via server...');
-        const response = await fetch('/scraper/scrape', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: url })
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.success && result.data) {
-            console.log('Server-side scraping successful:', result);
-
-            // Fill form fields
-            if (result.data.name) {
-                document.getElementById('name-input').value = result.data.name;
-            }
-            if (result.data.description) {
-                document.getElementById('description-input').value = result.data.description;
-            }
-            if (result.data.price) {
-                document.getElementById('price-input').value = result.data.price;
-            }
-
-            // Handle images
-            if (result.data.images && result.data.images.length > 0) {
-                window.imageSelector.setImages(result.data.images);
-            } else if (result.data.image_url) {
-                window.imageSelector.setImages([result.data.image_url]);
-            } else {
-                window.imageSelector.setImages([]);
-            }
-
-            alert('Product information loaded successfully!');
-        } else {
-            throw new Error(result.error || 'Could not extract product information');
-        }
-    } catch (error) {
-        console.error('Server scraping failed:', error);
-        alert('Could not load product information.\nPlease fill in manually.\n\nError: ' + error.message);
-    } finally {
-        this.disabled = false;
-        this.textContent = 'Auto-Fill from URL';
-    }
-});
+// If there are existing images, populate them
+{% if item.available_images %}
+const existingImages = {{ item.get_available_images()|tojson }};
+if (existingImages && existingImages.length > 0) {
+    window.imageSelector.setImages(existingImages);
+}
+{% endif %}
 </script>
 {% endblock %}

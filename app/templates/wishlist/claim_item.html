@@ -45,9 +45,15 @@
 
             <div class="flex gap-4">
                 {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer", value="Claim This Gift") }}
-                <a href="{{ url_for('wishlist.view_user_list', user_id=item.user_id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
-                    Cancel
-                </a>
+                {% if item.proxy_wishlist_id %}
+                    <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=item.proxy_wishlist_id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
+                        Cancel
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('wishlist.view_user_list', user_id=item.user_id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
+                        Cancel
+                    </a>
+                {% endif %}
             </div>
         </form>
     </div>

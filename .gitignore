@@ -53,3 +53,8 @@ htmlcov/
 
 # Configuration
 .env
+
+# Scripts with sensitive data
+scripts/truenas-api.sh
+scripts/truenas-deploy.sh
+TRUENAS_ACCESS.md
