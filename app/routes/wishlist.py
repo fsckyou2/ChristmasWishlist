@@ -641,7 +641,13 @@ def create_proxy_wishlist():
 def view_proxy_wishlist(proxy_id):
     """View a proxy wishlist"""
     proxy = ProxyWishlist.query.get_or_404(proxy_id)
-    items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).order_by(WishlistItem.created_at.desc()).all()
+    all_items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).order_by(WishlistItem.created_at.desc()).all()
+
+    # Filter to only show:
+    # 1. Items that are NOT custom gifts (added by delegates)
+    # 2. Custom gifts that were added by the current user
+    items = [item for item in all_items if not item.is_custom_gift or item.added_by_id == current_user.id]
+
     return render_template("wishlist/view_proxy_list.html", proxy=proxy, items=items)
 
 
@@ -778,8 +784,9 @@ def manage_as_delegate(proxy_id):
     if not current_user.is_admin and current_user.id != proxy.created_by_id:
         delegate_record = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy.id, user_id=current_user.id).first()
 
-    # Get items (delegates can see all items, but not who claimed them)
-    items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).order_by(WishlistItem.created_at.desc()).all()
+    # Get items - filter to exclude other users' custom gifts
+    all_items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).order_by(WishlistItem.created_at.desc()).all()
+    items = [item for item in all_items if not item.is_custom_gift or item.added_by_id == current_user.id]
 
     return render_template(
         "wishlist/manage_delegate.html",
