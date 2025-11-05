@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Delegates for {{ proxy.name }}'s Wishlist{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-4xl font-bold">Manage Delegates</h1>
+            <p class="text-gray-400 mt-2">{{ proxy.name }}'s Wishlist</p>
+        </div>
+        <a href="{{ url_for('admin.proxy_wishlists') }}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+            Back to Proxy Wishlists
+        </a>
+    </div>
+
+    <div class="bg-blue-900 border border-blue-700 rounded-lg p-4 mb-6">
+        <p class="text-blue-100">
+            <strong>About Delegates:</strong> Delegates can add, edit, and remove items from this wishlist,
+            but they won't see who has claimed items (to preserve the gift surprise).
+        </p>
+    </div>
+
+    <!-- Add New Delegate -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4">Add New Delegate</h2>
+        {% if available_users %}
+            <form method="POST" action="{{ url_for('admin.add_delegate', proxy_id=proxy.id) }}" class="flex gap-4">
+                <select name="user_id" class="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg">
+                    <option value="">Select a user...</option>
+                    {% for user in available_users %}
+                        <option value="{{ user.id }}">{{ user.name }} ({{ user.email or user.username }})</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+                    Add Delegate
+                </button>
+            </form>
+        {% else %}
+            <p class="text-gray-400">All users are either already delegates or the creator of this wishlist.</p>
+        {% endif %}
+    </div>
+
+    <!-- Current Delegates -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <div class="px-6 py-4 bg-gray-700">
+            <h2 class="text-2xl font-bold">Current Delegates</h2>
+        </div>
+
+        {% if delegates %}
+            <table class="w-full">
+                <thead class="bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Permissions</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Added</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-200 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for delegate in delegates %}
+                        <tr class="hover:bg-gray-700">
+                            <td class="px-6 py-4 whitespace-nowrap font-semibold">{{ delegate.user.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                                {{ delegate.user.email or delegate.user.username }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <form method="POST" action="{{ url_for('admin.update_delegate_permissions', delegate_id=delegate.id) }}" class="flex gap-3 text-sm">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="can_add_items" class="mr-1" {% if delegate.can_add_items %}checked{% endif %}>
+                                        Add
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="can_edit_items" class="mr-1" {% if delegate.can_edit_items %}checked{% endif %}>
+                                        Edit
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="can_remove_items" class="mr-1" {% if delegate.can_remove_items %}checked{% endif %}>
+                                        Remove
+                                    </label>
+                                    <button type="submit" class="ml-2 text-blue-600 hover:underline">Update</button>
+                                </form>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                                {{ delegate.created_at.strftime('%Y-%m-%d') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <form method="POST" action="{{ url_for('admin.remove_delegate', delegate_id=delegate.id) }}" class="inline">
+                                    <button type="submit" onclick="return confirm('Remove {{ delegate.user.name }} as delegate?')" class="text-red-600 hover:underline">
+                                        Remove
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="p-8 text-center">
+                <p class="text-gray-400">No delegates have been added yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

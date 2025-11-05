@@ -46,16 +46,36 @@
                             <a href="{{ url_for('admin.stop_impersonate') }}" class="hover:underline">
                                 Stop Impersonating
                             </a>
+                        {% endif %}
+                        {% if current_user.delegate_for_wishlists|length > 0 %}
+                            <div class="relative group">
+                                <button class="hover:underline flex items-center gap-1 py-2" type="button">
+                                    Manage Wishlists
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                                <div class="absolute left-0 pt-2 hidden group-hover:block z-50">
+                                    <div class="w-56 bg-gray-800 rounded-lg shadow-lg py-2">
+                                        <a href="{{ url_for('wishlist.my_list') }}" class="block px-4 py-2 hover:bg-gray-700">My Wishlist</a>
+                                        {% for delegate in current_user.delegate_for_wishlists %}
+                                            <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=delegate.proxy_wishlist_id) }}" class="block px-4 py-2 hover:bg-gray-700">
+                                                {{ delegate.proxy_wishlist.name }}'s Wishlist
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
                         {% else %}
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline">My Wishlist</a>
-                            <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">My Gifts for Others</a>
-                            <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline">Browse Wishlists</a>
-                            {% if current_user.is_admin %}
-                                <a href="{{ url_for('admin.dashboard') }}" class="hover:underline">Admin</a>
-                            {% endif %}
-                            <a href="{{ url_for('auth.settings') }}" class="hover:underline">Account Settings</a>
-                            <a href="{{ url_for('auth.logout') }}" class="hover:underline">Logout</a>
                         {% endif %}
+                        <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">My Gifts for Others</a>
+                        <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline">Browse Wishlists</a>
+                        {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin.dashboard') }}" class="hover:underline">Admin</a>
+                        {% endif %}
+                        <a href="{{ url_for('auth.settings') }}" class="hover:underline">Account Settings</a>
+                        <a href="{{ url_for('auth.logout') }}" class="hover:underline">Logout</a>
                     {% else %}
                         <a href="{{ url_for('auth.login') }}" class="hover:underline">Login</a>
                         <a href="{{ url_for('auth.register') }}" class="bg-white text-red-600 px-4 py-2 rounded font-semibold hover:bg-gray-100">
@@ -76,16 +96,34 @@
                             <a href="{{ url_for('admin.stop_impersonate') }}" class="hover:underline py-2">
                                 Stop Impersonating
                             </a>
+                        {% endif %}
+                        {% if current_user.delegate_for_wishlists|length > 0 %}
+                            <div class="border-b border-gray-600 pb-2">
+                                <button onclick="toggleMobileDropdown()" class="hover:underline py-2 flex items-center justify-between w-full" type="button">
+                                    <span>Manage Wishlists</span>
+                                    <svg id="mobile-dropdown-icon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                                <div id="mobile-dropdown" class="hidden pl-4 pt-2">
+                                    <a href="{{ url_for('wishlist.my_list') }}" class="block hover:underline py-2">My Wishlist</a>
+                                    {% for delegate in current_user.delegate_for_wishlists %}
+                                        <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=delegate.proxy_wishlist_id) }}" class="block hover:underline py-2">
+                                            {{ delegate.proxy_wishlist.name }}'s Wishlist
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         {% else %}
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline py-2">My Wishlist</a>
-                            <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">My Gifts for Others</a>
-                            <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline py-2">Browse Wishlists</a>
-                            {% if current_user.is_admin %}
-                                <a href="{{ url_for('admin.dashboard') }}" class="hover:underline py-2">Admin</a>
-                            {% endif %}
-                            <a href="{{ url_for('auth.settings') }}" class="hover:underline py-2">Account Settings</a>
-                            <a href="{{ url_for('auth.logout') }}" class="hover:underline py-2">Logout</a>
                         {% endif %}
+                        <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">My Gifts for Others</a>
+                        <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline py-2">Browse Wishlists</a>
+                        {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin.dashboard') }}" class="hover:underline py-2">Admin</a>
+                        {% endif %}
+                        <a href="{{ url_for('auth.settings') }}" class="hover:underline py-2">Account Settings</a>
+                        <a href="{{ url_for('auth.logout') }}" class="hover:underline py-2">Logout</a>
                     {% else %}
                         <a href="{{ url_for('auth.login') }}" class="hover:underline py-2">Login</a>
                         <a href="{{ url_for('auth.register') }}" class="bg-white text-red-600 px-4 py-2 rounded font-semibold hover:bg-gray-100 text-center">
@@ -135,6 +173,16 @@
                 });
             }
         });
+
+        function toggleMobileDropdown() {
+            const dropdown = document.getElementById('mobile-dropdown');
+            const icon = document.getElementById('mobile-dropdown-icon');
+
+            if (dropdown && icon) {
+                dropdown.classList.toggle('hidden');
+                icon.classList.toggle('rotate-180');
+            }
+        }
     </script>
 
     <!-- Welcome Tour -->

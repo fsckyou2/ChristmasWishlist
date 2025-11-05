@@ -26,7 +26,8 @@ def send_daily_digest_job():
     from app.email import send_daily_wishlist_digest
 
     # Create app context for database access
-    app = create_app("production")
+    # skip_scheduler=True prevents duplicate scheduler initialization
+    app = create_app("production", skip_scheduler=True)
 
     with app.app_context():
         try:
@@ -54,9 +55,10 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     # Create app to get config
+    # skip_scheduler=True prevents duplicate scheduler initialization
     from app import create_app
 
-    app = create_app("production")
+    app = create_app("production", skip_scheduler=True)
 
     # Get the hour to send emails from config (default to 9 AM local time)
     digest_hour = app.config.get("DAILY_DIGEST_HOUR", 9)

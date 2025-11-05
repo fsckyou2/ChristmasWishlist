@@ -121,7 +121,14 @@ class WishlistItem(db.Model):
     def is_custom_gift(self):
         """Check if this is a custom gift added by someone other than the owner"""
         if self.proxy_wishlist_id:
-            # All items on proxy wishlists are custom gifts
+            # Check if added by a delegate - delegates' items are NOT custom gifts
+            if self.added_by_id:
+                delegate = WishlistDelegate.query.filter_by(
+                    proxy_wishlist_id=self.proxy_wishlist_id, user_id=self.added_by_id
+                ).first()
+                if delegate:
+                    return False  # Delegates add regular items, not custom gifts
+            # Items added by non-delegates (like the creator or others) are custom gifts
             return True
         return self.added_by_id is not None and self.added_by_id != self.user_id
 
@@ -225,6 +232,44 @@ class ProxyWishlist(db.Model):
 
     # Relationships
     created_by = db.relationship("User", backref="proxy_wishlists_created")
+    delegates = db.relationship(
+        "WishlistDelegate", backref="proxy_wishlist", lazy="dynamic", cascade="all, delete-orphan"
+    )
+
+    def is_delegate(self, user):
+        """Check if a user is a delegate for this proxy wishlist"""
+        if not user:
+            return False
+        return self.delegates.filter_by(user_id=user.id).first() is not None
+
+    def can_manage(self, user):
+        """Check if a user can manage this proxy wishlist (creator or delegate)"""
+        if not user:
+            return False
+        if user.is_admin or user.id == self.created_by_id:
+            return True
+        return self.is_delegate(user)
 
     def __repr__(self):
         return f"<ProxyWishlist {self.name} email={self.email}>"
+
+
+class WishlistDelegate(db.Model):
+    """Delegate access for proxy wishlists - allows users to manage wishlists on behalf of others"""
+
+    __tablename__ = "wishlist_delegates"
+
+    id = db.Column(db.Integer, primary_key=True)
+    proxy_wishlist_id = db.Column(db.Integer, db.ForeignKey("proxy_wishlists.id", ondelete="CASCADE"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    can_add_items = db.Column(db.Boolean, default=True, nullable=False)
+    can_edit_items = db.Column(db.Boolean, default=True, nullable=False)
+    can_remove_items = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship("User", backref="delegate_for_wishlists")
+
+    def __repr__(self):
+        return f"<WishlistDelegate user={self.user_id} proxy_wishlist={self.proxy_wishlist_id}>"

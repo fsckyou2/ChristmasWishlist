@@ -24,8 +24,14 @@ mail = Mail()
 logger = logging.getLogger(__name__)
 
 
-def create_app(config_name="default"):
-    """Application factory pattern"""
+def create_app(config_name="default", skip_scheduler=False):
+    """Application factory pattern
+
+    Args:
+        config_name: Configuration to use (default, development, testing, production)
+        skip_scheduler: If True, skip scheduler initialization even if SCHEDULER_ENABLED=true
+                       Used by scheduler_worker.py to avoid duplicate schedulers
+    """
     app = Flask(__name__)
 
     # Load configuration from config.py
@@ -164,13 +170,17 @@ def create_app(config_name="default"):
         # Initialize scheduler for daily digest emails
         # Only run scheduler in dedicated scheduler worker, not in gunicorn workers
         # This prevents duplicate emails when running multiple gunicorn workers
-        if os.getenv("SCHEDULER_ENABLED", "false").lower() == "true":
+        # skip_scheduler parameter takes precedence (used by scheduler_worker.py)
+        if not skip_scheduler and os.getenv("SCHEDULER_ENABLED", "false").lower() == "true":
             from app.scheduler import init_scheduler
 
             init_scheduler(app)
             logger.info("Scheduler initialized in this process")
         else:
-            logger.info("Scheduler disabled (running in separate scheduler_worker.py)")
+            if skip_scheduler:
+                logger.info("Scheduler skipped (skip_scheduler=True)")
+            else:
+                logger.info("Scheduler disabled (running in separate scheduler_worker.py)")
 
         # Register CLI commands
         from app.cli import init_cli

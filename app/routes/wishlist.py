@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from app import db
-from app.models import User, WishlistItem, Purchase, WishlistChange, ProxyWishlist
+from app.models import User, WishlistItem, Purchase, WishlistChange, ProxyWishlist, WishlistDelegate
 from app.forms import WishlistItemForm, PurchaseForm, ProxyWishlistForm
 from difflib import SequenceMatcher
 
@@ -328,7 +328,7 @@ def claim_item(item_id):
     item = WishlistItem.query.get_or_404(item_id)
 
     # User cannot claim their own items
-    if item.user_id == current_user.id:
+    if item.user_id and item.user_id == current_user.id:
         flash("You cannot claim items from your own wishlist!", "warning")
         return redirect(url_for("wishlist.my_list"))
 
@@ -338,7 +338,10 @@ def claim_item(item_id):
     remaining = item.quantity - item.total_purchased
     if remaining <= 0:
         flash("This item is already fully claimed.", "info")
-        return redirect(url_for("wishlist.view_user_list", user_id=item.user_id))
+        if item.proxy_wishlist_id:
+            return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=item.proxy_wishlist_id))
+        else:
+            return redirect(url_for("wishlist.view_user_list", user_id=item.user_id))
 
     if form.validate_on_submit():
         quantity = form.quantity.data
@@ -354,7 +357,10 @@ def claim_item(item_id):
                 f'Claimed {quantity} of "{item.name}"! ' "Don't forget to mark it as purchased when you order it.",
                 "success",
             )
-            return redirect(url_for("wishlist.view_user_list", user_id=item.user_id))
+            if item.proxy_wishlist_id:
+                return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=item.proxy_wishlist_id))
+            else:
+                return redirect(url_for("wishlist.view_user_list", user_id=item.user_id))
 
     # Pre-fill with remaining quantity
     form.quantity.data = remaining
@@ -389,13 +395,14 @@ def unclaim_item(purchase_id):
 
     flash(f'Unclaimed "{item_name}".', "success")
 
-    # Redirect to appropriate wishlist view
-    if item.user_id:
-        return redirect(url_for("wishlist.view_user_list", user_id=item.user_id))
-    elif item.proxy_wishlist_id:
+    # Redirect back to the wishlist being viewed
+    if item.proxy_wishlist_id:
         return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=item.proxy_wishlist_id))
+    elif item.user_id:
+        return redirect(url_for("wishlist.view_user_list", user_id=item.user_id))
     else:
-        return redirect(url_for("wishlist.all_users"))
+        # Fallback to My Gifts for Others if we can't determine the wishlist
+        return redirect(url_for("wishlist.my_claims"))
 
 
 # Keep old route for backward compatibility
@@ -734,3 +741,168 @@ def merge_items_manual():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# =====================================================
+# Delegate Routes - Manage Proxy Wishlists as Delegate
+# =====================================================
+
+
+@bp.route("/delegate-wishlists")
+@login_required
+def delegate_wishlists():
+    """View all proxy wishlists that current user is a delegate for"""
+    delegated_lists = (
+        ProxyWishlist.query.join(WishlistDelegate)
+        .filter(WishlistDelegate.user_id == current_user.id)
+        .order_by(ProxyWishlist.name)
+        .all()
+    )
+
+    return render_template("wishlist/delegate_wishlists.html", delegated_lists=delegated_lists)
+
+
+@bp.route("/manage-delegate/<int:proxy_id>")
+@login_required
+def manage_as_delegate(proxy_id):
+    """View and manage a proxy wishlist as a delegate (can't see claims)"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+
+    # Check if user is a delegate
+    if not proxy.can_manage(current_user):
+        flash("You don't have permission to manage this wishlist.", "danger")
+        return redirect(url_for("wishlist.all_users"))
+
+    # Get delegate permissions
+    delegate_record = None
+    if not current_user.is_admin and current_user.id != proxy.created_by_id:
+        delegate_record = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy.id, user_id=current_user.id).first()
+
+    # Get items (delegates can see all items, but not who claimed them)
+    items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).order_by(WishlistItem.created_at.desc()).all()
+
+    return render_template(
+        "wishlist/manage_delegate.html",
+        proxy=proxy,
+        items=items,
+        delegate_record=delegate_record,
+        is_delegate=delegate_record is not None,
+    )
+
+
+@bp.route("/delegate/add-item/<int:proxy_id>", methods=["GET", "POST"])
+@login_required
+def delegate_add_item(proxy_id):
+    """Add item to proxy wishlist as a delegate"""
+    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+
+    # Check if user can manage and add items
+    if not proxy.can_manage(current_user):
+        flash("You don't have permission to add items to this wishlist.", "danger")
+        return redirect(url_for("wishlist.all_users"))
+
+    # Check delegate permissions
+    if not current_user.is_admin and current_user.id != proxy.created_by_id:
+        delegate = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy.id, user_id=current_user.id).first()
+
+        if not delegate or not delegate.can_add_items:
+            flash("You don't have permission to add items.", "danger")
+            return redirect(url_for("wishlist.manage_as_delegate", proxy_id=proxy_id))
+
+    form = WishlistItemForm()
+
+    if form.validate_on_submit():
+        item = WishlistItem(
+            proxy_wishlist_id=proxy.id,
+            added_by_id=current_user.id,  # Track who added it
+            name=form.name.data,
+            url=form.url.data,
+            description=form.description.data,
+            price=form.price.data,
+            image_url=form.image_url.data,
+            quantity=form.quantity.data,
+        )
+
+        # Handle available_images from form
+        available_images_json = request.form.get("available_images")
+        if available_images_json:
+            item.available_images = available_images_json
+
+        db.session.add(item)
+        db.session.commit()
+
+        flash(f'Item "{item.name}" added to {proxy.name}\'s wishlist!', "success")
+        return redirect(url_for("wishlist.manage_as_delegate", proxy_id=proxy.id))
+
+    return render_template("wishlist/delegate_add_item.html", form=form, proxy=proxy)
+
+
+@bp.route("/delegate/edit-item/<int:item_id>", methods=["GET", "POST"])
+@login_required
+def delegate_edit_item(item_id):
+    """Edit item on proxy wishlist as a delegate"""
+    item = WishlistItem.query.get_or_404(item_id)
+
+    if not item.proxy_wishlist:
+        flash("This item doesn't belong to a proxy wishlist.", "danger")
+        return redirect(url_for("wishlist.my_list"))
+
+    proxy = item.proxy_wishlist
+
+    # Check if user can manage and edit items
+    if not proxy.can_manage(current_user):
+        flash("You don't have permission to edit items on this wishlist.", "danger")
+        return redirect(url_for("wishlist.all_users"))
+
+    # Check delegate permissions
+    if not current_user.is_admin and current_user.id != proxy.created_by_id:
+        delegate = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy.id, user_id=current_user.id).first()
+
+        if not delegate or not delegate.can_edit_items:
+            flash("You don't have permission to edit items.", "danger")
+            return redirect(url_for("wishlist.manage_as_delegate", proxy_id=proxy.id))
+
+    form = WishlistItemForm(obj=item)
+
+    if form.validate_on_submit():
+        item.name = form.name.data
+        item.url = form.url.data
+        item.description = form.description.data
+        item.price = form.price.data
+        item.image_url = form.image_url.data
+        item.quantity = form.quantity.data
+
+        db.session.commit()
+
+        flash(f'Item "{item.name}" updated!', "success")
+        return redirect(url_for("wishlist.manage_as_delegate", proxy_id=proxy.id))
+
+    return render_template("wishlist/delegate_edit_item.html", form=form, item=item, proxy=proxy)
+
+
+@bp.route("/delegate/delete-item/<int:item_id>", methods=["POST"])
+@login_required
+def delegate_delete_item(item_id):
+    """Delete item from proxy wishlist as a delegate"""
+    item = WishlistItem.query.get_or_404(item_id)
+
+    if not item.proxy_wishlist:
+        return jsonify({"error": "This item doesn't belong to a proxy wishlist"}), 400
+
+    proxy = item.proxy_wishlist
+
+    # Check if user can manage and remove items
+    if not proxy.can_manage(current_user):
+        return jsonify({"error": "You don't have permission to delete items from this wishlist"}), 403
+
+    # Check delegate permissions
+    if not current_user.is_admin and current_user.id != proxy.created_by_id:
+        delegate = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy.id, user_id=current_user.id).first()
+
+        if not delegate or not delegate.can_remove_items:
+            return jsonify({"error": "You don't have permission to remove items"}), 403
+
+    db.session.delete(item)
+    db.session.commit()
+
+    return jsonify({"success": True, "message": f'Item "{item.name}" deleted'})

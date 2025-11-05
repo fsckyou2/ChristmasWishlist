@@ -140,21 +140,35 @@ The application uses a **separate scheduler service** to run periodic tasks (lik
 
 **Components**:
 - `scheduler_worker.py` - Standalone scheduler process (runs APScheduler in foreground)
-- `app/scheduler.py` - Scheduler configuration (legacy, only used if `SCHEDULER_ENABLED=true`)
+  - Calls `create_app("production", skip_scheduler=True)` to prevent duplicate scheduler initialization
+  - Creates its own `BlockingScheduler` independent of Flask's in-process scheduler
+- `app/scheduler.py` - In-process scheduler configuration (legacy, only used if `SCHEDULER_ENABLED=true`)
+- `app/__init__.py` - Application factory with `skip_scheduler` parameter
 - `docker-compose.yml` - Defines both `web` and `scheduler` services
 
 **How it works**:
 1. Web service runs gunicorn with 4 workers (does NOT run scheduler)
 2. Scheduler service runs `scheduler_worker.py` as single process
 3. Both services share the same Docker image and database volume
-4. Scheduler creates Flask app context to access database and send emails
+4. `scheduler_worker.py` calls `create_app(skip_scheduler=True)` to:
+   - Get configuration values like `DAILY_DIGEST_HOUR`
+   - Provide app context for job execution
+   - **Skip** initializing the in-process scheduler (prevents duplication)
 
 **Environment Variables**:
-- `SCHEDULER_ENABLED=false` - Set on web service to disable in-process scheduler
+- `SCHEDULER_ENABLED` - **Should always be `false` in Docker deployments**
+  - Set to `false` on both web and scheduler services
+  - Only set to `true` for single-process local development (e.g., `python run.py`)
+  - The `skip_scheduler` parameter in `create_app()` takes precedence over this variable
 - `DAILY_DIGEST_HOUR` - Hour (0-23 **local time**) for daily emails, default 9
   - **Important**: Timezone is set to `America/New_York` in docker-compose.yml
   - Hour is in Eastern Time (ET) and automatically adjusts for daylight saving
   - Example: `9` = 9 AM ET (either EDT or EST depending on time of year)
+
+**Deployment Modes**:
+1. **Docker multi-container (recommended)**: Web + scheduler services, both with `SCHEDULER_ENABLED=false`
+2. **Docker single container**: Web service only with `SCHEDULER_ENABLED=true` (not recommended for production)
+3. **Local development**: Run `python run.py` with `SCHEDULER_ENABLED=true` for single-process testing
 
 **Manual trigger**:
 ```bash

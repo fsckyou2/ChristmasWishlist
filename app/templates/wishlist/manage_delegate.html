@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Manage {{ proxy.name }}'s Wishlist{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-4xl font-bold">{{ proxy.name }}'s Wishlist</h1>
+            <p class="text-gray-400 mt-2">You're managing this wishlist as a delegate</p>
+        </div>
+        <div class="flex gap-3">
+            {% if not delegate_record or delegate_record.can_add_items %}
+                <a href="{{ url_for('wishlist.delegate_add_item', proxy_id=proxy.id) }}"
+                   class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700">
+                    + Add Item
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-blue-900 border border-blue-700 rounded-lg p-4 mb-6">
+        <p class="text-blue-100">
+            <span class="font-semibold">Privacy Note:</span> Claim information is hidden to preserve the gift surprise.
+            You can manage items, but won't see who has claimed what.
+        </p>
+    </div>
+
+    {% if items %}
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for item in items %}
+                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                    {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-full h-48 object-cover">
+                    {% else %}
+                        <div class="w-full h-48 bg-gray-600 flex items-center justify-center text-6xl">🎁</div>
+                    {% endif %}
+
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold mb-2">{{ item.name }}</h3>
+                        {% if item.description %}
+                            <p class="text-gray-400 text-sm mb-3 line-clamp-2">{{ item.description }}</p>
+                        {% endif %}
+
+                        <div class="flex justify-between items-center mb-3">
+                            {% if item.price %}
+                                <span class="text-lg font-semibold text-green-600">${{ "%.2f"|format(item.price) }}</span>
+                            {% else %}
+                                <span class="text-gray-400">No price</span>
+                            {% endif %}
+                            <span class="text-sm text-gray-400">Qty: {{ item.quantity }}</span>
+                        </div>
+
+                        <div class="flex gap-2">
+                            {% if item.url %}
+                                <a href="{{ item.url }}" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
+                                    View
+                                </a>
+                            {% endif %}
+                            {% if not delegate_record or delegate_record.can_edit_items %}
+                                <a href="{{ url_for('wishlist.delegate_edit_item', item_id=item.id) }}"
+                                   class="flex-1 bg-gray-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-gray-700">
+                                    Edit
+                                </a>
+                            {% endif %}
+                            {% if not delegate_record or delegate_record.can_remove_items %}
+                                <button onclick='deleteItem({{ item.id }}, {{ item.name|tojson }})'
+                                        class="flex-1 bg-red-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-red-700">
+                                    Delete
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-gray-800 rounded-lg p-8 text-center">
+            <p class="text-gray-400 text-lg mb-4">This wishlist is empty.</p>
+            {% if not delegate_record or delegate_record.can_add_items %}
+                <a href="{{ url_for('wishlist.delegate_add_item', proxy_id=proxy.id) }}"
+                   class="inline-block bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700">
+                    Add First Item
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function deleteItem(itemId, itemName) {
+    if (!confirm(`Are you sure you want to delete "${itemName}"?`)) {
+        return;
+    }
+
+    fetch(`/wishlist/delegate/delete-item/${itemId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error deleting item: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        alert('Error deleting item: ' + error);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Wishlists{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-4xl font-bold">Wishlists I Manage</h1>
+    </div>
+
+    <div class="bg-blue-900 border border-blue-700 rounded-lg p-4 mb-6">
+        <p class="text-blue-100">
+            <span class="font-semibold">Note:</span> You can add, edit, and remove items from these wishlists,
+            but you won't see who has claimed items (to preserve the gift surprise).
+        </p>
+    </div>
+
+    {% if delegated_lists %}
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for proxy in delegated_lists %}
+                <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+                    <div class="mb-4">
+                        <h3 class="text-2xl font-bold mb-2">{{ proxy.name }}'s Wishlist</h3>
+                        {% if proxy.email %}
+                            <p class="text-sm text-gray-400">{{ proxy.email }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-400">
+                            {{ proxy.items|length }} item{{ 's' if proxy.items|length != 1 else '' }}
+                        </p>
+                    </div>
+
+                    <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=proxy.id) }}"
+                       class="block w-full bg-green-600 text-white px-4 py-2 rounded text-center font-semibold hover:bg-green-700">
+                        Manage List
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-gray-800 rounded-lg p-8 text-center">
+            <p class="text-gray-400 text-lg mb-4">You're not currently managing any wishlists.</p>
+            <p class="text-sm text-gray-500">An administrator can grant you access to manage wishlists for others.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

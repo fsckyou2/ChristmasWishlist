@@ -41,6 +41,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">{{ proxy.created_at.strftime('%Y-%m-%d') }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="text-blue-600 hover:underline mr-3">View</a>
+                            <a href="{{ url_for('admin.manage_delegates', proxy_id=proxy.id) }}" class="text-purple-600 hover:underline mr-3">Delegates</a>
                             <a href="{{ url_for('admin.merge_proxy_wishlist', proxy_id=proxy.id) }}" class="text-green-600 hover:underline mr-3">Merge</a>
                             <form method="POST" action="{{ url_for('admin.delete_proxy_wishlist', proxy_id=proxy.id) }}" class="inline">
                                 <button type="submit" onclick="return confirm('Delete this proxy wishlist and all its items?')" class="text-red-600 hover:underline">

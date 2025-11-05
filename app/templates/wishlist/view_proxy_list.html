@@ -29,7 +29,7 @@
 
     <div class="mb-6 p-4 bg-yellow-900/30 rounded-lg border border-yellow-700">
         <p class="text-sm text-gray-300">
-            <strong>💡 Proxy Wishlist:</strong> This wishlist is for someone who doesn't have an account yet. All items you add will be treated as custom gifts.
+            <strong>💡 Proxy Wishlist:</strong> This wishlist is for someone who doesn't have an account yet. Items added by authorized delegates can be claimed as gifts. If you add surprise gifts, they'll be marked as custom gifts.
             {% if proxy.email %}If they register with {{ proxy.email }}, this will automatically become their wishlist!{% endif %}
         </p>
     </div>
@@ -47,9 +47,11 @@
                     <div class="p-4">
                         <div class="flex justify-between items-start mb-2">
                             <h3 class="text-xl font-bold flex-1">{{ item.name }}</h3>
-                            <span class="ml-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap" title="Added by {{ item.added_by.name }}">
-                                ✨ Custom Gift
-                            </span>
+                            {% if item.is_custom_gift %}
+                                <span class="ml-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap" title="Added by {{ item.added_by.name }}">
+                                    ✨ Custom Gift
+                                </span>
+                            {% endif %}
                         </div>
                         {% if item.description %}
                             <p class="text-gray-400 text-sm mb-3">{{ item.description[:100] }}{% if item.description|length > 100 %}...{% endif %}</p>
@@ -96,7 +98,8 @@
                             </div>
                         {% endif %}
 
-                        {% if item.added_by_id == current_user.id %}
+                        {% if item.is_custom_gift and item.added_by_id == current_user.id %}
+                            <!-- Custom gift added by current user - show delete option -->
                             <div class="bg-purple-100 text-purple-800 px-3 py-2 rounded mb-3">
                                 <div class="flex justify-between items-center text-sm">
                                     <span class="font-semibold">Your Custom Gift</span>
@@ -105,12 +108,33 @@
                                     </form>
                                 </div>
                             </div>
+                        {% else %}
+                            <!-- Regular claims (not custom gifts) -->
+                            {% set my_claims = item.purchases.filter_by(purchased_by_id=current_user.id).all() %}
+                            {% if my_claims %}
+                                <div class="bg-blue-100 text-blue-800 px-3 py-2 rounded mb-3">
+                                    <div class="text-sm font-semibold mb-1">You Claimed:</div>
+                                    {% for claim in my_claims %}
+                                        <div class="flex justify-between items-center text-xs">
+                                            <span>{{ claim.quantity }} item{% if claim.quantity != 1 %}s{% endif %}</span>
+                                            <form method="POST" action="{{ url_for('wishlist.unclaim_item', purchase_id=claim.id) }}" class="inline">
+                                                <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Unclaim</button>
+                                            </form>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         {% endif %}
 
                         <div class="flex gap-2">
                             {% if item.url %}
                                 <a href="{{ item.url }}" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
                                     View Product
+                                </a>
+                            {% endif %}
+                            {% if not item.is_custom_gift and not item.is_fully_purchased and item.added_by_id != current_user.id %}
+                                <a href="{{ url_for('wishlist.claim_item', item_id=item.id) }}" class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-green-700">
+                                    Claim Gift
                                 </a>
                             {% endif %}
                         </div>
