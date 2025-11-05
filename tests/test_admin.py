@@ -244,3 +244,184 @@ class TestAdminRoutes:
         with app.app_context():
             item = db.session.get(WishlistItem, item_id)
             assert item.name == "Other User's Item"
+
+    def test_admin_edit_user_empty_name(self, client, app, admin_user, user):
+        """Test admin cannot save empty name"""
+        self.login_user(client, app, admin_user)
+        response = client.post(
+            f"/admin/user/{user.id}/edit",
+            data={"name": "", "email": user.email},
+            follow_redirects=True,
+        )
+        assert b"Name cannot be empty" in response.data
+
+    def test_admin_edit_user_no_email_no_username(self, client, app, admin_user):
+        """Test admin cannot remove both email and username"""
+        # Create user with only email
+        with app.app_context():
+            user = User(email="email@test.com", name="Test User")
+            db.session.add(user)
+            db.session.commit()
+            user_id = user.id
+
+        self.login_user(client, app, admin_user)
+        response = client.post(
+            f"/admin/user/{user_id}/edit",
+            data={"name": "Test User", "email": ""},  # Removing email with no username
+            follow_redirects=True,
+        )
+        assert b"must have either an email or username" in response.data
+
+    def test_admin_edit_user_duplicate_email(self, client, app, admin_user, user, other_user):
+        """Test admin cannot set email that's already taken"""
+        self.login_user(client, app, admin_user)
+        response = client.post(
+            f"/admin/user/{user.id}/edit",
+            data={"name": "Test User", "email": other_user.email},
+            follow_redirects=True,
+        )
+        assert b"already in use" in response.data
+
+    def test_admin_edit_user_page_loads(self, client, app, admin_user, user):
+        """Test admin edit user page loads (GET request)"""
+        self.login_user(client, app, admin_user)
+        response = client.get(f"/admin/user/{user.id}/edit")
+        assert response.status_code == 200
+        assert user.name.encode() in response.data
+
+    def test_admin_send_login_link_no_email(self, client, app, admin_user):
+        """Test sending login link to user without email"""
+        # Create user without email
+        with app.app_context():
+            user = User(username="nomail", name="No Email User")
+            user.set_password("password123")
+            db.session.add(user)
+            db.session.commit()
+            user_id = user.id
+
+        self.login_user(client, app, admin_user)
+        response = client.post(f"/admin/user/{user_id}/send-login-link", follow_redirects=True)
+        assert b"does not have an email" in response.data
+
+    def test_admin_edit_item_page_loads(self, client, app, admin_user, wishlist_item):
+        """Test admin edit item page loads (GET request)"""
+        self.login_user(client, app, admin_user)
+        response = client.get(f"/admin/item/{wishlist_item.id}/edit")
+        assert response.status_code == 200
+        assert wishlist_item.name.encode() in response.data
+
+
+class TestAdminProxyWishlists:
+    """Test admin proxy wishlist management"""
+
+    def login_user(self, client, app, user):
+        """Helper to login a user"""
+        with app.app_context():
+            token = user.generate_magic_link_token()
+        client.get(f"/auth/magic-login/{token}")
+
+    def test_proxy_wishlists_page_loads(self, client, app, admin_user):
+        """Test proxy wishlists page loads"""
+        from app.models import ProxyWishlist
+
+        self.login_user(client, app, admin_user)
+
+        # Create a proxy wishlist
+        with app.app_context():
+            proxy = ProxyWishlist(name="Test Child", email="child@test.com", created_by_id=admin_user.id)
+            db.session.add(proxy)
+            db.session.commit()
+
+        response = client.get("/admin/proxy-wishlists")
+        assert response.status_code == 200
+        assert b"Test Child" in response.data
+
+    def test_delete_proxy_wishlist(self, client, app, admin_user):
+        """Test deleting a proxy wishlist"""
+        from app.models import ProxyWishlist
+
+        # Create proxy wishlist
+        with app.app_context():
+            proxy = ProxyWishlist(name="Delete Me", email="delete@test.com", created_by_id=admin_user.id)
+            db.session.add(proxy)
+            db.session.commit()
+            proxy_id = proxy.id
+
+        self.login_user(client, app, admin_user)
+        response = client.post(f"/admin/proxy-wishlist/{proxy_id}/delete", follow_redirects=True)
+        assert response.status_code == 200
+        assert b"deleted" in response.data
+
+        # Verify deletion
+        with app.app_context():
+            deleted_proxy = db.session.get(ProxyWishlist, proxy_id)
+            assert deleted_proxy is None
+
+    def test_merge_proxy_wishlist_page_loads(self, client, app, admin_user):
+        """Test merge proxy wishlist page loads (GET request)"""
+        from app.models import ProxyWishlist
+
+        # Create proxy wishlist
+        with app.app_context():
+            proxy = ProxyWishlist(name="Merge Me", email="merge@test.com", created_by_id=admin_user.id)
+            db.session.add(proxy)
+            db.session.commit()
+            proxy_id = proxy.id
+
+        self.login_user(client, app, admin_user)
+        response = client.get(f"/admin/proxy-wishlist/{proxy_id}/merge")
+        assert response.status_code == 200
+        assert b"Merge Me" in response.data or b"merge" in response.data.lower()
+
+    def test_merge_proxy_wishlist_no_user_selected(self, client, app, admin_user):
+        """Test merge proxy wishlist without selecting a user"""
+        from app.models import ProxyWishlist
+
+        # Create proxy wishlist
+        with app.app_context():
+            proxy = ProxyWishlist(name="Merge Me", email="merge@test.com", created_by_id=admin_user.id)
+            db.session.add(proxy)
+            db.session.commit()
+            proxy_id = proxy.id
+
+        self.login_user(client, app, admin_user)
+        response = client.post(
+            f"/admin/proxy-wishlist/{proxy_id}/merge",
+            data={},  # No user_id provided
+            follow_redirects=True,
+        )
+        assert b"Please select a user" in response.data
+
+    def test_merge_proxy_wishlist_success(self, client, app, admin_user, user):
+        """Test successful merge of proxy wishlist"""
+        from app.models import ProxyWishlist
+
+        # Create proxy wishlist with items
+        with app.app_context():
+            proxy = ProxyWishlist(name="Child", email="child@test.com", created_by_id=admin_user.id)
+            db.session.add(proxy)
+            db.session.commit()
+            proxy_id = proxy.id
+
+            # Add item to proxy wishlist
+            item = WishlistItem(proxy_wishlist_id=proxy_id, name="Proxy Item", quantity=1, added_by_id=admin_user.id)
+            db.session.add(item)
+            db.session.commit()
+
+        self.login_user(client, app, admin_user)
+        response = client.post(
+            f"/admin/proxy-wishlist/{proxy_id}/merge",
+            data={"user_id": str(user.id)},
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert b"merged" in response.data
+
+        # Verify proxy was deleted
+        with app.app_context():
+            deleted_proxy = db.session.get(ProxyWishlist, proxy_id)
+            assert deleted_proxy is None
+
+            # Verify item was transferred to user
+            user_items = WishlistItem.query.filter_by(user_id=user.id).all()
+            assert len(user_items) > 0

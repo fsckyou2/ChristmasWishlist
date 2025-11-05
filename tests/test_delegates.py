@@ -512,3 +512,44 @@ class TestDelegateWishlistRoutes:
         response = client.get(f"/wishlist/manage-delegate/{proxy_id}")
         assert response.status_code == 200
         assert b"My Item" in response.data
+
+    def test_non_delegate_can_see_all_custom_gifts(self, client, app, user, other_user):
+        """Non-delegate can see all custom gifts on proxy wishlist"""
+        # Create proxy wishlist
+        with app.app_context():
+            proxy = ProxyWishlist(name="Test Child", email="child@test.com", created_by_id=user.id)
+            db.session.add(proxy)
+            db.session.flush()
+            proxy_id = proxy.id
+
+            # user is a delegate
+            delegate = WishlistDelegate(proxy_wishlist_id=proxy_id, user_id=user.id, can_add_items=True)
+            db.session.add(delegate)
+            db.session.flush()
+
+            # Add delegate's item (should show as regular item, not custom gift)
+            delegate_item = WishlistItem(
+                proxy_wishlist_id=proxy_id, name="Delegate Item", quantity=1, added_by_id=user.id
+            )
+            db.session.add(delegate_item)
+
+            # Add custom gift from another user
+            custom_gift = WishlistItem(
+                proxy_wishlist_id=proxy_id, name="Custom Gift", quantity=1, added_by_id=other_user.id
+            )
+            db.session.add(custom_gift)
+            db.session.commit()
+
+        # Login as a third user who is NOT a delegate
+        with app.app_context():
+            third_user = User(email="third@test.com", name="Third User", is_admin=False)
+            db.session.add(third_user)
+            db.session.commit()
+            token = third_user.generate_magic_link_token()
+        client.get(f"/auth/magic-login/{token}")
+
+        # View proxy wishlist as non-delegate
+        response = client.get(f"/wishlist/view-proxy/{proxy_id}")
+        assert response.status_code == 200
+        assert b"Delegate Item" in response.data  # Can see delegate's item
+        assert b"Custom Gift" in response.data  # CAN see other user's custom gift (non-delegate privilege)
