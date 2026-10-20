@@ -20,6 +20,11 @@ python_classes = "Test*"
 python_functions = "test_*"
 pythonpath = ["."]
 addopts = "-v --cov=app --cov-report=html --cov-report=term-missing"
+# Deprecations are errors, except Flask-Login 0.6.3's own datetime.utcnow() (latest release; nothing we can change)
+filterwarnings = [
+    "error::DeprecationWarning",
+    'ignore:datetime\.datetime\.utcnow\(\) is deprecated:DeprecationWarning:flask_login.*',
+]
 
 [tool.coverage.run]
 source = ["app"]
