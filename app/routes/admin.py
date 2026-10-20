@@ -1,8 +1,13 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, session
-from flask_login import login_required, current_user
 from functools import wraps
-from app import db
-from app.models import User, WishlistItem, Purchase, ProxyWishlist, WishlistDelegate
+
+from flask import Blueprint, abort, current_app, render_template, redirect, url_for, flash, request, session
+from flask_login import login_required, current_user
+
+from app import db, policy, services
+from app.forms import InviteForm, WishlistItemForm
+from app.models import User, WishlistItem, Claim, Invite, ProxyWishlist, WishlistDelegate
+from app.routes.auth import merge_proxy_wishlist_to_user
+from app.validation import ValidationError
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -20,19 +25,35 @@ def admin_required(f):
     return decorated_function
 
 
+def _visible_claims(claims):
+    """Admins are protected on their own list too: hide claims on items meant for them."""
+    return [
+        c
+        for c in claims
+        if policy.can_view_claims(current_user, c.item) and not policy.is_hidden_from(current_user, c.item)
+    ]
+
+
+def _admin_item_or_404(item_id):
+    item = db.get_or_404(WishlistItem, item_id)
+    if policy.is_hidden_from(current_user, item):
+        abort(404)
+    return item
+
+
 @bp.route("/dashboard")
 @login_required
 @admin_required
 def dashboard():
     """Admin dashboard"""
-    total_users = User.query.count()
-    total_items = WishlistItem.query.count()
-    total_purchases = Purchase.query.count()
-
+    items = policy.visible_items(current_user, WishlistItem.query.order_by(WishlistItem.created_at.desc()).all())
+    stats = {
+        "total_users": User.query.count(),
+        "total_items": len(items),
+        "total_claims": len(_visible_claims(Claim.query.all())),
+    }
     recent_users = User.query.order_by(User.created_at.desc()).limit(10).all()
-    recent_items = WishlistItem.query.order_by(WishlistItem.created_at.desc()).limit(10).all()
-
-    stats = {"total_users": total_users, "total_items": total_items, "total_purchases": total_purchases}
+    recent_items = items[:10]
 
     return render_template("admin/dashboard.html", stats=stats, recent_users=recent_users, recent_items=recent_items)
 
@@ -51,11 +72,11 @@ def users():
 @admin_required
 def view_user(user_id):
     """View user details"""
-    user = User.query.get_or_404(user_id)
-    wishlist_items = WishlistItem.query.filter_by(user_id=user_id).all()
-    purchases = Purchase.query.filter_by(purchased_by_id=user_id).all()
+    user = db.get_or_404(User, user_id)
+    wishlist_items = policy.visible_items(current_user, WishlistItem.query.filter_by(user_id=user_id).all())
+    claims = _visible_claims(Claim.query.filter_by(claimed_by_id=user_id).all())
 
-    return render_template("admin/view_user.html", user=user, wishlist_items=wishlist_items, purchases=purchases)
+    return render_template("admin/view_user.html", user=user, wishlist_items=wishlist_items, claims=claims)
 
 
 @bp.route("/user/<int:user_id>/edit", methods=["GET", "POST"])
@@ -63,7 +84,7 @@ def view_user(user_id):
 @admin_required
 def edit_user(user_id):
     """Edit user details"""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     if request.method == "POST":
         new_name = request.form.get("name", "").strip()
@@ -100,7 +121,7 @@ def edit_user(user_id):
 @admin_required
 def toggle_admin(user_id):
     """Toggle admin status for a user"""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     # Prevent removing admin from self
     if user.id == current_user.id:
@@ -120,7 +141,7 @@ def toggle_admin(user_id):
 @admin_required
 def delete_user(user_id):
     """Delete a user"""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     # Prevent deleting self
     if user.id == current_user.id:
@@ -138,7 +159,7 @@ def delete_user(user_id):
 @admin_required
 def send_user_login_link(user_id):
     """Send magic link login email to user"""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     if not user.email:
         flash(f"{user.name} does not have an email address. They must log in with username/password.", "warning")
@@ -154,33 +175,30 @@ def send_user_login_link(user_id):
     return redirect(url_for("admin.view_user", user_id=user_id))
 
 
-@bp.route("/user/<int:user_id>/impersonate")
+@bp.route("/user/<int:user_id>/impersonate", methods=["POST"])
 @login_required
 @admin_required
 def impersonate(user_id):
     """Impersonate a user"""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     # Cannot impersonate self
     if user.id == current_user.id:
         flash("You cannot impersonate yourself.", "warning")
         return redirect(url_for("admin.users"))
 
-    # Store original admin user ID in session
-    session["original_admin_id"] = current_user.id
+    # The logged-in admin stays the session's user; load_user() swaps in the target while this is set
     session["impersonate_user_id"] = user_id
 
     flash(f'Now impersonating {user.name}. Click "Stop Impersonating" to return.', "info")
     return redirect(url_for("main.index"))
 
 
-@bp.route("/stop-impersonate")
+@bp.route("/stop-impersonate", methods=["POST"])
 @login_required
 def stop_impersonate():
     """Stop impersonating a user"""
-    if "original_admin_id" in session:
-        session.pop("original_admin_id")
-        session.pop("impersonate_user_id")
+    if session.pop("impersonate_user_id", None) is not None:
         flash("Stopped impersonating user.", "info")
     return redirect(url_for("admin.dashboard"))
 
@@ -191,7 +209,7 @@ def stop_impersonate():
 def items():
     """View all wishlist items"""
     all_items = WishlistItem.query.order_by(WishlistItem.created_at.desc()).all()
-    return render_template("admin/items.html", items=all_items)
+    return render_template("admin/items.html", items=policy.visible_items(current_user, all_items))
 
 
 @bp.route("/item/<int:item_id>/edit", methods=["GET", "POST"])
@@ -199,24 +217,16 @@ def items():
 @admin_required
 def edit_item(item_id):
     """Edit a wishlist item"""
-    item = WishlistItem.query.get_or_404(item_id)
-    from app.forms import WishlistItemForm
-
+    item = _admin_item_or_404(item_id)
     form = WishlistItemForm(obj=item)
 
     if form.validate_on_submit():
-        item.name = form.name.data
-        item.url = form.url.data
-        item.description = form.description.data
-        item.price = form.price.data
-        item.image_url = form.image_url.data
-        item.quantity = form.quantity.data
-
-        # Handle available_images from form (hidden field populated by scraper)
-        available_images_json = request.form.get("available_images")
-        if available_images_json:
-            item.available_images = available_images_json
-
+        try:
+            services.update_item(item, services.item_form_data(form, request.form))
+        except ValidationError as exc:
+            flash(str(exc), "danger")
+            return render_template("admin/edit_item.html", form=form, item=item)
+        services.record_change(item, "updated")
         db.session.commit()
 
         flash(f'Item "{item.name}" has been updated.', "success")
@@ -230,20 +240,20 @@ def edit_item(item_id):
 @admin_required
 def delete_item(item_id):
     """Delete a wishlist item"""
-    item = WishlistItem.query.get_or_404(item_id)
-    db.session.delete(item)
+    item = _admin_item_or_404(item_id)
+    services.delete_item(item)
     db.session.commit()
     flash(f'Item "{item.name}" has been deleted.', "success")
     return redirect(url_for("admin.items"))
 
 
-@bp.route("/purchases")
+@bp.route("/claims")
 @login_required
 @admin_required
-def purchases():
-    """View all purchases"""
-    all_purchases = Purchase.query.order_by(Purchase.created_at.desc()).all()
-    return render_template("admin/purchases.html", purchases=all_purchases)
+def claims():
+    """View all claims (except those on the admin's own list)"""
+    all_claims = Claim.query.order_by(Claim.created_at.desc()).all()
+    return render_template("admin/claims.html", claims=_visible_claims(all_claims))
 
 
 @bp.route("/proxy-wishlists")
@@ -260,18 +270,15 @@ def proxy_wishlists():
 @admin_required
 def merge_proxy_wishlist(proxy_id):
     """Merge a proxy wishlist into a user's account"""
-    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    proxy = db.get_or_404(ProxyWishlist, proxy_id)
 
     if request.method == "POST":
-        user_id = request.form.get("user_id")
+        user_id = request.form.get("user_id", type=int)
         if not user_id:
             flash("Please select a user to merge with.", "danger")
             return redirect(url_for("admin.merge_proxy_wishlist", proxy_id=proxy_id))
 
-        user = User.query.get_or_404(user_id)
-
-        # Import the merge function from auth routes
-        from app.routes.auth import merge_proxy_wishlist_to_user
+        user = db.get_or_404(User, user_id)
 
         try:
             total_items, merged_count = merge_proxy_wishlist_to_user(proxy, user)
@@ -290,9 +297,10 @@ def merge_proxy_wishlist(proxy_id):
                 "success",
             )
             return redirect(url_for("admin.proxy_wishlists"))
-        except Exception as e:
+        except Exception:
             db.session.rollback()
-            flash(f"Error merging proxy wishlist: {str(e)}", "danger")
+            current_app.logger.exception("Error merging proxy wishlist %s", proxy_id)
+            flash("Error merging proxy wishlist; nothing was changed.", "danger")
             return redirect(url_for("admin.merge_proxy_wishlist", proxy_id=proxy_id))
 
     # GET request - show merge form
@@ -306,7 +314,7 @@ def merge_proxy_wishlist(proxy_id):
 @admin_required
 def delete_proxy_wishlist(proxy_id):
     """Delete a proxy wishlist"""
-    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    proxy = db.get_or_404(ProxyWishlist, proxy_id)
     proxy_name = proxy.name
 
     db.session.delete(proxy)
@@ -326,7 +334,7 @@ def delete_proxy_wishlist(proxy_id):
 @admin_required
 def manage_delegates(proxy_id):
     """Manage delegates for a proxy wishlist"""
-    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    proxy = db.get_or_404(ProxyWishlist, proxy_id)
     delegates = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy_id).all()
 
     # Get all users who could be delegates (not already delegates)
@@ -349,14 +357,14 @@ def manage_delegates(proxy_id):
 @admin_required
 def add_delegate(proxy_id):
     """Add a delegate to a proxy wishlist"""
-    proxy = ProxyWishlist.query.get_or_404(proxy_id)
+    proxy = db.get_or_404(ProxyWishlist, proxy_id)
     user_id = request.form.get("user_id", type=int)
 
     if not user_id:
         flash("Please select a user.", "danger")
         return redirect(url_for("admin.manage_delegates", proxy_id=proxy_id))
 
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     # Check if already a delegate
     existing = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy_id, user_id=user_id).first()
@@ -382,7 +390,7 @@ def add_delegate(proxy_id):
 @admin_required
 def remove_delegate(delegate_id):
     """Remove a delegate"""
-    delegate = WishlistDelegate.query.get_or_404(delegate_id)
+    delegate = db.get_or_404(WishlistDelegate, delegate_id)
     proxy_id = delegate.proxy_wishlist_id
     user_name = delegate.user.name
     proxy_name = delegate.proxy_wishlist.name
@@ -399,7 +407,7 @@ def remove_delegate(delegate_id):
 @admin_required
 def update_delegate_permissions(delegate_id):
     """Update delegate permissions"""
-    delegate = WishlistDelegate.query.get_or_404(delegate_id)
+    delegate = db.get_or_404(WishlistDelegate, delegate_id)
 
     delegate.can_add_items = request.form.get("can_add_items") == "on"
     delegate.can_edit_items = request.form.get("can_edit_items") == "on"
@@ -409,3 +417,38 @@ def update_delegate_permissions(delegate_id):
 
     flash(f"Permissions updated for {delegate.user.name}.", "success")
     return redirect(url_for("admin.manage_delegates", proxy_id=delegate.proxy_wishlist_id))
+
+
+# ======================================
+# Registration Invites
+# ======================================
+
+
+@bp.route("/invites", methods=["GET", "POST"])
+@login_required
+@admin_required
+def invites():
+    """Create and list single-use registration invites"""
+    form = InviteForm()
+    new_invite_url = None
+    if form.validate_on_submit():
+        invite, token = Invite.create(created_by=current_user, note=form.note.data, days=form.days.data)
+        db.session.commit()
+        # Shown once: only a hash of the token is stored
+        new_invite_url = f"{current_app.config['APP_URL']}{url_for('auth.register', invite=token)}"
+        form = InviteForm(formdata=None)
+
+    all_invites = Invite.query.order_by(Invite.created_at.desc()).all()
+    return render_template("admin/invites.html", form=form, invites=all_invites, new_invite_url=new_invite_url)
+
+
+@bp.route("/invites/<int:invite_id>/revoke", methods=["POST"])
+@login_required
+@admin_required
+def revoke_invite(invite_id):
+    invite = db.get_or_404(Invite, invite_id)
+    if invite.used_at is None:
+        invite.revoked = True
+        db.session.commit()
+        flash("Invite revoked.", "success")
+    return redirect(url_for("admin.invites"))

@@ -1,55 +1,48 @@
+# VCS / tooling
+.git/
+.github/
+.claude/
+.gitignore
+.pre-commit-config.yaml
+.flake8
+
 # Python
 venv/
 env/
+.venv/
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
 *.so
-*.egg
 *.egg-info/
 dist/
 build/
-
-# Git
-.git/
-.gitignore
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Environment
-.env.local
-.env.development
-.env.test
-
-# Logs
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Documentation
-README.md
-*.md
-
-# Testing
 .pytest_cache/
 htmlcov/
 .coverage
+coverage.xml
+
+# Local data and secrets
+instance/
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Docs
+*.md
+docs/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.log

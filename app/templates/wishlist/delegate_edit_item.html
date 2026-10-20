@@ -3,7 +3,7 @@
 {% block title %}Edit Item on {{ proxy.name }}'s Wishlist{% endblock %}
 
 {% block head %}
-<script src="{{ url_for('static', filename='js/image-selector.js') }}?v=10002"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/image-selector.js') }}?v=10002"></script>
 {% endblock %}
 
 {% block content %}
@@ -78,7 +78,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Initialize image selector
 window.imageSelector = new ImageSelector('#image-selector-container');
 window.imageSelector.init('#image-input');

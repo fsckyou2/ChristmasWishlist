@@ -44,7 +44,8 @@
                             <a href="{{ url_for('admin.manage_delegates', proxy_id=proxy.id) }}" class="text-purple-600 hover:underline mr-3">Delegates</a>
                             <a href="{{ url_for('admin.merge_proxy_wishlist', proxy_id=proxy.id) }}" class="text-green-600 hover:underline mr-3">Merge</a>
                             <form method="POST" action="{{ url_for('admin.delete_proxy_wishlist', proxy_id=proxy.id) }}" class="inline">
-                                <button type="submit" onclick="return confirm('Delete this proxy wishlist and all its items?')" class="text-red-600 hover:underline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" data-confirm="Delete this proxy wishlist and all its items?" class="text-red-600 hover:underline">
                                     Delete
                                 </button>
                             </form>

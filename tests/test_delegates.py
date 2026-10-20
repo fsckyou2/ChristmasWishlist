@@ -1,6 +1,7 @@
 """Tests for delegate system"""
+
 from app import db
-from app.models import User, ProxyWishlist, WishlistDelegate, WishlistItem, Purchase
+from app.models import User, ProxyWishlist, WishlistDelegate, WishlistItem, Claim
 
 
 class TestDelegateAdminRoutes:
@@ -17,7 +18,7 @@ class TestDelegateAdminRoutes:
         # Login as non-admin
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         response = client.get(f"/admin/proxy-wishlist/{proxy_id}/delegates", follow_redirects=False)
         assert response.status_code == 302  # Redirects to home or login
@@ -39,7 +40,7 @@ class TestDelegateAdminRoutes:
         # Login as admin
         with app.app_context():
             token = admin_user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         response = client.get(f"/admin/proxy-wishlist/{proxy_id}/delegates")
         assert response.status_code == 200
@@ -57,7 +58,7 @@ class TestDelegateAdminRoutes:
         # Login as admin
         with app.app_context():
             token = admin_user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Add delegate
         response = client.post(
@@ -96,7 +97,7 @@ class TestDelegateAdminRoutes:
         # Login as admin
         with app.app_context():
             token = admin_user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Try to add delegate again
         response = client.post(
@@ -116,7 +117,7 @@ class TestDelegateAdminRoutes:
         # Login as admin
         with app.app_context():
             token = admin_user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Try to add delegate without user_id
         response = client.post(f"/admin/proxy-wishlist/{proxy_id}/delegates/add", data={}, follow_redirects=True)
@@ -144,7 +145,7 @@ class TestDelegateAdminRoutes:
         # Login as admin
         with app.app_context():
             token = admin_user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Remove delegate
         response = client.post(f"/admin/delegate/{delegate_id}/remove", follow_redirects=True)
@@ -176,7 +177,7 @@ class TestDelegateAdminRoutes:
         # Login as admin
         with app.app_context():
             token = admin_user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Update permissions (only can_add_items checked)
         response = client.post(
@@ -212,7 +213,7 @@ class TestDelegateAdminRoutes:
         # Login as admin
         with app.app_context():
             token = admin_user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Update permissions (all unchecked)
         response = client.post(f"/admin/delegate/{delegate_id}/update-permissions", data={}, follow_redirects=True)
@@ -250,7 +251,7 @@ class TestDelegateWishlistRoutes:
         # Login as delegate
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         response = client.get(f"/wishlist/manage-delegate/{proxy_id}")
         assert response.status_code == 200
@@ -267,7 +268,7 @@ class TestDelegateWishlistRoutes:
         # Login as non-delegate user
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         response = client.get(f"/wishlist/manage-delegate/{proxy_id}", follow_redirects=False)
         # Should redirect (302) or return error
@@ -300,7 +301,7 @@ class TestDelegateWishlistRoutes:
         # Login as delegate
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Add item
         response = client.post(
@@ -356,7 +357,7 @@ class TestDelegateWishlistRoutes:
         # Login as delegate
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Edit item
         response = client.post(
@@ -406,7 +407,7 @@ class TestDelegateWishlistRoutes:
         # Login as delegate
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Delete item
         response = client.post(f"/wishlist/delete/{item_id}", follow_redirects=True)
@@ -465,7 +466,7 @@ class TestDelegateWishlistRoutes:
         # Login as delegate
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # View proxy wishlist
         response = client.get(f"/wishlist/view-proxy/{proxy_id}")
@@ -506,7 +507,7 @@ class TestDelegateWishlistRoutes:
         # Login as delegate
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # View manage page
         response = client.get(f"/wishlist/manage-delegate/{proxy_id}")
@@ -546,7 +547,7 @@ class TestDelegateWishlistRoutes:
             db.session.add(third_user)
             db.session.commit()
             token = third_user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # View proxy wishlist as non-delegate
         response = client.get(f"/wishlist/view-proxy/{proxy_id}")

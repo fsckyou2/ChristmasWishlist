@@ -1,0 +1,21 @@
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <p>Dear {{ recipient.name }},</p>
+    <p>Here's what's new with wishlists from your family:</p>
+    {% for owner, changes in sections %}
+    <h3 style="color: #dc2626; margin-top: 20px;">{{ owner.name }}:</h3>
+    <ul>
+        {% for change in changes %}
+        <li>{{ change.verb }} <strong>{{ change.item_name }}</strong> {{ change.suffix }}</li>
+        {% endfor %}
+    </ul>
+    {% endfor %}
+    <p>
+        <a href="{{ app_url }}"
+           style="display: inline-block; background-color: #dc2626; color: white;
+                  padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+            View All Wishlists
+        </a>
+    </p>
+    <p>Happy holidays!</p>
+    <p style="color: #666;">Best regards,<br>{{ app_name }} Team</p>
+</div>

@@ -1,5 +1,5 @@
 import pytest
-from app.models import User, WishlistItem, Purchase, WishlistChange, ProxyWishlist
+from app.models import User, WishlistItem, Claim, WishlistChange, ProxyWishlist
 from app import db
 import json
 
@@ -11,7 +11,7 @@ class TestWishlistRoutes:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_my_list_requires_login(self, client):
         """Test my list requires authentication"""
@@ -159,9 +159,9 @@ class TestWishlistRoutes:
         # Login as regular user
         self.login_user(client, app, user)
 
-        # Purchase item
+        # Claim item
         response = client.post(
-            f"/wishlist/purchase/{item_id}",
+            f"/wishlist/claim/{item_id}",
             data={"quantity": "1", "submit": "Mark as Purchased"},
             follow_redirects=True,
         )
@@ -170,10 +170,10 @@ class TestWishlistRoutes:
 
         # Verify purchase (this is the real test)
         with app.app_context():
-            purchase = Purchase.query.filter_by(wishlist_item_id=item_id).first()
-            assert purchase is not None, "Purchase should be created in database"
-            assert purchase.purchased_by_id == user.id, "Purchase should be by the logged-in user"
-            assert purchase.quantity == 1, "Purchase quantity should be 1"
+            purchase = Claim.query.filter_by(wishlist_item_id=item_id).first()
+            assert purchase is not None, "Claim should be created in database"
+            assert purchase.claimed_by_id == user.id, "Claim should be by the logged-in user"
+            assert purchase.quantity == 1, "Claim quantity should be 1"
 
     def test_cannot_purchase_own_item(self, client, app, user, wishlist_item):
         """Test user cannot claim their own item"""
@@ -196,7 +196,7 @@ class TestWishlistRoutes:
             db.session.add(item)
             db.session.flush()
 
-            purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=user.id, quantity=1)
+            purchase = Claim(wishlist_item_id=item.id, claimed_by_id=user.id, quantity=1)
             db.session.add(purchase)
             db.session.commit()
             purchase_id = purchase.id
@@ -210,7 +210,7 @@ class TestWishlistRoutes:
 
         # Verify unclaim
         with app.app_context():
-            purchase = db.session.get(Purchase, purchase_id)
+            purchase = db.session.get(Claim, purchase_id)
             assert purchase is None
 
     def test_all_users_page(self, client, app, user):
@@ -314,7 +314,7 @@ class TestPurchaseStatusPrivacy:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_owner_cannot_see_purchase_status_card_view(self, client, app, user, admin_user):
         """Test owner doesn't see purchase status on their own wishlist (card view)"""
@@ -325,7 +325,7 @@ class TestPurchaseStatusPrivacy:
             db.session.flush()
 
             # Admin purchases the item
-            purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=admin_user.id, quantity=1)
+            purchase = Claim(wishlist_item_id=item.id, claimed_by_id=admin_user.id, quantity=1)
             db.session.add(purchase)
             db.session.commit()
 
@@ -349,7 +349,7 @@ class TestPurchaseStatusPrivacy:
             db.session.flush()
 
             # Admin purchases the item
-            purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=admin_user.id, quantity=1)
+            purchase = Claim(wishlist_item_id=item.id, claimed_by_id=admin_user.id, quantity=1)
             db.session.add(purchase)
             db.session.commit()
 
@@ -378,7 +378,7 @@ class TestPurchaseStatusPrivacy:
             db.session.flush()
 
             # User claims 1 item
-            purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=user.id, quantity=1)
+            purchase = Claim(wishlist_item_id=item.id, claimed_by_id=user.id, quantity=1)
             db.session.add(purchase)
             db.session.commit()
 
@@ -403,7 +403,7 @@ class TestPurchaseStatusPrivacy:
             db.session.flush()
 
             # User claims all items
-            purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=user.id, quantity=2)
+            purchase = Claim(wishlist_item_id=item.id, claimed_by_id=user.id, quantity=2)
             db.session.add(purchase)
             db.session.commit()
 
@@ -464,7 +464,7 @@ class TestAddItemFromURL:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_add_item_from_scraped_url_table_view(self, client, app, user):
         """Test that add-by-URL function in table view actually adds item to wishlist"""
@@ -517,7 +517,7 @@ class TestImageSelection:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_add_item_with_multiple_images(self, client, app, user):
         """Test adding item with multiple available images"""
@@ -715,7 +715,7 @@ class TestProxyWishlist:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_create_proxy_wishlist(self, client, app, user):
         """Test creating a proxy wishlist"""
@@ -795,9 +795,9 @@ class TestProxyWishlist:
             assert item.is_custom_gift is True  # All proxy items are custom gifts
 
             # Verify auto-claim
-            purchase = Purchase.query.filter_by(wishlist_item_id=item.id).first()
+            purchase = Claim.query.filter_by(wishlist_item_id=item.id).first()
             assert purchase is not None
-            assert purchase.purchased_by_id == user.id
+            assert purchase.claimed_by_id == user.id
 
     def test_edit_proxy_wishlist(self, client, app, user):
         """Test editing proxy wishlist name and email"""
@@ -861,7 +861,7 @@ class TestProxyWishlist:
             db.session.add(item)
             db.session.flush()
 
-            purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=user.id, quantity=1)
+            purchase = Claim(wishlist_item_id=item.id, claimed_by_id=user.id, quantity=1)
             db.session.add(purchase)
             db.session.commit()
 
@@ -872,7 +872,7 @@ class TestProxyWishlist:
         assert b"Test Proxy" in response.data
         assert b"Pending Account" in response.data
 
-    def test_proxy_conversion_on_registration(self, client, app):
+    def test_proxy_conversion_on_registration(self, client, app, invite):
         """Test that proxy wishlist is converted when user registers"""
         # Create proxy with items
         with app.app_context():
@@ -921,7 +921,7 @@ class TestProxyWishlist:
             assert user is not None
             assert item.user_id == user.id
 
-    def test_proxy_conversion_by_name_exact_match(self, client, app):
+    def test_proxy_conversion_by_name_exact_match(self, client, app, invite):
         """Test that proxy wishlist is converted when user registers with matching name"""
         # Create proxy with items (no email)
         with app.app_context():
@@ -970,7 +970,7 @@ class TestProxyWishlist:
             assert user is not None
             assert item.user_id == user.id
 
-    def test_proxy_conversion_by_name_full_name_match(self, client, app):
+    def test_proxy_conversion_by_name_full_name_match(self, client, app, invite):
         """Test that proxy wishlist is converted when user registers with full name containing proxy name"""
         # Create proxy with first name only
         with app.app_context():
@@ -1019,7 +1019,7 @@ class TestProxyWishlist:
             assert user is not None
             assert item.user_id == user.id
 
-    def test_proxy_conversion_by_name_short_name_match(self, client, app):
+    def test_proxy_conversion_by_name_short_name_match(self, client, app, invite):
         """Test that proxy wishlist is converted when user registers with shortened name"""
         # Create proxy with first name
         with app.app_context():
@@ -1068,7 +1068,7 @@ class TestProxyWishlist:
             assert user is not None
             assert item.user_id == user.id
 
-    def test_proxy_conversion_by_name_username_registration(self, client, app):
+    def test_proxy_conversion_by_name_username_registration(self, client, app, invite):
         """Test that proxy wishlist is converted when user registers with username/password"""
         # Create proxy with items (no email)
         with app.app_context():
@@ -1119,7 +1119,7 @@ class TestProxyWishlist:
             assert user is not None
             assert item.user_id == user.id
 
-    def test_proxy_no_conversion_different_names(self, client, app):
+    def test_proxy_no_conversion_different_names(self, client, app, invite):
         """Test that proxy wishlist is NOT converted when names don't match"""
         # Create proxy
         with app.app_context():
@@ -1148,7 +1148,7 @@ class TestProxyWishlist:
             assert proxy is not None
             assert proxy.name == "Westley"
 
-    def test_auto_merge_on_conversion_url_match(self, client, app, user):
+    def test_auto_merge_on_conversion_url_match(self, client, app, user, invite):
         """Test that duplicate items are merged when proxy is converted (URL match)"""
         # Create user first
         with app.app_context():
@@ -1225,7 +1225,7 @@ class TestProxyWishlist:
             db.session.add(item)
             db.session.flush()
 
-            purchase = Purchase(wishlist_item_id=item.id, purchased_by_id=user.id, quantity=1)
+            purchase = Claim(wishlist_item_id=item.id, claimed_by_id=user.id, quantity=1)
             db.session.add(purchase)
             db.session.commit()
             purchase_id = purchase.id
@@ -1351,7 +1351,7 @@ class TestProxyWishlist:
             db.session.add(item1)
             db.session.flush()
 
-            purchase1 = Purchase(wishlist_item_id=item1.id, purchased_by_id=user.id, quantity=1)
+            purchase1 = Claim(wishlist_item_id=item1.id, claimed_by_id=user.id, quantity=1)
             db.session.add(purchase1)
             db.session.flush()
 
@@ -1360,7 +1360,7 @@ class TestProxyWishlist:
             db.session.add(item2)
             db.session.flush()
 
-            purchase2 = Purchase(wishlist_item_id=item2.id, purchased_by_id=admin_user.id, quantity=1)
+            purchase2 = Claim(wishlist_item_id=item2.id, claimed_by_id=admin_user.id, quantity=1)
             db.session.add(purchase2)
             db.session.commit()
 
@@ -1381,14 +1381,14 @@ class TestProxyWishlist:
 
         # Verify purchases were transferred
         with app.app_context():
-            # Purchase from item1 should now point to item2
-            purchase1 = db.session.get(Purchase, purchase1_id)
+            # Claim from item1 should now point to item2
+            purchase1 = db.session.get(Claim, purchase1_id)
             assert purchase1 is not None
             assert purchase1.wishlist_item_id == item2_id
 
             # Item2 should now have 2 purchases
             item2 = db.session.get(WishlistItem, item2_id)
-            assert item2.purchases.count() == 2
+            assert len(item2.claims) == 2
 
 
 class TestCustomGiftEditing:
@@ -1398,7 +1398,7 @@ class TestCustomGiftEditing:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_custom_gift_adder_can_edit(self, client, app, user, other_user):
         """Test that person who added custom gift can edit it"""
@@ -1467,8 +1467,8 @@ class TestCustomGiftEditing:
             follow_redirects=True,
         )
 
-        assert response.status_code == 200
-        assert b"can only edit items you added" in response.data
+        # Hidden from the owner entirely: indistinguishable from a missing item
+        assert response.status_code == 404
 
         # Verify item was not changed
         with app.app_context():

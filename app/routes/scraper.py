@@ -2,145 +2,130 @@
 Server-side product scraping routes
 """
 
-from flask import Blueprint, request, jsonify, current_app
-from flask_login import login_required
-import requests
-from bs4 import BeautifulSoup
+import json
 import re
 
+import requests
+from bs4 import BeautifulSoup
+from flask import Blueprint, current_app, jsonify, request
+from flask_login import current_user, login_required
+
+from app import limiter
+from app.net import BlockedDestination, ResponseTooLarge, check_url, fetch_text
+from app.validation import ValidationError, clean_available_images, clean_http_url, display_image_url
+
 bp = Blueprint("scraper", __name__, url_prefix="/scraper")
+
+SCRAPER_API_ENDPOINT = "https://api.scraperapi.com/"
+
+BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Cache-Control": "max-age=0",
+}
+
+SITE_SCRAPERS = {}  # filled in below the scraper definitions
+
+
+def _scraper_rate_key():
+    return f"user:{current_user.get_id()}"
+
+
+def _pick_scraper(hostname):
+    for marker, scraper in SITE_SCRAPERS.items():
+        if marker in hostname:
+            return scraper
+    return scrape_generic
+
+
+def _normalize(product_data):
+    """Server uses "title"/"image"; the client expects "name"/"image_url". Image URLs are filtered to http(s)."""
+    images = clean_available_images(product_data.get("images") or [])
+    image = product_data.get("image") or ""
+    return {
+        "name": (product_data.get("title") or product_data.get("name") or "")[:200],
+        "price": product_data.get("price"),
+        "description": (product_data.get("description") or "")[:5000],
+        "image_url": display_image_url(image) if image else "",
+        "images": json.loads(images) if images else [],
+    }
 
 
 @bp.route("/scrape", methods=["POST"])
 @login_required
+@limiter.limit("20 per minute;200 per day", key_func=_scraper_rate_key)
 def scrape_url():
     """Server-side URL scraping endpoint"""
+    data = request.get_json(silent=True)
+    if not data or "url" not in data:
+        return jsonify({"error": "URL parameter is required"}), 400
+
     try:
-        data = request.get_json()
+        url = clean_http_url(data["url"])
+        if not url:
+            raise ValidationError("URL is required")
+        check_url(url)
+    except (ValidationError, BlockedDestination) as exc:
+        return jsonify({"error": f"Invalid URL: {exc}"}), 400
 
-        if not data or "url" not in data:
-            return jsonify({"error": "URL parameter is required"}), 400
+    hostname = (requests.utils.urlparse(url).hostname or "").lower()
+    max_bytes = current_app.config["SCRAPER_MAX_BYTES"]
+    scraper_api_key = current_app.config.get("SCRAPER_API_KEY")
 
-        url = data["url"]
-
-        # Validate URL format
-        if not url or not url.startswith(("http://", "https://")):
-            return jsonify({"error": "Invalid URL format"}), 400
-
-        # Detect site type
-        hostname = requests.utils.urlparse(url).hostname.lower()
-
-        # Optional: Use ScraperAPI if configured (bypasses bot detection)
-        scraper_api_key = current_app.config.get("SCRAPER_API_KEY")
+    try:
         if scraper_api_key and ("amazon." in hostname or "etsy." in hostname):
-            scraper_api_url = f"http://api.scraperapi.com/?api_key={scraper_api_key}&url={url}"
-            response = requests.get(scraper_api_url, timeout=30)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "html.parser")
-
-            # Use appropriate scraper based on site
-            if "amazon." in hostname:
-                product_data = scrape_amazon(soup)
-            elif "etsy." in hostname:
-                product_data = scrape_etsy(soup)
-            else:
-                product_data = scrape_generic(soup)
-
-            # Normalize and return
-            normalized_data = {
-                "success": True,
-                "data": {
-                    "name": product_data.get("title", ""),
-                    "price": product_data.get("price"),
-                    "description": product_data.get("description", ""),
-                    "image_url": product_data.get("image", ""),
-                    "images": product_data.get("images", []),
-                },
-            }
-            return jsonify(normalized_data), 200
-
-        # Fetch the page with more realistic browser headers
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            ),
-            "Accept": (
-                "text/html,application/xhtml+xml,application/xml;q=0.9," "image/avif,image/webp,image/apng,*/*;q=0.8"
-            ),
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Cache-Control": "max-age=0",
-        }
-
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        # Check for bot detection pages
-        if "api-services-support@amazon" in response.text or "Robot Check" in response.text:
-            error_msg = (
-                "Amazon detected automated access. "
-                "Please manually copy the product details, or try again in a few minutes."
+            # ScraperAPI fetches the page from its own network; the key travels over HTTPS as a query param
+            html = fetch_text(
+                SCRAPER_API_ENDPOINT,
+                params={"api_key": scraper_api_key, "url": url},
+                timeout=60,
+                max_bytes=max_bytes,
             )
-            return jsonify({"error": error_msg}), 400
-
-        # Parse HTML
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Extract product information based on site
-        product_data = {}
-
-        if "ebay." in hostname:
-            product_data = scrape_ebay(soup)
-            current_app.logger.info(f"eBay scrape result: {product_data}")
-        elif "amazon." in hostname:
-            product_data = scrape_amazon(soup)
-            current_app.logger.info(f"Amazon scrape result: {product_data}")
-        elif "walmart." in hostname:
-            product_data = scrape_walmart(soup)
-            current_app.logger.info(f"Walmart scrape result: {product_data}")
-        elif "etsy." in hostname:
-            product_data = scrape_etsy(soup)
-            current_app.logger.info(f"Etsy scrape result: {product_data}")
         else:
-            product_data = scrape_generic(soup)
-            current_app.logger.info(f"Generic scrape result: {product_data}")
+            html = fetch_text(url, headers=BROWSER_HEADERS, timeout=10, max_bytes=max_bytes)
+    except BlockedDestination as exc:
+        return jsonify({"error": f"Invalid URL: {exc}"}), 400
+    except ResponseTooLarge as exc:
+        return jsonify({"error": str(exc)}), 400
+    except requests.RequestException as exc:
+        current_app.logger.warning("Scrape fetch failed for %s: %s", hostname, exc.__class__.__name__)
+        return jsonify({"error": "Could not fetch that page. You can enter the details manually."}), 400
 
-        # Ensure we got at least a title
+    if "api-services-support@amazon" in html or "Robot Check" in html:
+        return (
+            jsonify(
+                {
+                    "error": "Amazon detected automated access. "
+                    "Please manually copy the product details, or try again in a few minutes."
+                }
+            ),
+            400,
+        )
+
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        product_data = _pick_scraper(hostname)(soup)
         if not product_data.get("title") and not product_data.get("name"):
-            # Try generic scraper as fallback
-            current_app.logger.warning(f"No title found with primary scraper, trying generic for {hostname}")
             product_data = scrape_generic(soup)
+    except Exception:
+        current_app.logger.exception("Scraper parse error for %s", hostname)
+        return jsonify({"error": "Could not read product information from this page."}), 500
 
-            if not product_data.get("title") and not product_data.get("name"):
-                current_app.logger.error(f"Failed to extract any product data from {url}")
-                return jsonify({"error": "Could not extract product information from this URL"}), 400
+    if not product_data.get("title") and not product_data.get("name"):
+        return jsonify({"error": "Could not extract product information from this URL"}), 400
 
-        # Normalize keys for consistency with client-side scraper
-        # Server uses "title" and "image", client uses "name" and "image_url"
-        normalized_data = {
-            "success": True,
-            "data": {
-                "name": product_data.get("title", ""),
-                "price": product_data.get("price"),
-                "description": product_data.get("description", ""),
-                "image_url": product_data.get("image", ""),
-                "images": product_data.get("images", []),
-            },
-        }
-
-        return jsonify(normalized_data), 200
-
-    except requests.RequestException as e:
-        return jsonify({"error": f"Failed to fetch URL: {str(e)}"}), 400
-    except Exception as e:
-        return jsonify({"error": f"Scraping error: {str(e)}"}), 500
+    current_app.logger.info("Scraped %s", hostname)
+    return jsonify({"success": True, "data": _normalize(product_data)}), 200
 
 
 def scrape_ebay(soup):
@@ -581,3 +566,13 @@ def scrape_generic(soup):
         data["images"] = images[:5]  # Limit to 5 images
 
     return data
+
+
+SITE_SCRAPERS.update(
+    {
+        "ebay.": scrape_ebay,
+        "amazon.": scrape_amazon,
+        "walmart.": scrape_walmart,
+        "etsy.": scrape_etsy,
+    }
+)

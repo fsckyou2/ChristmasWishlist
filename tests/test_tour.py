@@ -15,7 +15,7 @@ class TestTourFeature:
         """Helper to log in a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_new_user_has_not_seen_tour(self, app, user):
         """Test that new users have has_seen_tour set to False"""

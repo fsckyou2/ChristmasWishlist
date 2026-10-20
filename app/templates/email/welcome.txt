@@ -1,0 +1,21 @@
+Dear {{ user.name }},
+
+Welcome to {{ app_name }}! 🎁
+
+You can now:
+
+• Create and manage your Christmas wishlist
+• Browse wishlists from your family
+• Claim gifts to help coordinate who's giving what
+• Keep the holiday spirit alive with easy gift planning
+
+To get started, open the link below to log in to your account:
+
+{{ login_url }}
+
+This link works once and expires in {{ expiry_minutes }} minutes. You can always request a new one from the login page.
+
+Happy holidays!
+
+Best regards,
+{{ app_name }} Team

@@ -1,30 +1,24 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, FloatField, IntegerField, SubmitField, PasswordField, BooleanField
-from wtforms.validators import DataRequired, Email, ValidationError, URL, Optional, NumberRange, Length, EqualTo
+from wtforms.validators import DataRequired, Email, ValidationError, Optional, NumberRange, Length, EqualTo
+
 from app.models import User
-
-
-def flexible_url_validator(form, field):
-    """Validator that allows full URLs or relative paths (for static files)"""
-    if not field.data:
-        return  # Allow empty
-
-    # Allow relative paths starting with /
-    if field.data.startswith("/"):
-        return
-
-    # Otherwise, validate as full URL
-    try:
-        URL()(form, field)
-    except ValidationError:
-        raise ValidationError("Must be a valid URL or a relative path starting with /")
+from app.validation import (
+    MAX_DESCRIPTION_LENGTH,
+    MAX_NAME_LENGTH,
+    MAX_PRICE,
+    MAX_QUANTITY,
+    clean_http_url,
+    clean_image_url,
+    wtf_validator,
+)
 
 
 class RegistrationForm(FlaskForm):
     """Passwordless registration form (email + magic link)"""
 
-    name = StringField("Name", validators=[DataRequired()])
-    email = StringField("Email", validators=[DataRequired(), Email()])
+    name = StringField("Name", validators=[DataRequired(), Length(max=100)])
+    email = StringField("Email", validators=[DataRequired(), Email(), Length(max=120)])
     submit = SubmitField("Register")
 
     def validate_email(self, field):
@@ -36,7 +30,7 @@ class RegistrationForm(FlaskForm):
 class UsernamePasswordRegistrationForm(FlaskForm):
     """Username/password registration form"""
 
-    name = StringField("Name", validators=[DataRequired()])
+    name = StringField("Name", validators=[DataRequired(), Length(max=100)])
     username = StringField(
         "Username", validators=[DataRequired(), Length(min=3, max=80, message="Username must be 3-80 characters")]
     )
@@ -71,20 +65,20 @@ class UsernamePasswordLoginForm(FlaskForm):
 class WishlistItemForm(FlaskForm):
     """Wishlist item form"""
 
-    url = StringField("Product URL", validators=[Optional(), URL()])
-    name = StringField("Item Name", validators=[DataRequired()])
-    description = TextAreaField("Description", validators=[Optional()])
-    price = FloatField("Price", validators=[Optional(), NumberRange(min=0)])
-    image_url = StringField("Image URL", validators=[Optional(), flexible_url_validator])
-    quantity = IntegerField("Quantity", validators=[DataRequired(), NumberRange(min=1)], default=1)
+    url = StringField("Product URL", validators=[Optional(), wtf_validator(clean_http_url)])
+    name = StringField("Item Name", validators=[DataRequired(), Length(max=MAX_NAME_LENGTH)])
+    description = TextAreaField("Description", validators=[Optional(), Length(max=MAX_DESCRIPTION_LENGTH)])
+    price = FloatField("Price", validators=[Optional(), NumberRange(min=0, max=MAX_PRICE)])
+    image_url = StringField("Image URL", validators=[Optional(), wtf_validator(clean_image_url)])
+    quantity = IntegerField("Quantity", validators=[DataRequired(), NumberRange(min=1, max=MAX_QUANTITY)], default=1)
     submit = SubmitField("Add to Wishlist")
 
 
-class PurchaseForm(FlaskForm):
-    """Purchase form"""
+class ClaimForm(FlaskForm):
+    """Claim some quantity of an item to give"""
 
-    quantity = IntegerField("Quantity to Purchase", validators=[DataRequired(), NumberRange(min=1)])
-    submit = SubmitField("Mark as Purchased")
+    quantity = IntegerField("Quantity to Claim", validators=[DataRequired(), NumberRange(min=1, max=MAX_QUANTITY)])
+    submit = SubmitField("Claim")
 
 
 class ProxyWishlistForm(FlaskForm):
@@ -98,7 +92,7 @@ class ProxyWishlistForm(FlaskForm):
 class AccountSettingsForm(FlaskForm):
     """Form for updating account settings"""
 
-    name = StringField("Display Name", validators=[DataRequired()])
+    name = StringField("Display Name", validators=[DataRequired(), Length(max=100)])
     email = StringField("Email (Optional)", validators=[Optional(), Email()])
     username = StringField("Username (Optional)", validators=[Optional(), Length(min=3, max=80)])
     submit = SubmitField("Update Account")
@@ -113,3 +107,11 @@ class ChangePasswordForm(FlaskForm):
     )
     confirm_password = PasswordField("Confirm New Password", validators=[DataRequired(), EqualTo("new_password")])
     submit = SubmitField("Change Password")
+
+
+class InviteForm(FlaskForm):
+    """Admin: create a single-use registration invite"""
+
+    note = StringField("Who is it for? (optional)", validators=[Optional(), Length(max=200)])
+    days = IntegerField("Expires after (days)", validators=[DataRequired(), NumberRange(min=1, max=365)], default=30)
+    submit = SubmitField("Create Invite")

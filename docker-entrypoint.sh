@@ -1,49 +1,29 @@
-#!/bin/bash
-set -e
+#!/bin/sh
+# Container entrypoint. Runs as the unprivileged app user (see Dockerfile).
+#   web        migrate the database, ensure the admin user exists, then serve with gunicorn (default)
+#   scheduler  run the periodic-job worker (daily digest)
+#   anything else is executed as-is, e.g. `flask create-invite --note "Aunt Rebecca"`
+set -eu
 
-echo "================================"
-echo "Starting Christmas Wishlist App"
-echo "================================"
-
-# Ensure instance directory exists
-echo ""
-echo "Ensuring instance directory exists..."
-mkdir -p instance
-
-# Check if database file exists and run migrations (only for web service)
-# Scheduler doesn't need to run migrations
-if [ "$1" != "scheduler" ]; then
-    if [ -f "instance/wishlist.db" ]; then
-        # Database exists - run migrations
-        echo ""
-        echo "Database found - running migrations..."
-        python scripts/apply_all_migrations.py
-
-        # Check if migrations succeeded
-        if [ $? -eq 0 ]; then
-            echo ""
-            echo "✅ Migrations completed successfully"
-        else
-            echo ""
-            echo "❌ Migrations failed! Container will not start."
-            exit 1
-        fi
-    else
-        # No database - fresh deployment
-        echo ""
-        echo "No database found - fresh deployment (tables will be created on first request)"
-    fi
-fi
-
-echo ""
-
-# Start the appropriate service based on arguments
-if [ "$1" == "scheduler" ]; then
-    echo "Starting scheduler worker..."
-    echo "================================"
-    exec python scheduler_worker.py
-else
-    echo "Starting application server..."
-    echo "================================"
-    exec gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 120 run:app
-fi
+case "${1:-web}" in
+    web)
+        flask init-db
+        flask bootstrap-admin
+        exec gunicorn \
+            --bind 0.0.0.0:5000 \
+            --workers "${GUNICORN_WORKERS:-2}" \
+            --threads "${GUNICORN_THREADS:-4}" \
+            --timeout 60 \
+            --graceful-timeout 8 \
+            --worker-tmp-dir /dev/shm \
+            --no-control-socket \
+            --access-logfile - \
+            run:app
+        ;;
+    scheduler)
+        exec python scheduler_worker.py
+        ;;
+    *)
+        exec "$@"
+        ;;
+esac

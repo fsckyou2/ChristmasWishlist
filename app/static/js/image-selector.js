@@ -3,6 +3,25 @@
  * Allows users to select from multiple scraped images
  */
 
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+}
+
+/** Same rule as the server: http(s) URLs or our own /static/ files. */
+function isSafeImageUrl(value) {
+    if (typeof value !== 'string' || !value) return false;
+    if (/^\/static\/[A-Za-z0-9_\-./]+$/.test(value) && !value.includes('..')) return true;
+    try {
+        const url = new URL(value);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (e) {
+        return false;
+    }
+}
+
 class ImageSelector {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
@@ -44,7 +63,7 @@ class ImageSelector {
         if (images && Array.isArray(images) && images.length > 0) {
             // Add scraped images, avoiding duplicates
             images.forEach(img => {
-                if (img && !this.images.includes(img)) {
+                if (isSafeImageUrl(img) && !this.images.includes(img)) {
                     this.images.push(img);
                 }
             });
@@ -67,14 +86,14 @@ class ImageSelector {
 
         if (availableImages && Array.isArray(availableImages) && availableImages.length > 0) {
             availableImages.forEach(img => {
-                if (img && !this.images.includes(img)) {
+                if (isSafeImageUrl(img) && !this.images.includes(img)) {
                     this.images.push(img);
                 }
             });
         }
 
         // Set selected image
-        this.selectedImage = imageUrl || this.defaultImageUrl;
+        this.selectedImage = isSafeImageUrl(imageUrl) ? imageUrl : this.defaultImageUrl;
 
         // Make sure selected image is in the list
         if (this.selectedImage && !this.images.includes(this.selectedImage)) {
@@ -89,6 +108,7 @@ class ImageSelector {
      * Select an image
      */
     selectImage(imageUrl) {
+        if (!isSafeImageUrl(imageUrl)) return;
         this.selectedImage = imageUrl;
         this.updateInputs();
         this.render();
@@ -107,56 +127,58 @@ class ImageSelector {
     }
 
     /**
-     * Render the image selector UI
+     * Render the image selector UI. Built with DOM APIs so scraped URLs are never parsed as HTML.
      */
     render() {
         if (!this.container) return;
+        this.container.replaceChildren();
 
-        // Only show if there are images available (always show at least default)
         if (this.images.length === 0) {
-            this.container.innerHTML = '';
             this.container.style.display = 'none';
             return;
         }
-
         this.container.style.display = 'block';
 
-        const html = `
-            <div class="bg-gray-700 rounded-lg p-4 mt-4">
-                <label class="block text-gray-200 font-semibold mb-3">
-                    Select Image
-                    <span class="text-sm font-normal text-gray-400">(Click to choose)</span>
-                </label>
-                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    ${this.images.map((img, index) => `
-                        <div
-                            class="image-option cursor-pointer rounded-lg overflow-hidden border-2 transition-all
-                                   ${img === this.selectedImage ? 'border-green-500 ring-2 ring-green-500' : 'border-gray-600 hover:border-gray-400'}"
-                            data-image-url="${img}"
-                            onclick="window.imageSelector.selectImage('${img.replace(/'/g, "\\'")}')"
-                        >
-                            <div class="aspect-square bg-gray-800 flex items-center justify-center p-2">
-                                <img
-                                    src="${img}"
-                                    alt="Option ${index + 1}"
-                                    class="max-w-full max-h-full object-contain"
-                                    onerror="this.src='${this.defaultImageUrl}'"
-                                />
-                            </div>
-                            ${img === this.defaultImageUrl ?
-                                '<div class="bg-gray-600 px-2 py-1 text-xs text-center text-gray-300">Default</div>' :
-                                '<div class="bg-gray-600 px-2 py-1 text-xs text-center text-gray-300">Image ' + (index) + '</div>'
-                            }
-                        </div>
-                    `).join('')}
-                </div>
-                <p class="text-xs text-gray-400 mt-3">
-                    The first option is a default gift icon. Other images were found on the product page.
-                </p>
-            </div>
-        `;
+        const wrapper = el('div', 'bg-gray-700 rounded-lg p-4 mt-4');
+        const label = el('label', 'block text-gray-200 font-semibold mb-3', 'Select Image ');
+        label.appendChild(el('span', 'text-sm font-normal text-gray-400', '(Click to choose)'));
+        wrapper.appendChild(label);
 
-        this.container.innerHTML = html;
+        const grid = el('div', 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3');
+        this.images.forEach((img, index) => {
+            const selected = img === this.selectedImage;
+            const option = el(
+                'div',
+                'image-option cursor-pointer rounded-lg overflow-hidden border-2 transition-all ' +
+                    (selected ? 'border-green-500 ring-2 ring-green-500' : 'border-gray-600 hover:border-gray-400')
+            );
+            option.dataset.imageUrl = img;
+            option.addEventListener('click', () => this.selectImage(img));
+
+            const frame = el('div', 'aspect-square bg-gray-800 flex items-center justify-center p-2');
+            const image = el('img', 'max-w-full max-h-full object-contain');
+            image.alt = `Option ${index + 1}`;
+            image.referrerPolicy = 'no-referrer';
+            image.addEventListener('error', () => {
+                if (image.src !== new URL(this.defaultImageUrl, location.href).href) image.src = this.defaultImageUrl;
+            }, { once: true });
+            image.src = img;
+            frame.appendChild(image);
+            option.appendChild(frame);
+            option.appendChild(el(
+                'div',
+                'bg-gray-600 px-2 py-1 text-xs text-center text-gray-300',
+                img === this.defaultImageUrl ? 'Default' : `Image ${index}`
+            ));
+            grid.appendChild(option);
+        });
+        wrapper.appendChild(grid);
+        wrapper.appendChild(el(
+            'p',
+            'text-xs text-gray-400 mt-3',
+            'The first option is a default gift icon. Other images were found on the product page.'
+        ));
+        this.container.appendChild(wrapper);
     }
 
     /**
@@ -172,3 +194,4 @@ class ImageSelector {
 
 // Make it available globally
 window.ImageSelector = ImageSelector;
+window.isSafeImageUrl = isSafeImageUrl;

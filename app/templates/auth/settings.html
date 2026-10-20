@@ -3,7 +3,7 @@
 {% block title %}Account Settings - {{ app_name }}{% endblock %}
 
 {% block head %}
-<script src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/passkey.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -117,15 +117,23 @@
     <div class="bg-gray-800 rounded-lg shadow-lg p-6">
         <h2 class="text-2xl font-bold mb-4">Logout</h2>
         <p class="text-gray-400 mb-4">Sign out of your account on this device.</p>
-        <a href="{{ url_for('auth.logout') }}" class="inline-block bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700">
-            Logout
-        </a>
+        <form method="POST" action="{{ url_for('auth.logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="inline-block bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700">
+                Logout
+            </button>
+        </form>
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Passkey management
 let passkeys = [];
+
+document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-delete-passkey]');
+    if (button) deletePasskey(button.dataset.deletePasskey);
+});
 
 async function loadPasskeys() {
     try {
@@ -150,13 +158,13 @@ function renderPasskeys() {
     container.innerHTML = passkeys.map(passkey => `
         <div class="flex justify-between items-center bg-gray-700 p-4 rounded">
             <div>
-                <p class="font-semibold">${passkey.device_name || 'Unnamed Device'}</p>
+                <p class="font-semibold">${escapeHtml(passkey.device_name || 'Unnamed Device')}</p>
                 <p class="text-sm text-gray-400">
                     Created: ${new Date(passkey.created_at).toLocaleDateString()}
                     ${passkey.last_used ? `| Last used: ${new Date(passkey.last_used).toLocaleDateString()}` : ''}
                 </p>
             </div>
-            <button onclick="deletePasskey(${passkey.id})" class="text-red-600 hover:text-red-800 font-semibold">
+            <button type="button" data-delete-passkey="${Number(passkey.id)}" class="text-red-600 hover:text-red-800 font-semibold">
                 Delete
             </button>
         </div>

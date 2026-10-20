@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, redirect, request, url_for, flash, session, jsonify
 from flask_login import login_user, logout_user, current_user, login_required
-from difflib import SequenceMatcher
-from app import db
-from app.models import User, ProxyWishlist, WishlistItem, Purchase
+from flask_wtf import FlaskForm
+
+from app import db, limiter
+from app.models import Invite, User, ProxyWishlist, WishlistItem
 from app.forms import (
     RegistrationForm,
     LoginForm,
@@ -12,79 +13,25 @@ from app.forms import (
     ChangePasswordForm,
 )
 from app.email import send_magic_link_email, send_welcome_email
+from app.services import merge_items, similar_items
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 
-
-def similar_items(item1, item2, threshold=0.75):
-    """Check if two items are similar enough to merge."""
-    # Method 1: Exact URL match (most reliable)
-    if item1.url and item2.url:
-        url1 = item1.url.lower().rstrip("/")
-        url2 = item2.url.lower().rstrip("/")
-        if url1 == url2:
-            return True
-
-    # Method 2: Name similarity using SequenceMatcher
-    if item1.name and item2.name:
-        name_similarity = SequenceMatcher(None, item1.name.lower(), item2.name.lower()).ratio()
-        if name_similarity >= threshold:
-            return True
-
-        # Method 3: Significant word overlap (for products with different descriptions)
-        # Extract words of meaningful length (4+ characters)
-        words1 = set(
-            [w.lower() for w in item1.name.replace(",", "").replace("–", " ").replace("-", " ").split() if len(w) >= 4]
-        )
-        words2 = set(
-            [w.lower() for w in item2.name.replace(",", "").replace("–", " ").replace("-", " ").split() if len(w) >= 4]
-        )
-
-        if words1 and words2:
-            # Calculate Jaccard similarity (intersection over union)
-            intersection = words1 & words2
-            union = words1 | words2
-            jaccard = len(intersection) / len(union) if union else 0
-
-            # If they share 40% of significant words, likely the same item
-            # AND they share at least 3 words, it's probably the same product
-            if jaccard >= 0.4 and len(intersection) >= 3:
-                return True
-
-    return False
+AUTH_LIMIT = "10 per minute;60 per hour"
 
 
-def merge_items(existing_item, new_item):
-    """
-    Merge new_item into existing_item, preserving the best data from both.
-    Transfers purchases and deletes the new_item.
-    """
-    # Preserve the better data (prefer non-null values from new_item if existing_item lacks them)
-    if new_item.description and not existing_item.description:
-        existing_item.description = new_item.description
-    if new_item.price and not existing_item.price:
-        existing_item.price = new_item.price
-    if new_item.image_url and not existing_item.image_url:
-        existing_item.image_url = new_item.image_url
-    if new_item.url and not existing_item.url:
-        existing_item.url = new_item.url
+def _email_rate_key():
+    return "magic:" + (request.form.get("email") or "").strip().lower()
 
-    # Merge quantities (take the max)
-    if new_item.quantity > existing_item.quantity:
-        existing_item.quantity = new_item.quantity
 
-    # Transfer all purchases from new_item to existing_item
-    purchases = Purchase.query.filter_by(wishlist_item_id=new_item.id).all()
-    for purchase in purchases:
-        purchase.wishlist_item_id = existing_item.id
+def _invite_from_session():
+    """The invite this browser is registering with, if it is still usable."""
+    return Invite.find_usable(session.get("invite_token"))
 
-    # Flush the purchase updates before deleting the item to ensure they're persisted
-    if purchases:
-        db.session.flush()
 
-    # Delete the new_item
-    db.session.delete(new_item)
-    return existing_item
+def _finish_registration(user, invite):
+    invite.mark_used(user)
+    session.pop("invite_token", None)
 
 
 def names_match(proxy_name, user_name):
@@ -177,10 +124,25 @@ def merge_proxy_wishlist_to_user(proxy, user):
 
 
 @bp.route("/register", methods=["GET", "POST"])
+@limiter.limit(AUTH_LIMIT, methods=["POST"])
 def register():
-    """Unified registration page showing all registration options"""
+    """Registration is by invitation only. Shows both registration options once a valid invite is presented."""
     if current_user.is_authenticated:
         return redirect(url_for("main.index"))
+
+    token = request.args.get("invite")
+    if token:
+        # Remember the invite and drop it from the URL so it doesn't linger in history or Referer headers
+        if Invite.find_usable(token):
+            session["invite_token"] = token
+        else:
+            session.pop("invite_token", None)
+            flash("That invite link is invalid, expired, or already used.", "danger")
+        return redirect(url_for("auth.register"))
+
+    invite = _invite_from_session()
+    if invite is None:
+        return render_template("auth/invite_required.html"), 403
 
     email_form = RegistrationForm()
     password_form = UsernamePasswordRegistrationForm()
@@ -210,6 +172,7 @@ def register():
         for proxy in proxies_to_merge:
             merge_proxy_wishlist_to_user(proxy, user)
 
+        _finish_registration(user, invite)
         db.session.commit()
 
         # Send welcome email with login link included
@@ -218,15 +181,19 @@ def register():
         flash("Registration successful! Check your email for a welcome message with your login link.", "success")
         return redirect(url_for("auth.login"))
 
-    # Show unified registration page
     return render_template("auth/unified_register.html", email_form=email_form, password_form=password_form)
 
 
 @bp.route("/register-username", methods=["GET", "POST"])
+@limiter.limit(AUTH_LIMIT, methods=["POST"])
 def register_username():
-    """Username/password registration"""
+    """Username/password registration (also invite-only)"""
     if current_user.is_authenticated:
         return redirect(url_for("main.index"))
+
+    invite = _invite_from_session()
+    if invite is None:
+        return render_template("auth/invite_required.html"), 403
 
     form = UsernamePasswordRegistrationForm()
     if form.validate_on_submit():
@@ -246,6 +213,7 @@ def register_username():
         for proxy in proxies_to_merge:
             merge_proxy_wishlist_to_user(proxy, user)
 
+        _finish_registration(user, invite)
         db.session.commit()
 
         flash("Registration successful! You can now log in.", "success")
@@ -255,6 +223,8 @@ def register_username():
 
 
 @bp.route("/login", methods=["GET", "POST"])
+@limiter.limit(AUTH_LIMIT, methods=["POST"])
+@limiter.limit("5 per hour", methods=["POST"], key_func=_email_rate_key)
 def login():
     """Unified login page showing all auth options"""
     if current_user.is_authenticated:
@@ -263,7 +233,6 @@ def login():
     email_form = LoginForm()
     password_form = UsernamePasswordLoginForm()
 
-    # Handle email form submission
     if email_form.validate_on_submit() and email_form.submit.data:
         user = User.query.filter_by(email=email_form.email.data.lower()).first()
         if user:
@@ -272,13 +241,11 @@ def login():
         flash("If an account exists with that email, a login link has been sent.", "info")
         return redirect(url_for("auth.login"))
 
-    # Handle password form submission (via separate route for clarity)
-    # This GET request shows the unified auth page
-
     return render_template("auth/unified_auth.html", email_form=email_form, password_form=password_form)
 
 
 @bp.route("/login-username", methods=["GET", "POST"])
+@limiter.limit(AUTH_LIMIT, methods=["POST"])
 def login_username():
     """Username/password login"""
     if current_user.is_authenticated:
@@ -288,41 +255,51 @@ def login_username():
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data.lower()).first()
         if user and user.check_password(form.password.data):
+            session.clear()
+            user.record_login()
+            db.session.commit()
             login_user(user, remember=form.remember_me.data)
             flash(f"Welcome, {user.name}!", "success")
             return redirect(url_for("main.index"))
-        else:
-            flash("Invalid username or password.", "danger")
+        flash("Invalid username or password.", "danger")
 
     return render_template("auth/login_username.html", form=form)
 
 
-@bp.route("/magic-login/<token>")
+@bp.route("/magic-login/<token>", methods=["GET", "POST"])
+@limiter.limit(AUTH_LIMIT, methods=["POST"])
 def magic_login(token):
-    """Login via magic link"""
+    """Magic link login. GET only shows a confirm button, so email link scanners can't use up the link."""
     if current_user.is_authenticated:
         return redirect(url_for("main.index"))
 
     user = User.verify_magic_link_token(token)
     if not user:
-        flash("Invalid or expired login link.", "danger")
+        flash("Invalid or expired login link (each link works once). Request a new one below.", "danger")
         return redirect(url_for("auth.login"))
 
-    login_user(user)
-    flash(f"Welcome, {user.name}!", "success")
-    return redirect(url_for("main.index"))
+    form = FlaskForm()
+    if form.validate_on_submit():
+        session.clear()
+        user.record_login()
+        db.session.commit()
+        login_user(user)
+        flash(f"Welcome, {user.name}!", "success")
+        return redirect(url_for("main.index"))
+
+    return render_template("auth/magic_confirm.html", form=form, user=user)
 
 
-@bp.route("/logout")
+@bp.route("/logout", methods=["POST"])
 def logout():
-    """User logout"""
-    # Clear impersonation if active
+    """Log out, or stop impersonating if an admin is impersonating someone"""
     if "impersonate_user_id" in session:
         session.pop("impersonate_user_id")
         flash("Stopped impersonating user.", "info")
-    else:
-        logout_user()
-        flash("You have been logged out.", "info")
+        return redirect(url_for("admin.dashboard"))
+    logout_user()
+    session.clear()
+    flash("You have been logged out.", "info")
     return redirect(url_for("main.index"))
 
 

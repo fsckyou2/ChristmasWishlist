@@ -29,12 +29,12 @@
 
                 <div class="space-y-4">
                     {% for claim in data.claims %}
-                        {% set item = claim.wishlist_item %}
+                        {% set item = claim.item %}
                         <div class="bg-gray-750 rounded-lg p-4 border border-gray-700">
                             <div class="flex gap-4">
                                 <!-- Item Image -->
                                 {% if item.image_url %}
-                                    <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-24 h-24 object-cover rounded">
+                                    <img src="{{ item.image_url|safe_img }}" referrerpolicy="no-referrer" alt="{{ item.name }}" class="w-24 h-24 object-cover rounded">
                                 {% else %}
                                     <div class="w-24 h-24 bg-gray-600 flex items-center justify-center text-4xl rounded">🎁</div>
                                 {% endif %}
@@ -54,8 +54,8 @@
                                         <span>Quantity: {{ claim.quantity }}</span>
                                         <span class="text-gray-500">Claimed {{ claim.created_at.strftime('%b %d, %Y') }}</span>
                                     </div>
-                                    {% if item.url %}
-                                        <a href="{{ item.url }}" target="_blank" class="text-blue-400 text-sm hover:underline">View Product →</a>
+                                    {% if item.url|safe_href %}
+                                        <a href="{{ item.url|safe_href }}" rel="noopener noreferrer" target="_blank" class="text-blue-400 text-sm hover:underline">View Product →</a>
                                     {% endif %}
                                 </div>
 
@@ -97,14 +97,18 @@
                                 <div>
                                     {% if item.is_custom_gift and item.added_by_id == current_user.id %}
                                         <!-- Custom gift - Delete entire item -->
-                                        <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" onsubmit="return confirm('Delete this custom gift? This cannot be undone.');">
+                                        <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" data-confirm="Delete this custom gift? This cannot be undone.">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="next" value="my_claims">
                                             <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
                                                 Delete
                                             </button>
                                         </form>
                                     {% else %}
                                         <!-- Regular claim - Unclaim only -->
-                                        <form method="POST" action="{{ url_for('wishlist.unclaim_item', purchase_id=claim.id) }}" class="inline" onsubmit="return confirm('Unclaim this item?');">
+                                        <form method="POST" action="{{ url_for('wishlist.unclaim_item', claim_id=claim.id) }}" class="inline" data-confirm="Unclaim this item?">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="next" value="my_claims">
                                             <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
                                                 Unclaim
                                             </button>
@@ -141,7 +145,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Function to update stats for a recipient section
     function updateRecipientStats(recipientSection) {

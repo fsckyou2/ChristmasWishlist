@@ -3,8 +3,8 @@
 {% block title %}Add Gift to {{ proxy.name }}'s Wishlist{% endblock %}
 
 {% block head %}
-<script src="{{ url_for('static', filename='js/scraper.js') }}"></script>
-<script src="{{ url_for('static', filename='js/image-selector.js') }}"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/scraper.js') }}"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/image-selector.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -90,7 +90,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Initialize image selector
 window.imageSelector = new ImageSelector('#image-selector-container');
 window.imageSelector.init('#image-input');

@@ -1,5 +1,5 @@
 import pytest
-from app.models import User, Passkey
+from app.models import User, Passkey, utcnow
 from app import db
 import json
 
@@ -11,7 +11,7 @@ class TestPasskeyRoutes:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_passkey_manage_page_requires_login(self, client):
         """Test passkey management page requires authentication"""
@@ -187,8 +187,6 @@ class TestPasskeyModel:
 
     def test_passkey_last_used_tracking(self, app, user):
         """Test passkey last_used timestamp"""
-        from datetime import datetime
-
         with app.app_context():
             passkey = Passkey(
                 user_id=user.id,
@@ -202,7 +200,7 @@ class TestPasskeyModel:
             assert passkey.last_used is None
 
             # Update last_used
-            passkey.last_used = datetime.utcnow()
+            passkey.last_used = utcnow()
             db.session.commit()
 
             updated_passkey = db.session.get(Passkey, passkey.id)

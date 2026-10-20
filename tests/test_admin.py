@@ -10,7 +10,7 @@ class TestAdminRoutes:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_admin_dashboard_requires_admin(self, client, app, user):
         """Test admin dashboard requires admin privileges"""
@@ -105,14 +105,14 @@ class TestAdminRoutes:
     def test_admin_impersonate_user(self, client, app, admin_user, user):
         """Test admin impersonating user"""
         self.login_user(client, app, admin_user)
-        response = client.get(f"/admin/user/{user.id}/impersonate", follow_redirects=True)
+        response = client.post(f"/admin/user/{user.id}/impersonate", follow_redirects=True)
         assert response.status_code == 200
         assert b"impersonating" in response.data.lower()
 
     def test_admin_cannot_impersonate_self(self, client, app, admin_user):
         """Test admin cannot impersonate themselves"""
         self.login_user(client, app, admin_user)
-        response = client.get(f"/admin/user/{admin_user.id}/impersonate", follow_redirects=True)
+        response = client.post(f"/admin/user/{admin_user.id}/impersonate", follow_redirects=True)
         assert b"cannot impersonate yourself" in response.data
 
     def test_admin_stop_impersonate(self, client, app, admin_user, user):
@@ -120,10 +120,10 @@ class TestAdminRoutes:
         self.login_user(client, app, admin_user)
 
         # Start impersonating
-        client.get(f"/admin/user/{user.id}/impersonate")
+        client.post(f"/admin/user/{user.id}/impersonate")
 
         # Stop impersonating
-        response = client.get("/admin/stop-impersonate", follow_redirects=True)
+        response = client.post("/admin/stop-impersonate", follow_redirects=True)
         assert response.status_code == 200
         assert b"Stopped impersonating" in response.data
 
@@ -150,7 +150,7 @@ class TestAdminRoutes:
     def test_admin_purchases_page(self, client, app, admin_user):
         """Test admin purchases page"""
         self.login_user(client, app, admin_user)
-        response = client.get("/admin/purchases")
+        response = client.get("/admin/claims")
         assert response.status_code == 200
 
     def test_admin_can_edit_any_item_from_admin_area(self, client, app, admin_user, user):
@@ -318,7 +318,7 @@ class TestAdminProxyWishlists:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_proxy_wishlists_page_loads(self, client, app, admin_user):
         """Test proxy wishlists page loads"""

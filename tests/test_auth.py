@@ -7,13 +7,13 @@ from flask import url_for
 class TestAuthRoutes:
     """Test authentication routes"""
 
-    def test_register_page_loads(self, client):
+    def test_register_page_loads(self, client, invite):
         """Test registration page loads"""
         response = client.get("/auth/register")
         assert response.status_code == 200
         assert b"Create Account" in response.data
 
-    def test_register_user(self, client, app):
+    def test_register_user(self, client, app, invite):
         """Test user registration"""
         response = client.post(
             "/auth/register",
@@ -34,7 +34,7 @@ class TestAuthRoutes:
             assert user.name == "Test User", "User name should match"
             assert user.email == "test@example.com", "User email should match"
 
-    def test_register_duplicate_email(self, client, user):
+    def test_register_duplicate_email(self, client, user, invite):
         """Test registering with duplicate email"""
         response = client.post(
             "/auth/register",
@@ -82,10 +82,10 @@ class TestAuthRoutes:
         # Login first
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
         # Logout
-        response = client.get("/auth/logout", follow_redirects=True)
+        response = client.post("/auth/logout", follow_redirects=True)
         assert response.status_code == 200
         assert b"logged out" in response.data
 
@@ -93,14 +93,14 @@ class TestAuthRoutes:
 class TestUsernamePasswordAuth:
     """Test username/password authentication"""
 
-    def test_register_username_page_loads(self, client):
+    def test_register_username_page_loads(self, client, invite):
         """Test username registration page loads"""
         response = client.get("/auth/register-username")
         assert response.status_code == 200
         assert b"Create Account" in response.data
         assert b"Username" in response.data
 
-    def test_register_username_user(self, client, app):
+    def test_register_username_user(self, client, app, invite):
         """Test user registration with username/password"""
         response = client.post(
             "/auth/register-username",
@@ -126,7 +126,7 @@ class TestUsernamePasswordAuth:
             assert user.password_hash is not None, "Password hash should be set"
             assert user.check_password("password123"), "Password should be valid"
 
-    def test_register_username_duplicate(self, client, app):
+    def test_register_username_duplicate(self, client, app, invite):
         """Test registering with duplicate username"""
         # Create first user
         with app.app_context():
@@ -149,7 +149,7 @@ class TestUsernamePasswordAuth:
 
         assert b"Username already taken" in response.data
 
-    def test_register_username_password_mismatch(self, client):
+    def test_register_username_password_mismatch(self, client, invite):
         """Test registration with password mismatch"""
         response = client.post(
             "/auth/register-username",
@@ -164,7 +164,7 @@ class TestUsernamePasswordAuth:
 
         assert b"Field must be equal to password" in response.data or b"Passwords must match" in response.data
 
-    def test_register_username_short_password(self, client):
+    def test_register_username_short_password(self, client, invite):
         """Test registration with short password"""
         response = client.post(
             "/auth/register-username",

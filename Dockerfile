@@ -1,41 +1,48 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# syntax=docker/dockerfile:1
+ARG PYTHON_VERSION=3.13
 
-# Set working directory
-WORKDIR /app
+# --- dependencies (built once, copied into the final images) -------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS deps
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN python -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt
 
-# Set environment variables
+FROM deps AS dev-deps
+COPY requirements-dev.txt /tmp/requirements-dev.txt
+RUN pip install -r /tmp/requirements-dev.txt
+
+# --- application -----------------------------------------------------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS app-base
+# Runs as an unprivileged user. 568 is the "apps" user/group on TrueNAS SCALE; override with --build-arg if needed.
+ARG APP_UID=568
+ARG APP_GID=568
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    FLASK_APP=run.py
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements first for better caching
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r requirements-dev.txt
-
-# Copy application code
+    PATH=/opt/venv/bin:$PATH \
+    FLASK_APP=run:app \
+    APP_ENV=production
+RUN groupadd --system --gid "${APP_GID}" app \
+    && useradd --system --uid "${APP_UID}" --gid app --home-dir /app --no-create-home --shell /usr/sbin/nologin app
+WORKDIR /app
+# Code is owned by root and read-only to the app user; only instance/ (the database) is writable.
 COPY . .
-
-# Create necessary directories
-RUN mkdir -p instance
-
-# Copy and set up entrypoint script
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
-# Expose port
+RUN chmod 0755 docker-entrypoint.sh \
+    && mkdir -p instance \
+    && chown app:app instance
 EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=3)"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["web"]
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:5000/', timeout=2)"
+# Development image (tests, linters): docker build --target dev .
+FROM app-base AS dev
+COPY --from=dev-deps /opt/venv /opt/venv
+USER app:app
 
-# Use entrypoint script to run migrations before starting app
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# Production image (default target)
+FROM app-base AS runtime
+COPY --from=deps /opt/venv /opt/venv
+USER app:app

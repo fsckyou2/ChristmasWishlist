@@ -1,20 +1,24 @@
 # Reverse Proxy Configuration Guide
 
-The Christmas Wishlist application is now fully configured to work behind a reverse proxy (Nginx, Apache, Caddy, etc.).
+The Christmas Wishlist application is designed to run behind a TLS-terminating reverse proxy (Caddy, Nginx, Traefik/Pangolin, etc.).
 
-## What Was Added
+## How it works
 
 ### ProxyFix Middleware
-The application now includes Werkzeug's `ProxyFix` middleware which properly handles:
+Werkzeug's `ProxyFix` middleware trusts `TRUSTED_PROXY_COUNT` proxies (default 1) for:
 - `X-Forwarded-For` - Client IP address
 - `X-Forwarded-Proto` - Original protocol (HTTP/HTTPS)
 - `X-Forwarded-Host` - Original host header
 - `X-Forwarded-Prefix` - URL prefix for subpath deployments
 
+Because those headers are trusted, **the app port must only be reachable through the proxy**. Anything else that
+can reach the port directly can spoof them (for example to dodge rate limits). Set `TRUSTED_PROXY_COUNT=0` if there
+is no proxy.
+
 ### Security Configuration
-Added environment variables for secure cookies when using HTTPS:
-- `PREFERRED_URL_SCHEME` - Set to 'https' in production
-- `SESSION_COOKIE_SECURE` - Set to 'True' to require HTTPS for cookies
+- `SESSION_COOKIE_SECURE` - defaults to True in production (cookies only over HTTPS)
+- `PREFERRED_URL_SCHEME` - defaults to `https` in production
+- `APP_URL` - the public URL; links in emails and the passkey (WebAuthn) origin come from it, never from request headers
 
 ## Configuration
 
@@ -23,21 +27,21 @@ Added environment variables for secure cookies when using HTTPS:
 When deploying behind a reverse proxy with HTTPS:
 
 ```env
-# Set these for HTTPS deployment
-PREFERRED_URL_SCHEME=https
-SESSION_COOKIE_SECURE=True
+# HTTPS deployment (production defaults shown)
 APP_URL=https://yourdomain.com
+WEBAUTHN_RP_ID=yourdomain.com
+TRUSTED_PROXY_COUNT=1
 ```
 
 ### 2. Nginx Configuration
 
-A sample Nginx configuration is provided in `nginx.conf.example`.
+A sample Nginx configuration is provided in `docs/nginx.conf.example`.
 
 **Quick Setup:**
 
 1. Copy the example configuration:
    ```bash
-   sudo cp nginx.conf.example /etc/nginx/sites-available/wishlist
+   sudo cp docs/nginx.conf.example /etc/nginx/sites-available/wishlist
    ```
 
 2. Edit the file and replace:
@@ -255,11 +259,7 @@ PREFERRED_URL_SCHEME=https
 
 **Cause:** ProxyFix not configured correctly.
 
-**Solution:** Adjust `x_for` value in `app/__init__.py` to match number of proxies:
-```python
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)  # 1 proxy
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=2)  # 2 proxies
-```
+**Solution:** Set `TRUSTED_PROXY_COUNT` to the number of proxies in front of the app (e.g. `2` for CDN -> nginx -> app).
 
 ### Issue: 502 Bad Gateway
 
@@ -296,7 +296,7 @@ gzip_types text/plain text/css application/json application/javascript text/xml 
 
 ### 2. Cache Static Files (Nginx)
 
-Uncomment in `nginx.conf.example`:
+Uncomment in `docs/nginx.conf.example`:
 ```nginx
 location /static/ {
     alias /path/to/ChristmasWishlist/app/static/;

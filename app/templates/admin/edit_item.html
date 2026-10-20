@@ -3,7 +3,7 @@
 {% block title %}Edit Item (Admin){% endblock %}
 
 {% block head %}
-<script src="{{ url_for('static', filename='js/image-selector.js') }}?v=4400"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/image-selector.js') }}?v=4400"></script>
 {% endblock %}
 
 {% block content %}
@@ -97,14 +97,14 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Initialize image selector with existing data
 window.imageSelector = new ImageSelector('#image-selector-container');
 window.imageSelector.init('#image-input');
 
 // Load existing images if available
 {% if item %}
-const currentImageUrl = "{{ item.image_url | safe }}";
+const currentImageUrl = {{ item.image_url|tojson }};
 const availableImages = {{ item.get_available_images() | tojson }};
 window.imageSelector.loadExisting(currentImageUrl, availableImages);
 {% endif %}

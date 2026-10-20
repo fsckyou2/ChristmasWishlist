@@ -1,7 +1,10 @@
 from flask import Blueprint, render_template, jsonify, current_app
 from flask_login import current_user
+
+from sqlalchemy import text
+
+from app import __version__, db, policy
 from app.models import User, WishlistItem
-from app import __version__
 
 bp = Blueprint("main", __name__)
 
@@ -11,12 +14,8 @@ def index():
     """Home page"""
     if current_user.is_authenticated:
         # Count items on user's wishlist (excluding custom gifts from others)
-        my_items_count = (
-            WishlistItem.query.filter_by(user_id=current_user.id)
-            .filter(
-                (WishlistItem.added_by_id == None) | (WishlistItem.added_by_id == current_user.id)  # noqa: E711, E712
-            )
-            .count()
+        my_items_count = len(
+            policy.visible_items(current_user, WishlistItem.query.filter_by(user_id=current_user.id).all())
         )
 
         # Get other users
@@ -26,10 +25,11 @@ def index():
     return render_template("main/index.html")
 
 
-@bp.route("/about")
-def about():
-    """About page"""
-    return render_template("main/about.html")
+@bp.route("/healthz")
+def healthz():
+    """Container health check: the app is serving and the database answers."""
+    db.session.execute(text("SELECT 1"))
+    return "ok", 200, {"Content-Type": "text/plain", "Cache-Control": "no-store"}
 
 
 @bp.route("/version")
