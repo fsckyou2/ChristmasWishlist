@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [4.0.0] - 2026-10-20
+
+
 ### Security
 - Registration is invite-only (single-use, expiring invite links; admin page and `flask create-invite`)
 - Surprise protection: owners can no longer see claims or custom gifts on their own list via the browse view,
@@ -35,8 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Legacy migration scripts (replaced by Alembic), unused templates, service worker, `quickstart.sh`
-
-
 ## [1.1.0] - 2025-10-09
 
 
