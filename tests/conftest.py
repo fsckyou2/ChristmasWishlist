@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import User, WishlistItem, Purchase
+from app.models import Invite, User, WishlistItem, Claim
 
 
 @pytest.fixture(scope="function")
@@ -24,6 +24,17 @@ def client(app):
 def runner(app):
     """Create test CLI runner"""
     return app.test_cli_runner()
+
+
+@pytest.fixture
+def invite(app, client):
+    """A usable registration invite, already presented by `client` (as if it opened the invite link)."""
+    invite, token = Invite.create(created_by=None, note="test invite")
+    db.session.commit()
+    with client.session_transaction() as sess:
+        sess["invite_token"] = token
+    invite.raw_token = token
+    return invite
 
 
 @pytest.fixture

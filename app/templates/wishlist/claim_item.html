@@ -9,7 +9,7 @@
     <div class="bg-gray-800 rounded-lg shadow-lg p-8 mb-6">
         <div class="flex gap-6 mb-6">
             {% if item.image_url %}
-                <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-32 h-32 object-cover rounded">
+                <img src="{{ item.image_url|safe_img }}" referrerpolicy="no-referrer" alt="{{ item.name }}" class="w-32 h-32 object-cover rounded">
             {% else %}
                 <div class="w-32 h-32 bg-gray-600 flex items-center justify-center text-4xl rounded">🎁</div>
             {% endif %}
@@ -20,7 +20,7 @@
                     <p class="text-xl text-green-600 font-semibold mb-2">${{ "%.2f"|format(item.price) }}</p>
                 {% endif %}
                 <p class="text-gray-400">Wanted: {{ item.quantity }}</p>
-                <p class="text-gray-400">Already claimed: {{ item.total_purchased }}</p>
+                <p class="text-gray-400">Already claimed: {{ item.total_claimed }}</p>
                 <p class="text-gray-400 font-semibold">Remaining: {{ remaining }}</p>
             </div>
         </div>

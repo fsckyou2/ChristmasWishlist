@@ -1,18 +1,36 @@
-from app import db, login_manager
-from flask_login import UserMixin
-from itsdangerous import URLSafeTimedSerializer
+import hashlib
+import json
+import secrets
+from datetime import datetime, timedelta, timezone
+
 from flask import current_app, session
-from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin
+from itsdangerous import BadSignature, URLSafeTimedSerializer
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from app import db, login_manager
+
+
+def utcnow():
+    """Naive UTC timestamp, matching how existing rows are stored in SQLite."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    """Load user for Flask-Login - supports impersonation"""
-    # Check if admin is impersonating another user
-    if "impersonate_user_id" in session:
-        return db.session.get(User, int(session["impersonate_user_id"]))
-    return db.session.get(User, int(user_id))
+    """Load the logged-in user, or the user an admin is impersonating.
+
+    Impersonation only applies while the real logged-in account is still an admin; while it is active the admin sees
+    exactly what the impersonated user sees (including their surprise-protection rules).
+    """
+    user = db.session.get(User, int(user_id))
+    target_id = session.get("impersonate_user_id")
+    if target_id is not None:
+        target = db.session.get(User, int(target_id)) if user is not None and user.is_admin else None
+        if target is not None:
+            return target
+        session.pop("impersonate_user_id", None)
+    return user
 
 
 class User(UserMixin, db.Model):
@@ -27,54 +45,58 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     has_seen_tour = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Changes on every login; magic-link tokens embed it, which makes each link single-use
+    last_login_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
-    # Relationships
     wishlist_items = db.relationship(
         "WishlistItem",
         foreign_keys="WishlistItem.user_id",
-        backref="user",
+        back_populates="user",
         lazy="dynamic",
         cascade="all, delete-orphan",
     )
-    purchases = db.relationship("Purchase", backref="purchased_by", lazy="dynamic", cascade="all, delete-orphan")
-    # claims is an alias for purchases (view-only for convenience)
-    claims = db.relationship(
-        "Purchase",
-        lazy="dynamic",
-        foreign_keys="Purchase.purchased_by_id",
-        viewonly=True,
-        overlaps="purchases,purchased_by",
-    )
+    claims = db.relationship("Claim", back_populates="claimed_by", lazy="dynamic", cascade="all, delete-orphan")
     passkeys = db.relationship("Passkey", backref="user", lazy="dynamic", cascade="all, delete-orphan")
 
+    def _magic_link_serializer(self):
+        return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="magic-link-v2")
+
     def generate_magic_link_token(self):
-        """Generate magic link login token"""
+        """Generate a magic link login token, valid until it expires or the user next logs in."""
         if not self.email:
             return None
-        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
-        return serializer.dumps(self.email, salt="magic-link-salt")
+        last_login = self.last_login_at.isoformat() if self.last_login_at else None
+        return self._magic_link_serializer().dumps({"uid": self.id, "email": self.email, "ll": last_login})
 
     @staticmethod
     def verify_magic_link_token(token, expiration=None):
-        """Verify magic link token and return user"""
+        """Return the user for a valid, unused, unexpired magic link token, else None."""
         if expiration is None:
             expiration = current_app.config["MAGIC_LINK_TOKEN_EXPIRY"]
-
-        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="magic-link-v2")
         try:
-            email = serializer.loads(token, salt="magic-link-salt", max_age=expiration)
-        except Exception:
+            payload = serializer.loads(token, max_age=expiration)
+        except BadSignature:
             return None
-        return User.query.filter_by(email=email).first()
+        if not isinstance(payload, dict):
+            return None
+        user = db.session.get(User, payload.get("uid"))
+        if user is None or user.email != payload.get("email"):
+            return None
+        last_login = user.last_login_at.isoformat() if user.last_login_at else None
+        if last_login != payload.get("ll"):
+            return None  # already used (or superseded by a later login)
+        return user
+
+    def record_login(self):
+        self.last_login_at = utcnow()
 
     def set_password(self, password):
-        """Set password hash"""
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
-        """Check password against hash"""
         if not self.password_hash:
             return False
         return check_password_hash(self.password_hash, password)
@@ -84,12 +106,17 @@ class User(UserMixin, db.Model):
 
 
 class WishlistItem(db.Model):
-    """Wishlist item model"""
+    """An item on exactly one list: a user's (user_id) or a proxy wishlist's (proxy_wishlist_id)."""
 
     __tablename__ = "wishlist_items"
+    __table_args__ = (
+        db.CheckConstraint(
+            "(user_id IS NULL) <> (proxy_wishlist_id IS NULL)", name="ck_wishlist_items_exactly_one_owner"
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # Null for proxy wishlist items
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     proxy_wishlist_id = db.Column(db.Integer, db.ForeignKey("proxy_wishlists.id"), nullable=True)
     added_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # Who added this item (None = owner)
     name = db.Column(db.String(200), nullable=False)
@@ -99,89 +126,94 @@ class WishlistItem(db.Model):
     image_url = db.Column(db.String(500))
     available_images = db.Column(db.Text)  # JSON array of image URLs scraped from product page
     quantity = db.Column(db.Integer, default=1)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
-    # Relationships
-    purchases = db.relationship("Purchase", backref="wishlist_item", lazy="dynamic", cascade="all, delete-orphan")
+    user = db.relationship("User", foreign_keys=[user_id], back_populates="wishlist_items")
+    claims = db.relationship(
+        "Claim", back_populates="item", lazy="selectin", cascade="all, delete-orphan", order_by="Claim.id"
+    )
     added_by = db.relationship("User", foreign_keys=[added_by_id], backref="custom_gifts_added")
-    proxy_wishlist = db.relationship("ProxyWishlist", backref="items")
+    proxy_wishlist = db.relationship("ProxyWishlist", back_populates="items")
 
     @property
-    def total_purchased(self):
-        """Calculate total quantity purchased"""
-        return sum([p.quantity for p in self.purchases])
+    def total_claimed(self):
+        return sum(c.quantity for c in self.claims)
 
     @property
-    def is_fully_purchased(self):
-        """Check if item is fully purchased"""
-        return self.total_purchased >= self.quantity
+    def is_fully_claimed(self):
+        return self.total_claimed >= self.quantity
+
+    @property
+    def remaining_quantity(self):
+        return max(self.quantity - self.total_claimed, 0)
+
+    @property
+    def claimers(self):
+        """Distinct users who claimed this item, in claim order."""
+        seen = {}
+        for claim in self.claims:
+            seen.setdefault(claim.claimed_by_id, claim.claimed_by)
+        return list(seen.values())
+
+    def claims_by(self, user):
+        return [c for c in self.claims if c.claimed_by_id == user.id]
 
     @property
     def is_custom_gift(self):
-        """Check if this is a custom gift added by someone other than the owner"""
+        """A gift someone added to another person's list (hidden from that person)."""
         if self.proxy_wishlist_id:
-            # Check if added by a delegate - delegates' items are NOT custom gifts
-            if self.added_by_id:
-                delegate = WishlistDelegate.query.filter_by(
-                    proxy_wishlist_id=self.proxy_wishlist_id, user_id=self.added_by_id
-                ).first()
-                if delegate:
-                    return False  # Delegates add regular items, not custom gifts
-            # Items added by non-delegates (like the creator or others) are custom gifts
-            return True
+            # Items added by the proxy's delegates are regular items; anyone else's are custom gifts
+            return self.added_by_id not in self.proxy_wishlist.delegate_user_ids
         return self.added_by_id is not None and self.added_by_id != self.user_id
 
     @property
     def is_proxy_item(self):
-        """Check if this item belongs to a proxy wishlist"""
         return self.proxy_wishlist_id is not None
 
     def get_available_images(self):
-        """Get list of available images from JSON field"""
-        import json
-
         if not self.available_images:
             return []
         try:
-            return json.loads(self.available_images)
+            images = json.loads(self.available_images)
         except (json.JSONDecodeError, TypeError):
             return []
+        return images if isinstance(images, list) else []
 
     def set_available_images(self, images):
-        """Set available images from list"""
-        import json
+        """Store a list of image URLs (validated; unsafe entries are dropped)."""
+        from app.validation import clean_available_images
 
-        if images:
-            self.available_images = json.dumps(images)
-        else:
-            self.available_images = None
+        self.available_images = clean_available_images(images or [])
 
     def __repr__(self):
         return f"<WishlistItem {self.name}>"
 
 
-class Purchase(db.Model):
-    """Gift claim tracking model - tracks items users have claimed to gift to others"""
+class Claim(db.Model):
+    """Someone's claim on an item they will give. Stored in the historical `purchases` table."""
 
     __tablename__ = "purchases"
 
     id = db.Column(db.Integer, primary_key=True)
     wishlist_item_id = db.Column(db.Integer, db.ForeignKey("wishlist_items.id"), nullable=False)
-    purchased_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    claimed_by_id = db.Column("purchased_by_id", db.Integer, db.ForeignKey("users.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    purchased = db.Column(db.Boolean, default=False)  # Has the gift been purchased/ordered?
+    purchased = db.Column(db.Boolean, default=False)  # Has the gift been bought/ordered?
     received = db.Column(db.Boolean, default=False)  # Has the gift been received (for online orders)?
     wrapped = db.Column(db.Boolean, default=False)  # Has the gift been wrapped?
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+
+    item = db.relationship("WishlistItem", back_populates="claims")
+    claimed_by = db.relationship("User", back_populates="claims")
 
     def __repr__(self):
-        return f"<Purchase item={self.wishlist_item_id} by={self.purchased_by_id} qty={self.quantity}>"
+        return f"<Claim item={self.wishlist_item_id} by={self.claimed_by_id} qty={self.quantity}>"
 
 
 class WishlistChange(db.Model):
-    """Track changes to wishlists for daily digest emails"""
+    """A change to a user's own wishlist, for the daily digest. user_id is always the list owner."""
 
     __tablename__ = "wishlist_changes"
 
@@ -190,10 +222,9 @@ class WishlistChange(db.Model):
     change_type = db.Column(db.String(50), nullable=False)  # 'added', 'updated', 'deleted'
     item_name = db.Column(db.String(200), nullable=False)
     item_id = db.Column(db.Integer)  # May be null if item was deleted
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
     notified = db.Column(db.Boolean, default=False, index=True)
 
-    # Relationship
     user = db.relationship("User", backref=db.backref("wishlist_changes", cascade="all, delete-orphan"))
 
     def __repr__(self):
@@ -210,8 +241,8 @@ class Passkey(db.Model):
     credential_id = db.Column(db.LargeBinary, nullable=False, unique=True, index=True)
     public_key = db.Column(db.LargeBinary, nullable=False)
     sign_count = db.Column(db.Integer, default=0)
-    device_name = db.Column(db.String(100))  # Optional friendly name
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    device_name = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=utcnow)
     last_used = db.Column(db.DateTime)
 
     def __repr__(self):
@@ -227,23 +258,29 @@ class ProxyWishlist(db.Model):
     name = db.Column(db.String(100), nullable=False)  # Display name like "Lynn"
     email = db.Column(db.String(120), index=True)  # Optional email for auto-association
     created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
-    # Relationships
     created_by = db.relationship("User", backref="proxy_wishlists_created")
+    items = db.relationship("WishlistItem", back_populates="proxy_wishlist")
     delegates = db.relationship(
-        "WishlistDelegate", backref="proxy_wishlist", lazy="dynamic", cascade="all, delete-orphan"
+        "WishlistDelegate", back_populates="proxy_wishlist", lazy="selectin", cascade="all, delete-orphan"
     )
 
-    def is_delegate(self, user):
-        """Check if a user is a delegate for this proxy wishlist"""
+    @property
+    def delegate_user_ids(self):
+        return {d.user_id for d in self.delegates}
+
+    def delegate_record(self, user):
         if not user:
-            return False
-        return self.delegates.filter_by(user_id=user.id).first() is not None
+            return None
+        return next((d for d in self.delegates if d.user_id == user.id), None)
+
+    def is_delegate(self, user):
+        return self.delegate_record(user) is not None
 
     def can_manage(self, user):
-        """Check if a user can manage this proxy wishlist (creator or delegate)"""
+        """Creator, admin or delegate"""
         if not user:
             return False
         if user.is_admin or user.id == self.created_by_id:
@@ -265,11 +302,76 @@ class WishlistDelegate(db.Model):
     can_add_items = db.Column(db.Boolean, default=True, nullable=False)
     can_edit_items = db.Column(db.Boolean, default=True, nullable=False)
     can_remove_items = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
-    # Relationships
     user = db.relationship("User", backref="delegate_for_wishlists")
+    proxy_wishlist = db.relationship("ProxyWishlist", back_populates="delegates")
 
     def __repr__(self):
         return f"<WishlistDelegate user={self.user_id} proxy_wishlist={self.proxy_wishlist_id}>"
+
+
+class Invite(db.Model):
+    """Single-use registration invite. Only a SHA-256 of the token is stored."""
+
+    __tablename__ = "invites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    note = db.Column(db.String(200))
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime)
+    used_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    revoked = db.Column(db.Boolean, default=False, nullable=False)
+
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
+    used_by = db.relationship("User", foreign_keys=[used_by_id])
+
+    @staticmethod
+    def hash_token(token):
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    @classmethod
+    def create(cls, created_by, note="", days=None):
+        """Create an invite; returns (invite, raw_token). The raw token is not recoverable later."""
+        days = days or current_app.config["INVITE_EXPIRY_DAYS"]
+        token = secrets.token_urlsafe(32)
+        invite = cls(
+            token_hash=cls.hash_token(token),
+            note=(note or "").strip()[:200] or None,
+            created_by_id=created_by.id if created_by else None,
+            expires_at=utcnow() + timedelta(days=days),
+        )
+        db.session.add(invite)
+        return invite, token
+
+    @classmethod
+    def find_usable(cls, token):
+        if not token or not isinstance(token, str) or len(token) > 100:
+            return None
+        invite = cls.query.filter_by(token_hash=cls.hash_token(token)).first()
+        return invite if invite is not None and invite.is_usable else None
+
+    @property
+    def is_usable(self):
+        return not self.revoked and self.used_at is None and self.expires_at > utcnow()
+
+    @property
+    def status(self):
+        if self.used_at:
+            return "used"
+        if self.revoked:
+            return "revoked"
+        if self.expires_at <= utcnow():
+            return "expired"
+        return "open"
+
+    def mark_used(self, user):
+        self.used_at = utcnow()
+        self.used_by_id = user.id
+
+    def __repr__(self):
+        return f"<Invite {self.id} {self.status}>"

@@ -3,7 +3,7 @@
 {% block title %}Add Custom Gift{% endblock %}
 
 {% block head %}
-<script src="{{ url_for('static', filename='js/scraper.js') }}"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/scraper.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -90,7 +90,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.getElementById('scrape-btn').addEventListener('click', async function() {
     const url = document.getElementById('url-input').value;
     if (!url) {

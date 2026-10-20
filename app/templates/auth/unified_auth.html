@@ -3,7 +3,7 @@
 {% block title %}Login or Register - {{ app_name }}{% endblock %}
 
 {% block head %}
-<script src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/passkey.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -90,7 +90,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Check if passkey is supported
     if (window.passkey.isSupported()) {
         document.getElementById('passkey-login').style.display = 'block';

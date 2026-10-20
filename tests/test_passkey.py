@@ -11,7 +11,7 @@ class TestPasskeyRoutes:
         """Helper to login a user"""
         with app.app_context():
             token = user.generate_magic_link_token()
-        client.get(f"/auth/magic-login/{token}")
+        client.post(f"/auth/magic-login/{token}")
 
     def test_passkey_manage_page_requires_login(self, client):
         """Test passkey management page requires authentication"""

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-Standalone scheduler worker for running periodic tasks.
+Standalone scheduler worker for periodic tasks (the daily digest).
 
-This script runs as a separate service (not in gunicorn workers) to ensure
-scheduled jobs only execute once, not once per worker.
+Runs as its own service so jobs execute once, not once per gunicorn worker.
 
 Usage:
     python scheduler_worker.py
@@ -12,74 +11,30 @@ Usage:
 import logging
 import signal
 import sys
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
 
-# Configure logging
+from apscheduler.schedulers.blocking import BlockingScheduler
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def send_daily_digest_job():
-    """Job to send daily wishlist digest emails"""
-    from app import create_app
-    from app.email import send_daily_wishlist_digest
-
-    # Create app context for database access
-    # skip_scheduler=True prevents duplicate scheduler initialization
-    app = create_app("production", skip_scheduler=True)
-
-    with app.app_context():
-        try:
-            logger.info("Starting daily wishlist digest job...")
-            send_daily_wishlist_digest()
-            logger.info("Daily wishlist digest job completed successfully")
-        except Exception as e:
-            logger.error(f"Error in daily digest job: {str(e)}", exc_info=True)
-
-
-def signal_handler(signum, frame):
-    """Handle shutdown signals gracefully"""
-    logger.info(f"Received signal {signum}, shutting down scheduler...")
-    sys.exit(0)
-
-
 def main():
-    """Initialize and run the scheduler"""
-    logger.info("=" * 70)
-    logger.info("Starting Scheduler Worker")
-    logger.info("=" * 70)
-
-    # Register signal handlers for graceful shutdown
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-
-    # Create app to get config
-    # skip_scheduler=True prevents duplicate scheduler initialization
     from app import create_app
+    from app.scheduler import add_jobs
 
-    app = create_app("production", skip_scheduler=True)
+    def shutdown(signum, frame):
+        logger.info("Received signal %s, shutting down scheduler...", signum)
+        sys.exit(0)
 
-    # Get the hour to send emails from config (default to 9 AM local time)
-    digest_hour = app.config.get("DAILY_DIGEST_HOUR", 9)
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
 
-    logger.info(f"Daily digest will run at {digest_hour}:00 local time")
-    logger.info("=" * 70)
-
-    # Create blocking scheduler (runs in foreground)
+    app = create_app()
     scheduler = BlockingScheduler()
+    add_jobs(scheduler, app)
 
-    # Schedule daily digest
-    scheduler.add_job(
-        func=send_daily_digest_job,
-        trigger=CronTrigger(hour=digest_hour, minute=0),
-        id="daily_wishlist_digest",
-        name="Send daily wishlist digest emails",
-        replace_existing=True,
-    )
-
+    logger.info("Scheduler worker running.")
     try:
-        logger.info("Scheduler is running. Press Ctrl+C to exit.")
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         logger.info("Scheduler stopped.")

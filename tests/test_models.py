@@ -1,5 +1,5 @@
 import pytest
-from app.models import User, WishlistItem, Purchase
+from app.models import User, WishlistItem, Claim
 from app import db
 
 
@@ -66,63 +66,63 @@ class TestWishlistItemModel:
         assert item2 in user.wishlist_items
 
     def test_total_purchased_property(self, app, user, wishlist_item):
-        """Test total_purchased property"""
-        assert wishlist_item.total_purchased == 0
+        """Test total_claimed property"""
+        assert wishlist_item.total_claimed == 0
 
-        purchase = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=1)
+        purchase = Claim(wishlist_item_id=wishlist_item.id, claimed_by_id=user.id, quantity=1)
         db.session.add(purchase)
         db.session.commit()
 
-        assert wishlist_item.total_purchased == 1
+        assert wishlist_item.total_claimed == 1
 
     def test_is_fully_purchased_property(self, app, user, wishlist_item):
-        """Test is_fully_purchased property"""
+        """Test is_fully_claimed property"""
         wishlist_item.quantity = 2
         db.session.commit()
 
-        assert wishlist_item.is_fully_purchased is False
+        assert wishlist_item.is_fully_claimed is False
 
-        purchase = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=2)
+        purchase = Claim(wishlist_item_id=wishlist_item.id, claimed_by_id=user.id, quantity=2)
         db.session.add(purchase)
         db.session.commit()
 
-        assert wishlist_item.is_fully_purchased is True
+        assert wishlist_item.is_fully_claimed is True
 
 
 class TestPurchaseModel:
-    """Test Purchase model"""
+    """Test Claim model"""
 
     def test_create_purchase(self, app, user, wishlist_item):
         """Test creating a purchase"""
-        purchase = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=1)
+        purchase = Claim(wishlist_item_id=wishlist_item.id, claimed_by_id=user.id, quantity=1)
         db.session.add(purchase)
         db.session.commit()
 
         assert purchase.id is not None
         assert purchase.wishlist_item_id == wishlist_item.id
-        assert purchase.purchased_by_id == user.id
+        assert purchase.claimed_by_id == user.id
         assert purchase.quantity == 1
 
     def test_purchase_relationships(self, app, user, wishlist_item):
-        """Test relationships in Purchase model"""
-        purchase = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=1)
+        """Test relationships in Claim model"""
+        purchase = Claim(wishlist_item_id=wishlist_item.id, claimed_by_id=user.id, quantity=1)
         db.session.add(purchase)
         db.session.commit()
 
-        assert purchase.wishlist_item == wishlist_item
-        assert purchase.purchased_by == user
-        assert purchase in wishlist_item.purchases
+        assert purchase.item == wishlist_item
+        assert purchase.claimed_by == user
+        assert purchase in wishlist_item.claims
 
     def test_multiple_purchases(self, app, user, admin_user, wishlist_item):
         """Test multiple users purchasing same item"""
         wishlist_item.quantity = 5
         db.session.commit()
 
-        purchase1 = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=user.id, quantity=2)
-        purchase2 = Purchase(wishlist_item_id=wishlist_item.id, purchased_by_id=admin_user.id, quantity=3)
+        purchase1 = Claim(wishlist_item_id=wishlist_item.id, claimed_by_id=user.id, quantity=2)
+        purchase2 = Claim(wishlist_item_id=wishlist_item.id, claimed_by_id=admin_user.id, quantity=3)
         db.session.add_all([purchase1, purchase2])
         db.session.commit()
 
-        assert len(wishlist_item.purchases.all()) == 2
-        assert wishlist_item.total_purchased == 5
-        assert wishlist_item.is_fully_purchased is True
+        assert len(wishlist_item.claims) == 2
+        assert wishlist_item.total_claimed == 5
+        assert wishlist_item.is_fully_claimed is True

@@ -1,7 +1,9 @@
+import base64
+
 from flask import Blueprint, request, jsonify, session, current_app, render_template
 from flask_login import login_required, current_user, login_user
-from app import db
-from app.models import Passkey
+from app import db, limiter
+from app.models import Passkey, utcnow
 from webauthn import (
     generate_registration_options,
     verify_registration_response,
@@ -20,14 +22,19 @@ from webauthn.helpers.cose import COSEAlgorithmIdentifier
 bp = Blueprint("passkey", __name__, url_prefix="/passkey")
 
 
+def _expected_origin():
+    """The WebAuthn origin is our configured public URL, never derived from request headers."""
+    return current_app.config["APP_URL"]
+
+
 @bp.route("/register-begin", methods=["POST"])
 @login_required
 def register_begin():
     """Begin passkey registration"""
     try:
         # Get device name from request
-        data = request.get_json()
-        device_name = data.get("device_name", "My Device")
+        data = request.get_json(silent=True) or {}
+        device_name = str(data.get("device_name") or "My Device").strip()[:100] or "My Device"
 
         # Get RP (Relying Party) info from config
         rp_id = current_app.config.get("WEBAUTHN_RP_ID", "localhost")
@@ -65,8 +72,8 @@ def register_begin():
 
         return options_to_json(options)
 
-    except Exception as e:
-        current_app.logger.error(f"Passkey registration begin error: {str(e)}")
+    except Exception:
+        current_app.logger.exception("Passkey registration begin error")
         return jsonify({"error": "Failed to begin registration"}), 500
 
 
@@ -84,8 +91,7 @@ def register_complete():
 
         # Get RP info
         rp_id = current_app.config.get("WEBAUTHN_RP_ID", "localhost")
-        # Use the actual request origin to handle both HTTP and HTTPS
-        origin = request.url_root.rstrip("/")
+        origin = _expected_origin()
 
         # Verify the registration response
         verification = verify_registration_response(
@@ -112,12 +118,13 @@ def register_complete():
 
         return jsonify({"success": True, "passkey_id": passkey.id, "device_name": passkey.device_name})
 
-    except Exception as e:
-        current_app.logger.error(f"Passkey registration complete error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Passkey registration complete error")
+        return jsonify({"error": "Passkey registration failed. Please try again."}), 400
 
 
 @bp.route("/login-begin", methods=["POST"])
+@limiter.limit("20 per minute")
 def login_begin():
     """Begin passkey authentication"""
     try:
@@ -135,16 +142,17 @@ def login_begin():
 
         return options_to_json(options)
 
-    except Exception as e:
-        current_app.logger.error(f"Passkey login begin error: {str(e)}")
+    except Exception:
+        current_app.logger.exception("Passkey login begin error")
         return jsonify({"error": "Failed to begin login"}), 500
 
 
 @bp.route("/login-complete", methods=["POST"])
+@limiter.limit("10 per minute;60 per hour")
 def login_complete():
     """Complete passkey authentication"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         challenge = session.get("passkey_login_challenge")
 
         if not challenge:
@@ -155,11 +163,8 @@ def login_complete():
         if not raw_id:
             return jsonify({"error": "No credential ID"}), 400
 
-        # Convert base64url to bytes
-        import base64
-
-        # Add padding if needed
-        raw_id_padded = raw_id + "=" * (4 - len(raw_id) % 4)
+        # Convert base64url to bytes (adding padding if needed)
+        raw_id_padded = raw_id + "=" * (-len(raw_id) % 4)
         credential_id_bytes = base64.urlsafe_b64decode(raw_id_padded)
 
         # Find the passkey
@@ -170,8 +175,7 @@ def login_complete():
 
         # Get RP info
         rp_id = current_app.config.get("WEBAUTHN_RP_ID", "localhost")
-        # Use the actual request origin to handle both HTTP and HTTPS
-        origin = request.url_root.rstrip("/")
+        origin = _expected_origin()
 
         # Verify the authentication response
         verification = verify_authentication_response(
@@ -183,24 +187,20 @@ def login_complete():
             credential_current_sign_count=passkey.sign_count,
         )
 
-        # Update sign count
         passkey.sign_count = verification.new_sign_count
-        from datetime import datetime
-
-        passkey.last_used = datetime.utcnow()
+        passkey.last_used = utcnow()
+        passkey.user.record_login()
         db.session.commit()
 
-        # Log the user in
+        # Fresh session for the logged-in user (also drops the used challenge)
+        session.clear()
         login_user(passkey.user)
-
-        # Clear session
-        session.pop("passkey_login_challenge", None)
 
         return jsonify({"success": True, "user_name": passkey.user.name})
 
-    except Exception as e:
-        current_app.logger.error(f"Passkey login complete error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Passkey login complete error")
+        return jsonify({"error": "Passkey login failed. Please try again."}), 400
 
 
 @bp.route("/list", methods=["GET"])
@@ -211,7 +211,7 @@ def list_passkeys():
         {
             "id": p.id,
             "device_name": p.device_name,
-            "created_at": p.created_at.isoformat(),
+            "created_at": p.created_at.isoformat() if p.created_at else None,
             "last_used": p.last_used.isoformat() if p.last_used else None,
         }
         for p in current_user.passkeys

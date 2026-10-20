@@ -70,8 +70,8 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/passkey.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+<script nonce="{{ csp_nonce() }}">
     // Check if passkey is supported
     if (!window.passkey.isSupported()) {
         document.getElementById('not-supported').classList.remove('hidden');
@@ -101,10 +101,10 @@
                 return `
                     <div class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
                         <div>
-                            <p class="font-semibold">${passkey.device_name}</p>
+                            <p class="font-semibold">${escapeHtml(passkey.device_name)}</p>
                             <p class="text-sm text-gray-400">Created: ${createdDate} | Last used: ${lastUsed}</p>
                         </div>
-                        <button class="delete-passkey-btn text-red-600 hover:text-red-700" data-id="${passkey.id}">
+                        <button class="delete-passkey-btn text-red-600 hover:text-red-700" data-id="${Number(passkey.id)}">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                             </svg>

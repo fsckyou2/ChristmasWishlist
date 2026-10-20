@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ app_name }} - Share your holiday wishes with your family">
     <meta name="theme-color" content="#dc2626">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
 
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script nonce="{{ csp_nonce() }}" src="{{ tailwind_cdn }}"></script>
+    <script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/app.js') }}"></script>
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎁</text></svg>">
@@ -30,7 +32,7 @@
                 </a>
 
                 <!-- Mobile Menu Button -->
-                <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-1.5 p-2">
+                <button id="mobile-menu-btn" data-toggle-target="mobile-menu" class="md:hidden flex flex-col gap-1.5 p-2" type="button" aria-label="Menu">
                     <span class="block w-6 h-0.5 bg-white"></span>
                     <span class="block w-6 h-0.5 bg-white"></span>
                     <span class="block w-6 h-0.5 bg-white"></span>
@@ -43,9 +45,10 @@
                             <div class="bg-yellow-500 text-black px-3 py-1 rounded text-sm">
                                 Impersonating {{ current_user.name }}
                             </div>
-                            <a href="{{ url_for('admin.stop_impersonate') }}" class="hover:underline">
-                                Stop Impersonating
-                            </a>
+                            <form method="POST" action="{{ url_for('admin.stop_impersonate') }}" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="hover:underline text-left">Stop Impersonating</button>
+                            </form>
                         {% endif %}
                         {% if current_user.delegate_for_wishlists|length > 0 %}
                             <div class="relative group">
@@ -75,12 +78,12 @@
                             <a href="{{ url_for('admin.dashboard') }}" class="hover:underline">Admin</a>
                         {% endif %}
                         <a href="{{ url_for('auth.settings') }}" class="hover:underline">Account Settings</a>
-                        <a href="{{ url_for('auth.logout') }}" class="hover:underline">Logout</a>
+                        <form method="POST" action="{{ url_for('auth.logout') }}" class="inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="hover:underline text-left">Logout</button>
+                        </form>
                     {% else %}
                         <a href="{{ url_for('auth.login') }}" class="hover:underline">Login</a>
-                        <a href="{{ url_for('auth.register') }}" class="bg-white text-red-600 px-4 py-2 rounded font-semibold hover:bg-gray-100">
-                            Register
-                        </a>
                     {% endif %}
                 </div>
             </div>
@@ -93,13 +96,14 @@
                             <div class="bg-yellow-500 text-black px-3 py-2 rounded text-sm">
                                 Impersonating {{ current_user.name }}
                             </div>
-                            <a href="{{ url_for('admin.stop_impersonate') }}" class="hover:underline py-2">
-                                Stop Impersonating
-                            </a>
+                            <form method="POST" action="{{ url_for('admin.stop_impersonate') }}" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="hover:underline py-2 text-left">Stop Impersonating</button>
+                            </form>
                         {% endif %}
                         {% if current_user.delegate_for_wishlists|length > 0 %}
                             <div class="border-b border-gray-600 pb-2">
-                                <button onclick="toggleMobileDropdown()" class="hover:underline py-2 flex items-center justify-between w-full" type="button">
+                                <button data-toggle-target="mobile-dropdown" data-toggle-icon="mobile-dropdown-icon" class="hover:underline py-2 flex items-center justify-between w-full" type="button">
                                     <span>Manage Wishlists</span>
                                     <svg id="mobile-dropdown-icon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -123,12 +127,12 @@
                             <a href="{{ url_for('admin.dashboard') }}" class="hover:underline py-2">Admin</a>
                         {% endif %}
                         <a href="{{ url_for('auth.settings') }}" class="hover:underline py-2">Account Settings</a>
-                        <a href="{{ url_for('auth.logout') }}" class="hover:underline py-2">Logout</a>
+                        <form method="POST" action="{{ url_for('auth.logout') }}" class="inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="hover:underline py-2 text-left">Logout</button>
+                        </form>
                     {% else %}
                         <a href="{{ url_for('auth.login') }}" class="hover:underline py-2">Login</a>
-                        <a href="{{ url_for('auth.register') }}" class="bg-white text-red-600 px-4 py-2 rounded font-semibold hover:bg-gray-100 text-center">
-                            Register
-                        </a>
                     {% endif %}
                 </div>
             </div>
@@ -156,34 +160,10 @@
     <!-- Footer -->
     <footer class="bg-gray-950 text-gray-300 mt-12 py-6">
         <div class="container mx-auto px-4 text-center">
-            <p>&copy; 2025 {{ app_name }}. Made with ❤️ for the holidays.</p>
+            <p>{{ app_name }}. Made with ❤️ for the holidays.</p>
             <p class="text-gray-500 text-sm mt-2">Version {{ app_version }}</p>
         </div>
     </footer>
-
-    <!-- Mobile Menu Toggle Script -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const menuBtn = document.getElementById('mobile-menu-btn');
-            const mobileMenu = document.getElementById('mobile-menu');
-
-            if (menuBtn && mobileMenu) {
-                menuBtn.addEventListener('click', function() {
-                    mobileMenu.classList.toggle('hidden');
-                });
-            }
-        });
-
-        function toggleMobileDropdown() {
-            const dropdown = document.getElementById('mobile-dropdown');
-            const icon = document.getElementById('mobile-dropdown-icon');
-
-            if (dropdown && icon) {
-                dropdown.classList.toggle('hidden');
-                icon.classList.toggle('rotate-180');
-            }
-        }
-    </script>
 
     <!-- Welcome Tour -->
     {% include 'tour.html' %}

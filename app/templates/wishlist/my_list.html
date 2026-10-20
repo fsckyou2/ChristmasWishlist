@@ -21,7 +21,7 @@
             {% for item in items %}
                 <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
                     {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-full h-48 object-cover">
+                        <img src="{{ item.image_url|safe_img }}" referrerpolicy="no-referrer" alt="{{ item.name }}" class="w-full h-48 object-cover">
                     {% else %}
                         <div class="w-full h-48 bg-gray-600 flex items-center justify-center text-6xl">🎁</div>
                     {% endif %}
@@ -42,8 +42,8 @@
                         </div>
 
                         <div class="flex gap-2">
-                            {% if item.url %}
-                                <a href="{{ item.url }}" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
+                            {% if item.url|safe_href %}
+                                <a href="{{ item.url|safe_href }}" rel="noopener noreferrer" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
                                     View
                                 </a>
                             {% endif %}
@@ -51,7 +51,8 @@
                                 Edit
                             </a>
                             <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="flex-1">
-                                <button type="submit" onclick="return confirm('Delete this item?')" class="w-full bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" data-confirm="Delete this item?" class="w-full bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700">
                                     Delete
                                 </button>
                             </form>

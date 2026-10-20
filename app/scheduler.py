@@ -1,48 +1,34 @@
-"""
-Scheduler for running periodic tasks like daily wishlist digest emails
-"""
+"""Periodic jobs. Run by scheduler_worker.py in its own container, never inside gunicorn workers."""
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
 import logging
+
+from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
 
 
-def send_daily_digest_job():
-    """Job to send daily wishlist digest emails"""
+def send_daily_digest_job(app):
     from app.email import send_daily_wishlist_digest
 
-    try:
-        logger.info("Starting daily wishlist digest job...")
-        send_daily_wishlist_digest()
-        logger.info("Daily wishlist digest job completed successfully")
-    except Exception as e:
-        logger.error(f"Error in daily digest job: {str(e)}")
+    with app.app_context():
+        try:
+            logger.info("Starting daily wishlist digest job...")
+            send_daily_wishlist_digest()
+            logger.info("Daily wishlist digest job completed")
+        except Exception:
+            logger.exception("Error in daily digest job")
 
 
-def init_scheduler(app):
-    """Initialize the scheduler with the Flask app"""
-    scheduler = BackgroundScheduler()
-
-    # Get the hour to send emails from config (default to 9 AM)
-    digest_hour = app.config.get("DAILY_DIGEST_HOUR", 9)
-
-    # Create a wrapper function that runs within app context
-    def send_digest_with_context():
-        with app.app_context():
-            send_daily_digest_job()
-
-    # Schedule daily digest to run at the specified hour every day
+def add_jobs(scheduler, app):
+    """Register all periodic jobs on `scheduler`. DAILY_DIGEST_HOUR is local time in DIGEST_TIMEZONE."""
+    hour = app.config["DAILY_DIGEST_HOUR"]
+    tz = app.config["DIGEST_TIMEZONE"]
     scheduler.add_job(
-        func=send_digest_with_context,
-        trigger=CronTrigger(hour=digest_hour, minute=0),
+        func=send_daily_digest_job,
+        args=[app],
+        trigger=CronTrigger(hour=hour, minute=0, timezone=tz),
         id="daily_wishlist_digest",
         name="Send daily wishlist digest emails",
         replace_existing=True,
     )
-
-    scheduler.start()
-    logger.info(f"Scheduler started. Daily digest will run at {digest_hour}:00 UTC")
-
-    return scheduler
+    logger.info("Daily digest scheduled for %02d:00 %s", hour, tz)

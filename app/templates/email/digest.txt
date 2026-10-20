@@ -1,0 +1,13 @@
+Dear {{ recipient.name }},
+
+Here's what's new with wishlists from your family:
+{% for owner, changes in sections %}
+{{ owner.name }}:
+{% for change in changes %}  • {{ change.verb }} "{{ change.item_name }}" {{ change.suffix }}
+{% endfor %}{% endfor %}
+Visit {{ app_url }} to see all wishlists.
+
+Happy holidays!
+
+Best regards,
+{{ app_name }} Team

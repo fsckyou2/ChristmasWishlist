@@ -50,8 +50,8 @@
                                        class="item-field w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-2 py-1 focus:ring-2 focus:ring-blue-600"
                                        data-field="name"
                                        value="{{ item.name }}">
-                                {% if item.url %}
-                                <a href="{{ item.url }}" target="_blank" class="text-xs text-blue-400 hover:underline mt-1 block">View URL</a>
+                                {% if item.url|safe_href %}
+                                <a href="{{ item.url|safe_href }}" rel="noopener noreferrer" target="_blank" class="text-xs text-blue-400 hover:underline mt-1 block">View URL</a>
                                 {% endif %}
                                 <input type="url"
                                        class="item-field w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-2 py-1 mt-1 text-xs focus:ring-2 focus:ring-blue-600"
@@ -86,7 +86,8 @@
                                     <button class="save-btn text-green-600 hover:text-green-700 text-sm font-semibold" data-item-id="{{ item.id }}">
                                         Save
                                     </button>
-                                    <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" onsubmit="return confirm('Delete this item?');">
+                                    <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" data-confirm="Delete this item?">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
                                             Delete
                                         </button>
@@ -108,8 +109,8 @@
     {% endif %}
 </div>
 
-<script src="{{ url_for('static', filename='js/scraper.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/scraper.js') }}"></script>
+<script nonce="{{ csp_nonce() }}">
 // Import scrapeProduct function from scraper.js
 async function scrapeProductData(url) {
     try {
@@ -205,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Failed to add item');
             }
         } catch (error) {
-            scrapeStatus.innerHTML = `<span class="text-red-600">${error.message}</span>`;
+            scrapeStatus.innerHTML = `<span class="text-red-600">${escapeHtml(error.message)}</span>`;
         } finally {
             scrapeBtn.disabled = false;
             scrapeBtn.textContent = 'Load Product';
@@ -240,12 +241,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (response.ok) {
                     this.textContent = 'Saved!';
+                    fields.forEach(field => { field.dataset.originalValue = field.value; });
                     setTimeout(() => {
                         this.textContent = 'Save';
                         this.disabled = false;
                     }, 1500);
                 } else {
-                    throw new Error('Failed to save');
+                    const body = await response.json().catch(() => ({}));
+                    throw new Error(body.error || 'Failed to save');
                 }
             } catch (error) {
                 alert('Error saving item: ' + error.message);

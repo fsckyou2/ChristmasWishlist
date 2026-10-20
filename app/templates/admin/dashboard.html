@@ -16,8 +16,8 @@
             <p class="text-4xl font-bold text-green-600">{{ stats.total_items }}</p>
         </div>
         <div class="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 class="text-gray-400 text-sm font-semibold mb-2">Total Purchases</h3>
-            <p class="text-4xl font-bold text-red-600">{{ stats.total_purchases }}</p>
+            <h3 class="text-gray-400 text-sm font-semibold mb-2">Total Claims</h3>
+            <p class="text-4xl font-bold text-red-600">{{ stats.total_claims }}</p>
         </div>
     </div>
 
@@ -36,8 +36,11 @@
                 <a href="{{ url_for('admin.items') }}" class="block p-3 bg-gray-700 rounded hover:bg-gray-700">
                     📝 View All Items
                 </a>
-                <a href="{{ url_for('admin.purchases') }}" class="block p-3 bg-gray-700 rounded hover:bg-gray-700">
-                    🎁 View All Purchases
+                <a href="{{ url_for('admin.claims') }}" class="block p-3 bg-gray-700 rounded hover:bg-gray-700">
+                    🎁 View All Claims
+                </a>
+                <a href="{{ url_for('admin.invites') }}" class="block p-3 bg-gray-700 rounded hover:bg-gray-700">
+                    ✉️ Registration Invites
                 </a>
             </div>
         </div>

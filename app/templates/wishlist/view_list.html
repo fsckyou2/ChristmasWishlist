@@ -22,9 +22,9 @@
     {% if items %}
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for item in items %}
-                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden {% if item.is_fully_purchased %}purchased{% endif %}">
+                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden {% if item.is_fully_claimed %}purchased{% endif %}">
                     {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-full h-48 object-cover">
+                        <img src="{{ item.image_url|safe_img }}" referrerpolicy="no-referrer" alt="{{ item.name }}" class="w-full h-48 object-cover">
                     {% else %}
                         <div class="w-full h-48 bg-gray-600 flex items-center justify-center text-6xl">🎁</div>
                     {% endif %}
@@ -51,34 +51,18 @@
                             <span class="text-sm text-gray-400">Qty: {{ item.quantity }}</span>
                         </div>
 
-                        {% if item.is_fully_purchased %}
+                        {% if item.is_fully_claimed %}
                             <div class="bg-green-100 text-green-800 px-3 py-2 rounded mb-3">
                                 <div class="text-center font-semibold">✓ Fully Claimed</div>
-                                {% if item.purchases.count() > 0 %}
-                                    <div class="text-xs text-center mt-1">
-                                        {% set claimers = [] %}
-                                        {% for purchase in item.purchases %}
-                                            {% if purchase.purchased_by.id not in claimers %}
-                                                {% set _ = claimers.append(purchase.purchased_by.id) %}
-                                                <span>{{ purchase.purchased_by.name }}{% if not loop.last %}, {% endif %}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
+                                {% if item.claims %}
+                                    <div class="text-xs text-center mt-1">{{ item.claimers|map(attribute='name')|join(', ') }}</div>
                                 {% endif %}
                             </div>
-                        {% elif item.total_purchased > 0 %}
+                        {% elif item.total_claimed > 0 %}
                             <div class="bg-yellow-100 text-yellow-800 px-3 py-2 rounded mb-3">
-                                <div class="text-center font-semibold">{{ item.total_purchased }}/{{ item.quantity }} Claimed</div>
-                                {% if item.purchases.count() > 0 %}
-                                    <div class="text-xs text-center mt-1">
-                                        {% set claimers = [] %}
-                                        {% for purchase in item.purchases %}
-                                            {% if purchase.purchased_by.id not in claimers %}
-                                                {% set _ = claimers.append(purchase.purchased_by.id) %}
-                                                <span>{{ purchase.purchased_by.name }}{% if not loop.last %}, {% endif %}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
+                                <div class="text-center font-semibold">{{ item.total_claimed }}/{{ item.quantity }} Claimed</div>
+                                {% if item.claims %}
+                                    <div class="text-xs text-center mt-1">{{ item.claimers|map(attribute='name')|join(', ') }}</div>
                                 {% endif %}
                             </div>
                         {% endif %}
@@ -90,11 +74,12 @@
                                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-sm">
                                     <span class="font-semibold">Your Custom Gift</span>
                                     <div class="flex gap-2">
-                                        <button type="button" onclick="toggleMergeDropdown({{ item.id }})" class="text-purple-700 hover:text-purple-900 font-semibold">
+                                        <button type="button" data-toggle-target="merge-dropdown-{{ item.id }}" class="text-purple-700 hover:text-purple-900 font-semibold">
                                             Merge with...
                                         </button>
                                         <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline">
-                                            <button type="submit" class="text-red-600 hover:text-red-800 font-semibold" onclick="return confirm('Delete this custom gift?')">Delete</button>
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="text-red-600 hover:text-red-800 font-semibold" data-confirm="Delete this custom gift?">Delete</button>
                                         </form>
                                     </div>
                                 </div>
@@ -110,10 +95,10 @@
                                         {% endfor %}
                                     </select>
                                     <div class="flex gap-2">
-                                        <button type="button" onclick="mergeItems({{ item.id }})" class="flex-1 bg-purple-700 text-white px-2 py-1 rounded text-xs hover:bg-purple-800">
+                                        <button type="button" data-merge-source="{{ item.id }}" class="flex-1 bg-purple-700 text-white px-2 py-1 rounded text-xs hover:bg-purple-800">
                                             Merge
                                         </button>
-                                        <button type="button" onclick="toggleMergeDropdown({{ item.id }})" class="flex-1 bg-gray-300 text-gray-800 px-2 py-1 rounded text-xs hover:bg-gray-400">
+                                        <button type="button" data-toggle-target="merge-dropdown-{{ item.id }}" class="flex-1 bg-gray-300 text-gray-800 px-2 py-1 rounded text-xs hover:bg-gray-400">
                                             Cancel
                                         </button>
                                     </div>
@@ -121,14 +106,15 @@
                             </div>
                         {% else %}
                             <!-- Regular claims (not custom gifts) -->
-                            {% set my_claims = item.purchases.filter_by(purchased_by_id=current_user.id).all() %}
+                            {% set my_claims = item.claims_by(current_user) %}
                             {% if my_claims %}
                                 <div class="bg-blue-100 text-blue-800 px-3 py-2 rounded mb-3">
                                     <div class="text-sm font-semibold mb-1">You Claimed:</div>
                                     {% for claim in my_claims %}
                                         <div class="flex justify-between items-center text-xs">
                                             <span>{{ claim.quantity }} item{% if claim.quantity != 1 %}s{% endif %}</span>
-                                            <form method="POST" action="{{ url_for('wishlist.unclaim_item', purchase_id=claim.id) }}" class="inline">
+                                            <form method="POST" action="{{ url_for('wishlist.unclaim_item', claim_id=claim.id) }}" class="inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                 <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Unclaim</button>
                                             </form>
                                         </div>
@@ -138,13 +124,13 @@
                         {% endif %}
 
                         <div class="flex gap-2">
-                            {% if item.url %}
-                                <a href="{{ item.url }}" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
+                            {% if item.url|safe_href %}
+                                <a href="{{ item.url|safe_href }}" rel="noopener noreferrer" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
                                     View Product
                                 </a>
                             {% endif %}
                             <!-- Don't show Claim button for custom gifts (already auto-claimed) or fully purchased items -->
-                            {% if not item.is_fully_purchased and not item.is_custom_gift %}
+                            {% if not item.is_fully_claimed and not item.is_custom_gift %}
                                 <a href="{{ url_for('wishlist.claim_item', item_id=item.id) }}" class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-green-700">
                                     Claim Gift
                                 </a>
@@ -166,11 +152,11 @@
     </div>
 </div>
 
-<script>
-function toggleMergeDropdown(itemId) {
-    const dropdown = document.getElementById(`merge-dropdown-${itemId}`);
-    dropdown.classList.toggle('hidden');
-}
+<script nonce="{{ csp_nonce() }}">
+document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-merge-source]');
+    if (button) mergeItems(parseInt(button.dataset.mergeSource, 10));
+});
 
 async function mergeItems(sourceItemId) {
     const targetSelect = document.getElementById(`merge-target-${sourceItemId}`);

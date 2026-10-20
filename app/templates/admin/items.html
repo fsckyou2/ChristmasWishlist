@@ -17,7 +17,8 @@
                         Edit
                     </a>
                     <form method="POST" action="{{ url_for('admin.delete_item', item_id=item.id) }}" class="inline">
-                        <button type="submit" onclick="return confirm('Delete this item?')" class="text-red-600 hover:underline text-sm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" data-confirm="Delete this item?" class="text-red-600 hover:underline text-sm">
                             Delete
                         </button>
                     </form>

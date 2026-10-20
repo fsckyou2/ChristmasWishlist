@@ -1,0 +1,24 @@
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #dc2626;">Welcome to {{ app_name }}! 🎁</h2>
+    <p>Dear {{ user.name }},</p>
+    <p>You can now:</p>
+    <ul>
+        <li>Create and manage your Christmas wishlist</li>
+        <li>Browse wishlists from your family</li>
+        <li>Claim gifts to help coordinate who's giving what</li>
+        <li>Keep the holiday spirit alive with easy gift planning</li>
+    </ul>
+    <p>To get started, click the button below to log in to your account:</p>
+    <p>
+        <a href="{{ login_url }}"
+           style="display: inline-block; background-color: #dc2626; color: white;
+                  padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 0;">
+            Log In to Your Account
+        </a>
+    </p>
+    <p style="color: #666; font-size: 14px;">
+        This link works once and expires in {{ expiry_minutes }} minutes. You can always request a new one from the login page.
+    </p>
+    <p>Happy holidays!</p>
+    <p style="color: #666;">Best regards,<br>{{ app_name }} Team</p>
+</div>

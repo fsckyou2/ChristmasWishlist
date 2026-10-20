@@ -29,15 +29,22 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <a href="{{ url_for('admin.view_user', user_id=user.id) }}" class="text-blue-600 hover:underline mr-3">View</a>
                             <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="text-green-600 hover:underline mr-3">Edit</a>
-                            <a href="{{ url_for('admin.impersonate', user_id=user.id) }}" class="text-purple-600 hover:underline mr-3">Impersonate</a>
+                            {% if user.id != current_user.id %}
+                                <form method="POST" action="{{ url_for('admin.impersonate', user_id=user.id) }}" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="text-purple-600 hover:underline mr-3">Impersonate</button>
+                                </form>
+                            {% endif %}
                             {% if user.id != current_user.id %}
                                 <form method="POST" action="{{ url_for('admin.toggle_admin', user_id=user.id) }}" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="text-orange-600 hover:underline mr-3">
                                         {% if user.is_admin %}Remove Admin{% else %}Make Admin{% endif %}
                                     </button>
                                 </form>
                                 <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" class="inline">
-                                    <button type="submit" onclick="return confirm('Delete this user?')" class="text-red-600 hover:underline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" data-confirm="Delete this user?" class="text-red-600 hover:underline">
                                         Delete
                                     </button>
                                 </form>
