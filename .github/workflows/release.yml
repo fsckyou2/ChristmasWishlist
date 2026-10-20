@@ -11,8 +11,11 @@ on:
       - '.github/**'
   workflow_dispatch:  # Allow manual triggering from Actions tab
 
-# Prevent infinite loops
-# Skip if commit message contains [skip ci]
+# The built-in GITHUB_TOKEN pushes the version-bump commit and tag. Pushes made with it never trigger workflows,
+# so the release can't loop (and [skip ci] below is a second guard).
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -23,8 +26,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Use PAT to allow pushing tags and triggering other workflows
-          token: ${{ secrets.PAT_TOKEN }}
           persist-credentials: true
 
       - name: Configure Git

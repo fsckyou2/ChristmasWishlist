@@ -22,6 +22,11 @@ This project uses two GitHub Actions workflows:
 
 ## Step 1: Create Personal Access Token (PAT)
 
+> **No longer required (v4):** the release workflow now uses the built-in `GITHUB_TOKEN` with `contents: write`, so no
+> personal access token is needed and nothing expires. You can delete the `PAT_TOKEN` secret. Only the Docker Hub
+> secrets in Step 2 are required. The steps below are kept for reference.
+
+
 The release workflow needs a Personal Access Token to push version commits and tags.
 
 ### Create a Fine-Grained Personal Access Token
