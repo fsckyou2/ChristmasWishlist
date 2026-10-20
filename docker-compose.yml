@@ -1,40 +1,38 @@
+# Local/self-hosted reference deployment. Put a TLS reverse proxy (Caddy, nginx) in front; see docs/REVERSE_PROXY.md.
+# Pin `image:` to a release tag in production rather than building or using :latest.
+x-app: &app
+  build: .
+  image: christmas-wishlist:local
+  restart: unless-stopped
+  env_file:
+    - .env
+  environment:
+    - APP_ENV=production
+    - TZ=America/New_York  # DAILY_DIGEST_HOUR is in this timezone
+  volumes:
+    - instance:/app/instance  # SQLite database; must be writable by uid/gid 568
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
 services:
   web:
-    build: .
+    <<: *app
     container_name: christmas-wishlist
-    restart: unless-stopped
     ports:
-      - "5000:5000"
-    environment:
-      - FLASK_ENV=production
-      - SCHEDULER_ENABLED=false  # Scheduler runs in separate service
-      - TZ=America/New_York  # Set timezone for consistent time handling
-    env_file:
-      - .env
-    volumes:
-      - ./instance:/app/instance
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - "127.0.0.1:5000:5000"  # only the local reverse proxy should reach the app
 
   scheduler:
-    build: .
+    <<: *app
     container_name: christmas-wishlist-scheduler
-    restart: unless-stopped
-    command: ["scheduler"]  # Passed to entrypoint script
-    environment:
-      - FLASK_ENV=production
-      - SCHEDULER_ENABLED=true  # Not used by scheduler_worker.py, but for clarity
-      - TZ=America/New_York  # Set timezone for scheduler (affects DAILY_DIGEST_HOUR)
-    env_file:
-      - .env
-    volumes:
-      - ./instance:/app/instance
+    command: ["scheduler"]
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "/app/healthcheck_scheduler.py"]
       interval: 30s
