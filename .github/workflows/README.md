@@ -89,7 +89,7 @@ This workflow is triggered by tags created by the version-bump workflow, ensurin
 - GitHub Secrets must be configured:
   - `DOCKERHUB_USERNAME` - Your Docker Hub username
   - `DOCKERHUB_TOKEN` - Docker Hub access token
-- See `DOCKER_HUB_SETUP.md` for setup instructions
+- See `docs/releasing/DOCKER_HUB_SETUP.md` for setup instructions
 
 **Image Location**: `<username>/christmas-wishlist:latest`
 
