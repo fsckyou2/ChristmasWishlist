@@ -46,3 +46,7 @@ Thumbs.db
 .idea/
 *.swp
 *.log
+
+# Built in the image
+app/static/css/app.css
+.cache/

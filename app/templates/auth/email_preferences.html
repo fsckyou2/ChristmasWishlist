@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "auth/_email_updates.html" import email_updates_form with context %}
+
+{% block title %}Email updates - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h1 class="text-3xl font-bold mb-2">Email updates</h1>
+        <p class="text-gray-400 mb-6">For {{ person.name }}</p>
+        {{ email_updates_form(form, url_for('auth.email_preferences', token=token)) }}
+    </div>
+</div>
+{% endblock %}

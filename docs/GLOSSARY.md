@@ -21,10 +21,15 @@ retired word shows up.
 | Moving a "list for someone" into the person's account | **"Link to account"**. Flash: **"{Name}'s list is now linked to {User}'s account."** | Merge proxy |
 | Admin viewing as a user | **Impersonate / Stop impersonating** (unchanged). | |
 | Sign-up links | **Invites**. Button: **"Create invite link"**. | Registration Invites |
-| Daily email | Subject: **"What's new on the family wishlists"**. | Wishlist Updates from Your Family |
+| Daily email | Subject: **"What's new on the family wishlists"**. Setting: **"Email updates"**: **Every day**, **Once a week (Mondays)**, **Off**. | Wishlist Updates from Your Family, unsubscribe (on pages) |
+| Browse Wishlists rows | **"{x} of {y} still available"**, a **"{n} new"** badge (added since your last visit), **"Nothing on the list yet"** with **"Send a reminder"** / **"Reminder sent {date}"**. | |
+| Deleting | No "are you sure?". Flash: **Deleted "{item}" from My Wishlist.** with **Undo**; then **"{item}" is back.** | "This cannot be undone" |
+| Gifts I'm Giving totals | **"{n} gifts for {p} people"**, the total spend, and **"{a} to buy · {b} to wrap · {c} done"**. | |
+| Phone navigation | Tab bar: **My Wishlist**, **Browse Wishlists**, **Gifts I'm Giving**, **More**. | Menu |
 | New year | Admin: **"Start Christmas {next year}"**. The form still asks which Christmas is being closed. Given gifts are archived silently (not shown on the site). | Start a New Season, Gifts You've Received, Past gifts |
 | Logging in and out | Verbs: **"Log in"** and **"Log out"**. Emailed link: **magic link** ("Email me a magic link"). Also **password** and **passkey**. Page title: **"Log in"**. | Login (as a word people read), Logout, Sign in, Sign out |
-| Layout of your own list | A toggle: **Cards \| List**. | Card View, Table View |
+| Your own list's layout | One page you edit in place: **"Add from a link"**, **Edit** / **"Save changes"**, **↑ ↓** and drag **⠿** to reorder. | Card View, Table View, Cards \| List |
+| Top-priority item | **"★ Most wanted"** (shown first, with a star, to everyone shopping for the list). Also **Size** and **Colour**. | Favorite, priority |
 
 ## The privacy phrase
 

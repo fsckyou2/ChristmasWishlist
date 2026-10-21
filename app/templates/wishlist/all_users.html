@@ -19,37 +19,46 @@
         <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             <div class="divide-y divide-gray-700">
                 {% for user in users %}
-                    <a href="{{ url_for('wishlist.view_user_list', user_id=user.id) }}" class="block p-6 hover:bg-gray-700 transition">
-                        <div class="flex justify-between items-center">
-                            <div>
+                    {% set s = summaries[("user", user.id)] %}
+                    <div class="flex flex-wrap items-center gap-3 p-4 sm:p-6 hover:bg-gray-700 transition">
+                        <a href="{{ url_for('wishlist.view_user_list', user_id=user.id) }}" class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
                                 <h3 class="text-xl font-bold text-gray-100">{{ user.name }}</h3>
-                                <p class="text-gray-400 text-sm">{{ user.email }}</p>
+                                {% if s.new %}<span class="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded-full">{{ s.new }} new</span>{% endif %}
                             </div>
-                            <div class="text-right">
-                                <p class="text-2xl font-bold text-red-600">{{ user.wishlist_items.count() }}</p>
-                                <p class="text-sm text-gray-400">items</p>
-                            </div>
-                        </div>
-                    </a>
+                            {% if s.empty %}
+                                <p class="text-gray-400 text-sm">Nothing on the list yet</p>
+                            {% else %}
+                                <p class="text-gray-300 text-sm">{{ s.available }} of {{ s.total }} still available</p>
+                            {% endif %}
+                        </a>
+                        {% if s.empty and user.email %}
+                            {% set sent = reminders.get(user.id) %}
+                            {% if sent %}
+                                <span class="text-sm text-gray-400">Reminder sent {{ sent.sent_at.strftime('%b %d') }}</span>
+                            {% else %}
+                                <form method="POST" action="{{ url_for('wishlist.remind', user_id=user.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="bg-blue-600 text-white text-sm px-3 py-2 rounded-lg hover:bg-blue-700">Send a reminder</button>
+                                </form>
+                            {% endif %}
+                        {% endif %}
+                    </div>
                 {% endfor %}
 
                 {% for proxy in proxies %}
-                    <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="block p-6 hover:bg-gray-700 transition">
-                        <div class="flex justify-between items-center">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-3">
-                                    <h3 class="text-xl font-bold text-gray-100">{{ proxy.name }}</h3>
-                                    <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded-full">No account yet</span>
-                                </div>
-                                <p class="text-gray-400 text-sm">
-                                    {% if proxy.email %}{{ proxy.email }}{% else %}No email provided{% endif %}
-                                </p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-2xl font-bold text-yellow-600">{{ proxy.items|length }}</p>
-                                <p class="text-sm text-gray-400">items</p>
-                            </div>
+                    {% set s = summaries[("proxy", proxy.id)] %}
+                    <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="block p-4 sm:p-6 hover:bg-gray-700 transition">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h3 class="text-xl font-bold text-gray-100">{{ proxy.name }}</h3>
+                            <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded-full">No account yet</span>
+                            {% if s.new %}<span class="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded-full">{{ s.new }} new</span>{% endif %}
                         </div>
+                        {% if s.total %}
+                            <p class="text-gray-300 text-sm">{{ s.available }} of {{ s.total }} still available</p>
+                        {% else %}
+                            <p class="text-gray-400 text-sm">Nothing on the list yet</p>
+                        {% endif %}
                     </a>
                 {% endfor %}
             </div>

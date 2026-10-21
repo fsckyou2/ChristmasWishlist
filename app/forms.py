@@ -1,12 +1,22 @@
 import re
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, FloatField, IntegerField, SubmitField, PasswordField, BooleanField
+from wtforms import (
+    BooleanField,
+    FloatField,
+    IntegerField,
+    PasswordField,
+    RadioField,
+    StringField,
+    SubmitField,
+    TextAreaField,
+)
 from wtforms.validators import DataRequired, Email, ValidationError, Optional, NumberRange, Length, EqualTo
 
 from app.models import User
 from app.validation import (
     MAX_DESCRIPTION_LENGTH,
+    MAX_DETAIL_LENGTH,
     MAX_NAME_LENGTH,
     MAX_PRICE,
     MAX_QUANTITY,
@@ -72,6 +82,9 @@ class WishlistItemForm(FlaskForm):
     description = TextAreaField("Description", validators=[Optional(), Length(max=MAX_DESCRIPTION_LENGTH)])
     price = FloatField("Price", validators=[Optional(), NumberRange(min=0, max=MAX_PRICE)])
     image_url = StringField("Image URL", validators=[Optional(), wtf_validator(clean_image_url)])
+    size = StringField("Size (optional)", validators=[Optional(), Length(max=MAX_DETAIL_LENGTH)])
+    color = StringField("Colour (optional)", validators=[Optional(), Length(max=MAX_DETAIL_LENGTH)])
+    most_wanted = BooleanField("★ Most wanted")
     quantity = IntegerField("Quantity", validators=[DataRequired(), NumberRange(min=1, max=MAX_QUANTITY)], default=1)
     submit = SubmitField("Add to Wishlist")
 
@@ -109,6 +122,17 @@ class ChangePasswordForm(FlaskForm):
     )
     confirm_password = PasswordField("Confirm New Password", validators=[DataRequired(), EqualTo("new_password")])
     submit = SubmitField("Change Password")
+
+
+class EmailPreferencesForm(FlaskForm):
+    """How often to get "What's new on the family wishlists" """
+
+    digest_frequency = RadioField(
+        "Email me what's new on the family wishlists:",
+        choices=[("daily", "Every day"), ("weekly", "Once a week (Mondays)"), ("off", "Off")],
+        validators=[DataRequired()],
+    )
+    submit = SubmitField("Save")
 
 
 class InviteForm(FlaskForm):

@@ -119,7 +119,6 @@ def pages_for(w):
         "kid": [
             "/",
             "/wishlist/my-list",
-            "/wishlist/my-list/table",
             "/wishlist/add",
             "/auth/settings",
             "/passkey/manage",
@@ -189,7 +188,7 @@ def test_emails_use_only_glossary_words(app, world, monkeypatch):
 
     sent = []
     monkeypatch.setattr(
-        email_mod, "send_email", lambda subject, to, text, html_body: sent.append((subject, text, html_body))
+        email_mod, "send_email", lambda subject, to, text, html_body, **kw: sent.append((subject, text, html_body))
     )
     email_mod.send_magic_link_email(world["kid"])
     email_mod.send_welcome_email(world["kid"])
@@ -205,14 +204,16 @@ def test_every_email_is_signed_by_santa(app, world, monkeypatch):
     import app.email as email_mod
 
     sent = []
-    monkeypatch.setattr(email_mod, "send_email", lambda subject, to, text, html_body: sent.append((text, html_body)))
+    monkeypatch.setattr(
+        email_mod, "send_email", lambda subject, to, text, html_body, **kw: sent.append((text, html_body))
+    )
     email_mod.send_magic_link_email(world["kid"])
     email_mod.send_welcome_email(world["kid"])
     email_mod.send_daily_wishlist_digest()
     email_mod.send_season_open_email(2026)
     assert len(sent) >= 4
     for text, html_body in sent:
-        assert text.rstrip().endswith("Ho ho ho,\nSanta 🎅")
+        assert text.split("\n--\n")[0].rstrip().endswith("Ho ho ho,\nSanta 🎅")  # then maybe a settings footer
         assert "Ho ho ho,<br>Santa 🎅" in html_body
         assert "Team" not in text and "Best regards" not in text
 

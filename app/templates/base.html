@@ -8,8 +8,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
 
-    <!-- Tailwind CSS -->
-    <script nonce="{{ csp_nonce() }}" src="{{ tailwind_cdn }}"></script>
+    <!-- Tailwind CSS, built into the image (tailwind.config.js; scripts/build_css.sh for local development) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
     <script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/app.js') }}"></script>
 
     <!-- Favicon -->
@@ -20,124 +20,115 @@
 
     {% block head %}{% endblock %}
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
-    <!-- Navigation -->
-    <nav class="bg-red-700 text-white shadow-lg">
+<body class="bg-gray-900 text-gray-100 min-h-screen{% if current_user.is_authenticated %} pb-20 md:pb-0{% endif %}">
+    <!-- Navigation. Phones get a tab bar at the bottom (below); bigger screens get links up here. -->
+    {% set ep = request.endpoint or '' %}
+    {% if ep in ('wishlist.my_list', 'wishlist.add_item', 'wishlist.edit_item') %}{% set section = 'mine' %}
+    {% elif ep == 'wishlist.my_claims' %}{% set section = 'giving' %}
+    {% elif ep in ('wishlist.delegate_wishlists', 'wishlist.manage_as_delegate') or ep.startswith('wishlist.delegate_') %}{% set section = 'help' %}
+    {% elif ep.startswith('wishlist.') %}{% set section = 'browse' %}
+    {% elif ep.startswith('admin.') %}{% set section = 'admin' %}
+    {% elif ep in ('auth.settings', 'passkey.manage') %}{% set section = 'settings' %}
+    {% else %}{% set section = '' %}{% endif %}
+    {% macro top_link(endpoint, label, name) %}
+        <a href="{{ url_for(endpoint) }}" class="px-2 py-1 rounded hover:bg-red-800 {% if section == name %}bg-red-900 font-semibold{% endif %}"{% if section == name %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endmacro %}
+    {% set helping = current_user.is_authenticated and current_user.delegate_for_wishlists|length > 0 %}
+
+    <nav class="bg-red-700 text-white shadow-lg" aria-label="Main">
         <div class="container mx-auto px-4">
-            <div class="flex justify-between items-center py-4">
+            <div class="flex justify-between items-center gap-3 py-3 md:py-4">
                 <a href="{{ url_for('main.index') }}" class="text-xl md:text-2xl font-bold flex items-center gap-2">
                     <span class="text-2xl md:text-3xl">🎁</span>
                     <span class="hidden sm:inline">{{ app_name }}</span>
                     <span class="sm:hidden">Wishlist</span>
                 </a>
 
-                <!-- Mobile Menu Button -->
-                <button id="mobile-menu-btn" data-toggle-target="mobile-menu" class="md:hidden flex flex-col gap-1.5 p-2" type="button" aria-label="Menu">
-                    <span class="block w-6 h-0.5 bg-white"></span>
-                    <span class="block w-6 h-0.5 bg-white"></span>
-                    <span class="block w-6 h-0.5 bg-white"></span>
-                </button>
-
-                <!-- Desktop Navigation -->
-                <div class="hidden md:flex items-center gap-4">
-                    {% if current_user.is_authenticated %}
-                        {% if session.get('impersonate_user_id') %}
-                            <div class="bg-yellow-500 text-black px-3 py-1 rounded text-sm">
-                                Impersonating {{ current_user.name }}
-                            </div>
-                            <form method="POST" action="{{ url_for('admin.stop_impersonate') }}" class="inline">
+                {% if current_user.is_authenticated %}
+                    {% if session.get('impersonate_user_id') %}
+                        <div class="flex items-center gap-2 bg-yellow-500 text-black px-3 py-1 rounded text-sm">
+                            <span>Impersonating {{ current_user.name }}</span>
+                            <form method="POST" action="{{ url_for('admin.stop_impersonate') }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="hover:underline text-left">Stop Impersonating</button>
+                                <button type="submit" class="underline hover:no-underline font-semibold">Stop impersonating</button>
                             </form>
-                        {% endif %}
-                        {% if current_user.delegate_for_wishlists|length > 0 %}
-                            <div class="relative group">
-                                <button class="hover:underline flex items-center gap-1 py-2" type="button">
-                                    Lists I Help With
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                    </svg>
-                                </button>
-                                <div class="absolute left-0 pt-2 hidden group-hover:block z-50">
-                                    <div class="w-56 bg-gray-800 rounded-lg shadow-lg py-2">
-                                        <a href="{{ url_for('wishlist.my_list') }}" class="block px-4 py-2 hover:bg-gray-700">My Wishlist</a>
-                                        {% for delegate in current_user.delegate_for_wishlists %}
-                                            <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=delegate.proxy_wishlist_id) }}" class="block px-4 py-2 hover:bg-gray-700">
-                                                {{ delegate.proxy_wishlist.name }}'s Wishlist
-                                            </a>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        {% else %}
-                            <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline">My Wishlist</a>
-                        {% endif %}
-                        <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">Gifts I'm Giving</a>
-                        <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline">Browse Wishlists</a>
-                        {% if current_user.is_admin %}
-                            <a href="{{ url_for('admin.dashboard') }}" class="hover:underline">Admin</a>
-                        {% endif %}
-                        <a href="{{ url_for('auth.settings') }}" class="hover:underline">Account Settings</a>
-                        <form method="POST" action="{{ url_for('auth.logout') }}" class="inline">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="hover:underline text-left">Log out</button>
-                        </form>
-                    {% else %}
-                        <a href="{{ url_for('auth.login') }}" class="hover:underline">Log in</a>
+                        </div>
                     {% endif %}
-                </div>
-            </div>
 
-            <!-- Mobile Navigation Menu -->
-            <div id="mobile-menu" class="hidden md:hidden pb-4">
-                <div class="flex flex-col gap-3">
-                    {% if current_user.is_authenticated %}
-                        {% if session.get('impersonate_user_id') %}
-                            <div class="bg-yellow-500 text-black px-3 py-2 rounded text-sm">
-                                Impersonating {{ current_user.name }}
-                            </div>
-                            <form method="POST" action="{{ url_for('admin.stop_impersonate') }}" class="inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="hover:underline py-2 text-left">Stop Impersonating</button>
-                            </form>
-                        {% endif %}
-                        {% if current_user.delegate_for_wishlists|length > 0 %}
-                            <div class="border-b border-gray-600 pb-2">
-                                <button data-toggle-target="mobile-dropdown" data-toggle-icon="mobile-dropdown-icon" class="hover:underline py-2 flex items-center justify-between w-full" type="button">
-                                    <span>Lists I Help With</span>
-                                    <svg id="mobile-dropdown-icon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="hidden md:flex items-center gap-2 lg:gap-3">
+                        {{ top_link('wishlist.my_list', 'My Wishlist', 'mine') }}
+                        {{ top_link('wishlist.all_users', 'Browse Wishlists', 'browse') }}
+                        {{ top_link('wishlist.my_claims', "Gifts I'm Giving", 'giving') }}
+                        {% if helping %}
+                            <div class="relative">
+                                <button type="button" data-menu="help-menu" aria-expanded="false" aria-controls="help-menu"
+                                        class="px-2 py-1 rounded hover:bg-red-800 flex items-center gap-1 {% if section == 'help' %}bg-red-900 font-semibold{% endif %}">
+                                    Lists I Help With
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                     </svg>
                                 </button>
-                                <div id="mobile-dropdown" class="hidden pl-4 pt-2">
-                                    <a href="{{ url_for('wishlist.my_list') }}" class="block hover:underline py-2">My Wishlist</a>
+                                <div id="help-menu" class="hidden absolute right-0 mt-2 w-60 bg-gray-800 rounded-lg shadow-lg py-2 z-50">
                                     {% for delegate in current_user.delegate_for_wishlists %}
-                                        <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=delegate.proxy_wishlist_id) }}" class="block hover:underline py-2">
+                                        <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=delegate.proxy_wishlist_id) }}" class="block px-4 py-2 hover:bg-gray-700">
                                             {{ delegate.proxy_wishlist.name }}'s Wishlist
                                         </a>
                                     {% endfor %}
                                 </div>
                             </div>
-                        {% else %}
-                            <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline py-2">My Wishlist</a>
                         {% endif %}
-                        <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">Gifts I'm Giving</a>
-                        <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline py-2">Browse Wishlists</a>
-                        {% if current_user.is_admin %}
-                            <a href="{{ url_for('admin.dashboard') }}" class="hover:underline py-2">Admin</a>
-                        {% endif %}
-                        <a href="{{ url_for('auth.settings') }}" class="hover:underline py-2">Account Settings</a>
-                        <form method="POST" action="{{ url_for('auth.logout') }}" class="inline">
+                        {% if current_user.is_admin %}{{ top_link('admin.dashboard', 'Admin', 'admin') }}{% endif %}
+                        {{ top_link('auth.settings', 'Account Settings', 'settings') }}
+                        <form method="POST" action="{{ url_for('auth.logout') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="hover:underline py-2 text-left">Log out</button>
+                            <button type="submit" class="px-2 py-1 rounded hover:bg-red-800">Log out</button>
                         </form>
-                    {% else %}
-                        <a href="{{ url_for('auth.login') }}" class="hover:underline py-2">Log in</a>
-                    {% endif %}
-                </div>
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="px-2 py-1 rounded hover:bg-red-800">Log in</a>
+                {% endif %}
             </div>
         </div>
     </nav>
+
+    {% if current_user.is_authenticated %}
+        {% macro tab(endpoint, icon, label, name) %}
+            <a href="{{ url_for(endpoint) }}" class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-xs leading-tight text-center {% if section == name %}text-white font-semibold{% else %}text-gray-400{% endif %}"{% if section == name %} aria-current="page"{% endif %}>
+                <span class="text-xl" aria-hidden="true">{{ icon }}</span>{{ label }}
+            </a>
+        {% endmacro %}
+        <!-- Phone tab bar -->
+        <nav class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-gray-950 border-t border-gray-700 pb-[env(safe-area-inset-bottom)]" aria-label="Tabs">
+            <div id="more-menu" class="hidden absolute bottom-full inset-x-0 bg-gray-800 border-t border-gray-700 shadow-lg py-2">
+                {% if helping %}
+                    <p class="px-4 pt-1 pb-1 text-xs uppercase tracking-wide text-gray-400">Lists I Help With</p>
+                    {% for delegate in current_user.delegate_for_wishlists %}
+                        <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=delegate.proxy_wishlist_id) }}" class="block px-4 py-3 hover:bg-gray-700">
+                            {{ delegate.proxy_wishlist.name }}'s Wishlist
+                        </a>
+                    {% endfor %}
+                    <hr class="border-gray-700 my-2">
+                {% endif %}
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin.dashboard') }}" class="block px-4 py-3 hover:bg-gray-700">Admin</a>
+                {% endif %}
+                <a href="{{ url_for('auth.settings') }}" class="block px-4 py-3 hover:bg-gray-700">Account Settings</a>
+                <form method="POST" action="{{ url_for('auth.logout') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="w-full text-left px-4 py-3 hover:bg-gray-700">Log out</button>
+                </form>
+            </div>
+            <div class="flex">
+                {{ tab('wishlist.my_list', '🎁', 'My Wishlist', 'mine') }}
+                {{ tab('wishlist.all_users', '👀', 'Browse Wishlists', 'browse') }}
+                {{ tab('wishlist.my_claims', '🛍️', "Gifts I'm Giving", 'giving') }}
+                <button type="button" data-menu="more-menu" aria-expanded="false" aria-controls="more-menu"
+                        class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-xs leading-tight {% if section in ('help', 'admin', 'settings') %}text-white font-semibold{% else %}text-gray-400{% endif %}">
+                    <span class="text-xl" aria-hidden="true">☰</span>More
+                </button>
+            </div>
+        </nav>
+    {% endif %}
 
     <!-- One-time offer to save a passkey after an email-link/password login (see static/js/passkey-offer.js) -->
     {% if current_user.is_authenticated and session.get('offer_passkey') and not session.get('impersonate_user_id') %}
@@ -162,9 +153,19 @@
         {% if messages %}
             <div class="container mx-auto px-4 mt-4">
                 {% for category, message in messages %}
-                    <div class="p-4 rounded mb-4 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
-                        {{ message }}
-                    </div>
+                    {% if category == 'undo' %}
+                        <div class="p-4 rounded mb-4 bg-green-100 text-green-800 flex flex-wrap items-center justify-between gap-3" role="status">
+                            <span>{{ message.text }}</span>
+                            <form method="POST" action="{{ message.undo_url }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="font-semibold underline hover:no-underline">Undo</button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <div class="p-4 rounded mb-4 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endif %}
                 {% endfor %}
             </div>
         {% endif %}

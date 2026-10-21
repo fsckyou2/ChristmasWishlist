@@ -285,6 +285,27 @@ class TestHelpersSeeClaimsNotClaimers:
         html = client.get(f"/wishlist/view-proxy/{kid_list.id}").get_data(as_text=True)
         assert "Claimed by Uncle Fred" in html and "by Uncle Fred" in html
 
+    def test_list_starter_who_is_not_a_helper_sees_what_any_giver_sees(self, client, family):
+        """Starting a list for someone doesn't make you a helper: you see claimers and surprises like anyone else."""
+        proxy = ProxyWishlist(name="Lynn", created_by_id=family["aunt"].id)
+        db.session.add(proxy)
+        db.session.flush()
+        doll = WishlistItem(proxy_wishlist_id=proxy.id, name="Doll", quantity=1)
+        surprise = WishlistItem(proxy_wishlist_id=proxy.id, added_by_id=family["uncle"].id, name="Kite", quantity=1)
+        db.session.add_all([doll, surprise])
+        db.session.flush()
+        db.session.add_all(
+            [
+                Claim(wishlist_item_id=doll.id, claimed_by_id=family["uncle"].id, quantity=1),
+                Claim(wishlist_item_id=surprise.id, claimed_by_id=family["uncle"].id, quantity=1),
+            ]
+        )
+        db.session.commit()
+        login(client, family["aunt"])
+        html = client.get(f"/wishlist/view-proxy/{proxy.id}").get_data(as_text=True)
+        assert "Claimed by Uncle Fred" in html
+        assert "Kite" in html
+
     def test_policy(self, family, kid_list):
         from app import policy
 

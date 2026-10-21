@@ -10,3 +10,7 @@ Visit {{ app_url }} to see all wishlists.
 Happy holidays!
 
 {% include 'email/_signature.txt' %}
+
+--
+You get these {{ 'every Monday' if frequency == 'weekly' else 'every day' }} when something changes. Change how often, or turn them off:
+{{ preferences_url }}

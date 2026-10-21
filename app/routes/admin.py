@@ -7,6 +7,7 @@ from app import db, email, policy, services
 from app.forms import InviteForm, NewSeasonForm, WishlistItemForm
 from app.models import User, WishlistItem, Claim, GiftHistory, Invite, ProxyWishlist, WishlistDelegate
 from app.routes.auth import merge_proxy_wishlist_to_user
+from app.routes.wishlist import flash_deleted
 from app.validation import ValidationError
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -241,9 +242,10 @@ def edit_item(item_id):
 def delete_item(item_id):
     """Delete a wishlist item"""
     item = _admin_item_or_404(item_id)
-    services.delete_item(item)
+    name = item.name
+    snapshot = services.delete_item(item, deleted_by=current_user)
     db.session.commit()
-    flash(f'Item "{item.name}" has been deleted.', "success")
+    flash_deleted(snapshot, f'Deleted "{name}"')
     return redirect(url_for("admin.items"))
 
 

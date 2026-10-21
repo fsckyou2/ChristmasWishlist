@@ -374,8 +374,9 @@ class TestXss:
         admin_client = app.test_client()
         login(admin_client, family["admin"])
         html = admin_client.get(f"/admin/item/{lego.id}/edit").get_data(as_text=True)
-        assert 'const currentImageUrl = "\\";alert(1);//";' in html or "\\u0022;alert(1)" in html
-        assert '"";alert(1);//"' not in html
+        # The stored value only ever reaches the page HTML-escaped inside a data attribute, never inside a script
+        assert 'data-current-image="&#34;;alert(1);//"' in html
+        assert '";alert(1);//' not in html.replace('data-current-image="&#34;;alert(1);//"', "")
 
     def test_csp_and_nonced_scripts(self, client, family):
         login(client, family["kid"])
@@ -389,6 +390,25 @@ class TestXss:
         assert response.headers["X-Frame-Options"] == "DENY"
         assert response.headers["X-Content-Type-Options"] == "nosniff"
 
+    def test_no_inline_styles_or_third_party_scripts(self, client, family):
+        """Tailwind is a prebuilt stylesheet, so the CSP allows only our own scripts and styles."""
+        import pathlib
+
+        login(client, family["kid"])
+        response = client.get("/wishlist/my-list")
+        csp = response.headers["Content-Security-Policy"]
+        assert "unsafe-inline" not in csp and "http" not in csp.split("img-src")[0]
+        assert "style-src 'self';" in csp
+        assert '/static/css/app.css"' in response.get_data(as_text=True)
+        templates = pathlib.Path(__file__).parent.parent / "app" / "templates"
+        offenders = [
+            str(path.relative_to(templates))
+            for path in templates.rglob("*.html")
+            if "email" not in path.parts
+            and (' style="' in path.read_text(encoding="utf-8") or "<style" in path.read_text(encoding="utf-8"))
+        ]
+        assert offenders == []
+
     def test_digest_email_html_is_escaped(self, app, family, monkeypatch):
         import app.email as email_mod
 
@@ -396,7 +416,7 @@ class TestXss:
         db.session.add(WishlistChange(user_id=family["kid"].id, change_type="added", item_name="<img src=x>"))
         db.session.commit()
         sent = []
-        monkeypatch.setattr(email_mod, "send_email", lambda subject, to, text, html: sent.append(html))
+        monkeypatch.setattr(email_mod, "send_email", lambda subject, to, text, html, **kw: sent.append(html))
         email_mod.send_daily_wishlist_digest()
         assert sent and all("<img src=x>" not in html and 'href="https://evil' not in html for html in sent)
 
