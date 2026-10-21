@@ -375,3 +375,32 @@ class Invite(db.Model):
 
     def __repr__(self):
         return f"<Invite {self.id} {self.status}>"
+
+
+class GiftHistory(db.Model):
+    """A gift that was given in a past season, kept when an admin starts a new season.
+
+    Rows belong to the recipient (a user, or a proxy wishlist until that person joins). Denormalised on purpose:
+    the original item and claims are deleted when the season is closed.
+    """
+
+    __tablename__ = "gift_history"
+
+    id = db.Column(db.Integer, primary_key=True)
+    season = db.Column(db.String(20), nullable=False, index=True)
+    recipient_user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    recipient_proxy_id = db.Column(
+        db.Integer, db.ForeignKey("proxy_wishlists.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    recipient_name = db.Column(db.String(100), nullable=False)
+    item_name = db.Column(db.String(200), nullable=False)
+    url = db.Column(db.String(500))
+    image_url = db.Column(db.String(500))
+    price = db.Column(db.Float)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    givers = db.Column(db.String(500))  # display names, comma-separated
+    was_surprise = db.Column(db.Boolean, nullable=False, default=False)
+    archived_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    def __repr__(self):
+        return f"<GiftHistory {self.season} {self.item_name!r} -> {self.recipient_name}>"

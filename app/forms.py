@@ -58,7 +58,7 @@ class UsernamePasswordLoginForm(FlaskForm):
 
     username = StringField("Username", validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
-    remember_me = BooleanField("Remember Me")
+    remember_me = BooleanField("Keep me signed in", default=True)
     submit = SubmitField("Login")
 
 
@@ -115,3 +115,16 @@ class InviteForm(FlaskForm):
     note = StringField("Who is it for? (optional)", validators=[Optional(), Length(max=200)])
     days = IntegerField("Expires after (days)", validators=[DataRequired(), NumberRange(min=1, max=365)], default=30)
     submit = SubmitField("Create Invite")
+
+
+class NewSeasonForm(FlaskForm):
+    """Admin: archive last season's gifts and clear them from everyone's lists"""
+
+    season = StringField("Season being closed", validators=[DataRequired(), Length(max=20)])
+    confirm = StringField("Type the season again to confirm", validators=[DataRequired(), Length(max=20)])
+    notify = BooleanField("Email everyone that lists are open for the new season", default=True)
+    submit = SubmitField("Start the new season")
+
+    def validate_confirm(self, field):
+        if (field.data or "").strip() != (self.season.data or "").strip():
+            raise ValidationError("Type the season exactly as shown to confirm.")

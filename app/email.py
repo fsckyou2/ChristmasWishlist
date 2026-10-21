@@ -120,3 +120,14 @@ def send_daily_wishlist_digest():
     for change in pending:
         change.notified = True
     db.session.commit()
+
+
+def send_season_open_email():
+    """Tell everyone with an email address that lists are open for the new season. Returns how many were sent."""
+    from app.models import User
+
+    recipients = User.query.filter(User.email.isnot(None)).all()
+    for user in recipients:
+        text, html = _render("season_open", user=user)
+        send_email(f"{current_app.config['APP_NAME']}: time to update your list!", user.email, text, html)
+    return len(recipients)

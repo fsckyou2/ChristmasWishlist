@@ -4,8 +4,8 @@ from flask import Blueprint, abort, current_app, render_template, redirect, url_
 from flask_login import login_required, current_user
 
 from app import db, policy, services
-from app.forms import InviteForm, WishlistItemForm
-from app.models import User, WishlistItem, Claim, Invite, ProxyWishlist, WishlistDelegate
+from app.forms import InviteForm, NewSeasonForm, WishlistItemForm
+from app.models import User, WishlistItem, Claim, GiftHistory, Invite, ProxyWishlist, WishlistDelegate
 from app.routes.auth import merge_proxy_wishlist_to_user
 from app.validation import ValidationError
 
@@ -452,3 +452,43 @@ def revoke_invite(invite_id):
         db.session.commit()
         flash("Invite revoked.", "success")
     return redirect(url_for("admin.invites"))
+
+
+# ======================================
+# Seasons
+# ======================================
+
+
+@bp.route("/season", methods=["GET", "POST"])
+@login_required
+@admin_required
+def new_season():
+    """Close the past season: archive given gifts into everyone's history and clear them from the lists"""
+    form = NewSeasonForm()
+    if request.method == "GET":
+        form.season.data = services.default_season_label()
+
+    if form.validate_on_submit():
+        season = form.season.data.strip()
+        stats = services.close_season(season)
+        db.session.commit()
+        sent = 0
+        if form.notify.data:
+            from app.email import send_season_open_email
+
+            sent = send_season_open_email()
+        flash(
+            f"Season {season} closed: {stats['fully_claimed']} given gift(s) archived and removed, "
+            f"{stats['partly_claimed']} partly claimed item(s) kept with their remaining quantity"
+            + (f"; emailed {sent} people that lists are open." if form.notify.data else "."),
+            "success",
+        )
+        return redirect(url_for("admin.new_season"))
+
+    past = (
+        db.session.query(GiftHistory.season, db.func.count(GiftHistory.id))
+        .group_by(GiftHistory.season)
+        .order_by(GiftHistory.season.desc())
+        .all()
+    )
+    return render_template("admin/season.html", form=form, preview=services.season_preview(), past=past)

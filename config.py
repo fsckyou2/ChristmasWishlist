@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 from dotenv import load_dotenv
 
@@ -52,6 +53,9 @@ class Config:
     REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = "Lax"
+    # Family members visit a few times a season; keep them signed in rather than emailing a link every visit
+    REMEMBER_COOKIE_DURATION = timedelta(days=int(os.getenv("REMEMBER_LOGIN_DAYS", 120)))
+    REMEMBER_COOKIE_REFRESH_EACH_REQUEST = True
     PREFERRED_URL_SCHEME = os.getenv("PREFERRED_URL_SCHEME", "http")
 
     # Number of reverse proxies in front of the app whose X-Forwarded-* headers we trust (0 = none)

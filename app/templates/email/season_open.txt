@@ -1,0 +1,12 @@
+Dear {{ user.name }},
+
+The family wishlists are open for a new Christmas! 🎄
+
+Last year's gifts have been cleared from everyone's lists (you can still see what you received under "Gifts you've received" on your list). Now's a great time to add what you'd like this year:
+
+{{ app_url }}
+
+Happy holidays!
+
+Best regards,
+{{ app_name }} Team

@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, current_user, login_required
 from flask_wtf import FlaskForm
 
 from app import db, limiter
-from app.models import Invite, User, ProxyWishlist, WishlistItem
+from app.models import GiftHistory, Invite, User, ProxyWishlist, WishlistItem
 from app.forms import (
     RegistrationForm,
     LoginForm,
@@ -116,6 +116,11 @@ def merge_proxy_wishlist_to_user(proxy, user):
             proxy_item.proxy_wishlist_id = None
             proxy_item.user_id = user.id
             # Keep added_by_id to preserve who added custom gifts
+
+    # Gifts given to this person in past seasons follow them to their account
+    GiftHistory.query.filter_by(recipient_proxy_id=proxy.id).update(
+        {GiftHistory.recipient_user_id: user.id, GiftHistory.recipient_proxy_id: None}, synchronize_session=False
+    )
 
     # Delete the proxy wishlist
     db.session.delete(proxy)
@@ -259,6 +264,7 @@ def login_username():
             user.record_login()
             db.session.commit()
             login_user(user, remember=form.remember_me.data)
+            session["offer_passkey"] = True
             flash(f"Welcome, {user.name}!", "success")
             return redirect(url_for("main.index"))
         flash("Invalid username or password.", "danger")
@@ -283,7 +289,8 @@ def magic_login(token):
         session.clear()
         user.record_login()
         db.session.commit()
-        login_user(user)
+        login_user(user, remember=True)
+        session["offer_passkey"] = True  # one-time "sign in faster next time" banner
         flash(f"Welcome, {user.name}!", "success")
         return redirect(url_for("main.index"))
 
@@ -297,8 +304,8 @@ def logout():
         session.pop("impersonate_user_id")
         flash("Stopped impersonating user.", "info")
         return redirect(url_for("admin.dashboard"))
-    logout_user()
     session.clear()
+    logout_user()  # after clear(): it leaves the marker that makes Flask-Login delete the remember cookie
     flash("You have been logged out.", "info")
     return redirect(url_for("main.index"))
 

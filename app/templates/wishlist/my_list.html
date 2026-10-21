@@ -6,7 +6,12 @@
 <div class="max-w-6xl mx-auto">
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-4xl font-bold">My Wishlist</h1>
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-3">
+            {% if has_history %}
+            <a href="{{ url_for('wishlist.received') }}" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600">
+                🎁 Gifts You've Received
+            </a>
+            {% endif %}
             <a href="{{ url_for('wishlist.my_list_table') }}" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
                 Table View
             </a>

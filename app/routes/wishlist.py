@@ -3,19 +3,21 @@ from flask_login import current_user, login_required
 
 from app import db, policy, services
 from app.forms import ClaimForm, ProxyWishlistForm, WishlistItemForm
-from app.models import Claim, ProxyWishlist, User, WishlistDelegate, WishlistItem
+from app.models import Claim, GiftHistory, ProxyWishlist, User, WishlistDelegate, WishlistItem
 from app.validation import ValidationError
 
 bp = Blueprint("wishlist", __name__, url_prefix="/wishlist")
 
 
-def _list_url(item):
-    """Where to send someone after acting on `item`."""
+def _list_url(item, anchor=False):
+    """Where to send someone after acting on `item` (optionally scrolled back to its card)."""
     if item.proxy_wishlist_id:
-        return url_for("wishlist.view_proxy_wishlist", proxy_id=item.proxy_wishlist_id)
-    if item.user_id and item.user_id != current_user.id:
-        return url_for("wishlist.view_user_list", user_id=item.user_id)
-    return url_for("wishlist.my_list")
+        url = url_for("wishlist.view_proxy_wishlist", proxy_id=item.proxy_wishlist_id)
+    elif item.user_id and item.user_id != current_user.id:
+        url = url_for("wishlist.view_user_list", user_id=item.user_id)
+    else:
+        return url_for("wishlist.my_list")
+    return f"{url}#item-{item.id}" if anchor else url
 
 
 def _int_or_none(value):
@@ -47,7 +49,23 @@ def _flash_form_errors(form):
 @login_required
 def my_list():
     """View current user's wishlist (custom gifts from others are hidden)"""
-    return render_template("wishlist/my_list.html", items=_own_items())
+    has_history = GiftHistory.query.filter_by(recipient_user_id=current_user.id).first() is not None
+    return render_template("wishlist/my_list.html", items=_own_items(), has_history=has_history)
+
+
+@bp.route("/received")
+@login_required
+def received():
+    """Gifts the current user received in past seasons (archived when an admin starts a new season)"""
+    gifts = (
+        GiftHistory.query.filter_by(recipient_user_id=current_user.id)
+        .order_by(GiftHistory.season.desc(), GiftHistory.id)
+        .all()
+    )
+    by_season = {}
+    for gift in gifts:
+        by_season.setdefault(gift.season, []).append(gift)
+    return render_template("wishlist/received.html", by_season=by_season)
 
 
 @bp.route("/my-list/table")
@@ -192,11 +210,12 @@ def claim_item(item_id):
         else:
             db.session.add(Claim(item=item, claimed_by_id=current_user.id, quantity=quantity))
             db.session.commit()
+            what = f'"{item.name}"' if quantity == 1 else f'{quantity} of "{item.name}"'
             flash(
-                f'Claimed {quantity} of "{item.name}"! Don\'t forget to mark it as purchased when you order it.',
+                f"You're getting {what}. It's on My Gifts for Others; tap Undo on the item if you change your mind.",
                 "success",
             )
-            return redirect(_list_url(item))
+            return redirect(_list_url(item, anchor=True))
 
     form.quantity.data = remaining
     return render_template("wishlist/claim_item.html", form=form, item=item, remaining=remaining)
@@ -214,10 +233,10 @@ def unclaim_item(claim_id):
     item = claim.item
     db.session.delete(claim)
     db.session.commit()
-    flash(f'Unclaimed "{item.name}".', "success")
+    flash(f'Undone: you\'re no longer getting "{item.name}".', "success")
     if request.form.get("next") == "my_claims":
         return redirect(url_for("wishlist.my_claims"))
-    return redirect(_list_url(item))
+    return redirect(_list_url(item, anchor=True))
 
 
 @bp.route("/add-empty", methods=["POST"])

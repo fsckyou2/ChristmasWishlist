@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Gifts You've Received{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-2">
+        <h1 class="text-4xl font-bold">🎁 Gifts You've Received</h1>
+        <a href="{{ url_for('wishlist.my_list') }}" class="text-red-500 hover:underline">← My Wishlist</a>
+    </div>
+    <p class="text-gray-400 mb-8">Gifts from past Christmases, kept here when a new season starts. Handy for thank-you notes.</p>
+
+    {% for season, gifts in by_season.items() %}
+        <h2 class="text-2xl font-bold mt-8 mb-4">Christmas {{ season }}</h2>
+        <div class="grid sm:grid-cols-2 gap-4">
+            {% for gift in gifts %}
+                <div class="bg-gray-800 rounded-lg shadow-lg p-4 flex gap-4">
+                    <img src="{{ gift.image_url|safe_img }}" referrerpolicy="no-referrer" alt="" class="w-20 h-20 object-cover rounded bg-gray-700">
+                    <div class="min-w-0">
+                        <p class="font-semibold">{{ gift.item_name }}{% if gift.quantity > 1 %} <span class="text-gray-400">×{{ gift.quantity }}</span>{% endif %}</p>
+                        {% if gift.givers %}<p class="text-sm text-gray-300">From {{ gift.givers }}</p>{% endif %}
+                        {% if gift.was_surprise %}<p class="text-xs text-purple-300 mt-1">A surprise gift</p>{% endif %}
+                        {% if gift.url|safe_href %}<a href="{{ gift.url|safe_href }}" rel="noopener noreferrer" target="_blank" class="text-sm text-blue-400 hover:underline">View product</a>{% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
+            <div class="text-6xl mb-4">🎄</div>
+            <p class="text-gray-300">Nothing here yet. Gifts show up here after Christmas, when the admin starts the new season.</p>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

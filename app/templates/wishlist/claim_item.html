@@ -27,7 +27,7 @@
 
         <div class="bg-blue-900 p-4 rounded mb-6">
             <p class="text-sm text-gray-200">
-                <strong>Note:</strong> {{ item.user.name }} will NOT see that this item has been claimed. This keeps the surprise! After claiming, you can track when you've acquired and wrapped the gift in "My Claims".
+                <strong>Note:</strong> {{ item.user.name if item.user else item.proxy_wishlist.name }} will NOT see that this item has been claimed. This keeps the surprise! After claiming, you can track when you've bought and wrapped the gift in "My Gifts for Others".
             </p>
         </div>
 

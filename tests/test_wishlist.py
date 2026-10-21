@@ -206,7 +206,7 @@ class TestWishlistRoutes:
         response = client.post(f"/wishlist/unclaim/{purchase_id}", follow_redirects=True)
 
         assert response.status_code == 200
-        assert b"Unclaimed" in response.data
+        assert b"Undone" in response.data
 
         # Verify unclaim
         with app.app_context():
@@ -392,7 +392,7 @@ class TestPurchaseStatusPrivacy:
         # Should see claim status (1/3 claimed)
         assert b"1/3 Claimed" in response.data
         # Should see "You Claimed" section since user claimed it
-        assert b"You Claimed" in response.data
+        assert b"You're getting this" in response.data
 
     def test_viewer_sees_fully_purchased_status(self, client, app, user, admin_user):
         """Test viewer sees 'Fully Claimed' badge when item is fully claimed"""

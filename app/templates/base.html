@@ -139,6 +139,24 @@
         </div>
     </nav>
 
+    <!-- One-time offer to save a passkey after an email-link/password login (see static/js/passkey-offer.js) -->
+    {% if current_user.is_authenticated and session.get('offer_passkey') and not session.get('impersonate_user_id') %}
+        <div id="passkey-offer" class="hidden container mx-auto px-4 mt-4">
+            <div class="bg-gray-800 border border-blue-500 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div class="flex-1">
+                    <p class="font-semibold">Log in faster next time</p>
+                    <p class="text-sm text-gray-300" data-passkey-offer="status">Use your fingerprint or face on this device instead of waiting for an email.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" data-passkey-offer="setup" class="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700">Set it up</button>
+                    <button type="button" data-passkey-offer="later" class="text-gray-300 px-3 py-2 rounded hover:bg-gray-700">Not now</button>
+                </div>
+            </div>
+        </div>
+        <script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+        <script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/passkey-offer.js') }}" defer></script>
+    {% endif %}
+
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}

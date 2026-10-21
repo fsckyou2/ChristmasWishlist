@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Start a New Season{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-4xl font-bold mb-2">🎄 Start a New Season</h1>
+    <p class="text-gray-400 mb-8">Do this after Christmas, once last year's gifts have been given.</p>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold mb-4">What will happen</h2>
+        <ul class="space-y-2 text-gray-200">
+            <li>🎁 <strong>{{ preview.fully_claimed }}</strong> fully claimed item(s) are archived and removed from their lists.</li>
+            <li>➗ <strong>{{ preview.partly_claimed }}</strong> partly claimed item(s) stay, with the claimed quantity archived and the rest still open.</li>
+            <li>🧾 <strong>{{ preview.claims }}</strong> claim(s) are cleared, so everyone's "My Gifts for Others" starts empty.</li>
+            <li>📜 Archived gifts appear on each recipient's <em>Gifts You've Received</em> page, including who they were from.</li>
+            <li>📋 <strong>{{ preview.remaining_after }}</strong> of {{ preview.total_items }} item(s) remain on lists afterwards. No digest email is sent about the removals.</li>
+        </ul>
+        <p class="mt-4 text-yellow-300 text-sm">This can't be undone from the app, and it reveals who gave what. Don't run it before the gifts have been opened.</p>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <form method="POST" class="space-y-4">
+            {{ form.hidden_tag() }}
+            <div>
+                {{ form.season.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.season(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg") }}
+                {% for error in form.season.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+                {{ form.confirm.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.confirm(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg", autocomplete="off") }}
+                {% for error in form.confirm.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+            </div>
+            <label class="flex items-center gap-2 text-gray-200">
+                {{ form.notify(class="w-4 h-4") }} {{ form.notify.label.text }}
+            </label>
+            {{ form.submit(class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 cursor-pointer") }}
+        </form>
+    </div>
+
+    {% if past %}
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold mb-3">Past seasons</h2>
+            <ul class="text-gray-300">
+                {% for season, count in past %}<li>Christmas {{ season }}: {{ count }} gift(s) archived</li>{% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
