@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Manage Proxy Wishlists{% endblock %}
+{% block title %}Lists for Someone{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Manage Proxy Wishlists</h1>
+    <h1 class="text-4xl font-bold mb-8">Lists for Someone</h1>
 
     <div class="mb-4">
         <a href="{{ url_for('wishlist.create_proxy_wishlist') }}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-            Create New Proxy Wishlist
+            Start a list for someone
         </a>
     </div>
 
@@ -41,11 +41,11 @@
                         <td class="px-6 py-4 whitespace-nowrap">{{ proxy.created_at.strftime('%Y-%m-%d') }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="text-blue-600 hover:underline mr-3">View</a>
-                            <a href="{{ url_for('admin.manage_delegates', proxy_id=proxy.id) }}" class="text-purple-600 hover:underline mr-3">Delegates</a>
-                            <a href="{{ url_for('admin.merge_proxy_wishlist', proxy_id=proxy.id) }}" class="text-green-600 hover:underline mr-3">Merge</a>
+                            <a href="{{ url_for('admin.manage_delegates', proxy_id=proxy.id) }}" class="text-purple-600 hover:underline mr-3">Helpers</a>
+                            <a href="{{ url_for('admin.merge_proxy_wishlist', proxy_id=proxy.id) }}" class="text-green-600 hover:underline mr-3">Link to account</a>
                             <form method="POST" action="{{ url_for('admin.delete_proxy_wishlist', proxy_id=proxy.id) }}" class="inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" data-confirm="Delete this proxy wishlist and all its items?" class="text-red-600 hover:underline">
+                                <button type="submit" data-confirm="Delete {{ proxy.name }}'s list and all its items?" class="text-red-600 hover:underline">
                                     Delete
                                 </button>
                             </form>
@@ -57,7 +57,7 @@
     </div>
     {% else %}
     <div class="bg-gray-800 rounded-lg shadow-lg p-8 text-center">
-        <p class="text-gray-300">No proxy wishlists found.</p>
+        <p class="text-gray-300">No lists for someone yet.</p>
     </div>
     {% endif %}
 </div>

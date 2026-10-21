@@ -53,7 +53,7 @@
                         {% if current_user.delegate_for_wishlists|length > 0 %}
                             <div class="relative group">
                                 <button class="hover:underline flex items-center gap-1 py-2" type="button">
-                                    Manage Wishlists
+                                    Lists I Help With
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                     </svg>
@@ -72,7 +72,7 @@
                         {% else %}
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline">My Wishlist</a>
                         {% endif %}
-                        <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">My Gifts for Others</a>
+                        <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline">Gifts I'm Giving</a>
                         <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline">Browse Wishlists</a>
                         {% if current_user.is_admin %}
                             <a href="{{ url_for('admin.dashboard') }}" class="hover:underline">Admin</a>
@@ -80,10 +80,10 @@
                         <a href="{{ url_for('auth.settings') }}" class="hover:underline">Account Settings</a>
                         <form method="POST" action="{{ url_for('auth.logout') }}" class="inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="hover:underline text-left">Logout</button>
+                            <button type="submit" class="hover:underline text-left">Log out</button>
                         </form>
                     {% else %}
-                        <a href="{{ url_for('auth.login') }}" class="hover:underline">Login</a>
+                        <a href="{{ url_for('auth.login') }}" class="hover:underline">Log in</a>
                     {% endif %}
                 </div>
             </div>
@@ -104,7 +104,7 @@
                         {% if current_user.delegate_for_wishlists|length > 0 %}
                             <div class="border-b border-gray-600 pb-2">
                                 <button data-toggle-target="mobile-dropdown" data-toggle-icon="mobile-dropdown-icon" class="hover:underline py-2 flex items-center justify-between w-full" type="button">
-                                    <span>Manage Wishlists</span>
+                                    <span>Lists I Help With</span>
                                     <svg id="mobile-dropdown-icon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                     </svg>
@@ -121,7 +121,7 @@
                         {% else %}
                             <a href="{{ url_for('wishlist.my_list') }}" class="hover:underline py-2">My Wishlist</a>
                         {% endif %}
-                        <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">My Gifts for Others</a>
+                        <a href="{{ url_for('wishlist.my_claims') }}" class="hover:underline py-2">Gifts I'm Giving</a>
                         <a href="{{ url_for('wishlist.all_users') }}" class="hover:underline py-2">Browse Wishlists</a>
                         {% if current_user.is_admin %}
                             <a href="{{ url_for('admin.dashboard') }}" class="hover:underline py-2">Admin</a>
@@ -129,15 +129,33 @@
                         <a href="{{ url_for('auth.settings') }}" class="hover:underline py-2">Account Settings</a>
                         <form method="POST" action="{{ url_for('auth.logout') }}" class="inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="hover:underline py-2 text-left">Logout</button>
+                            <button type="submit" class="hover:underline py-2 text-left">Log out</button>
                         </form>
                     {% else %}
-                        <a href="{{ url_for('auth.login') }}" class="hover:underline py-2">Login</a>
+                        <a href="{{ url_for('auth.login') }}" class="hover:underline py-2">Log in</a>
                     {% endif %}
                 </div>
             </div>
         </div>
     </nav>
+
+    <!-- One-time offer to save a passkey after an email-link/password login (see static/js/passkey-offer.js) -->
+    {% if current_user.is_authenticated and session.get('offer_passkey') and not session.get('impersonate_user_id') %}
+        <div id="passkey-offer" class="hidden container mx-auto px-4 mt-4">
+            <div class="bg-gray-800 border border-blue-500 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div class="flex-1">
+                    <p class="font-semibold">Log in faster next time</p>
+                    <p class="text-sm text-gray-300" data-passkey-offer="status">Use your fingerprint or face on this device instead of waiting for an email.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" data-passkey-offer="setup" class="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700">Set it up</button>
+                    <button type="button" data-passkey-offer="later" class="text-gray-300 px-3 py-2 rounded hover:bg-gray-700">Not now</button>
+                </div>
+            </div>
+        </div>
+        <script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/passkey.js') }}"></script>
+        <script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/passkey-offer.js') }}" defer></script>
+    {% endif %}
 
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}

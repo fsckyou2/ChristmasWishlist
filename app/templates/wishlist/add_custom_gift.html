@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Add Custom Gift{% endblock %}
+{% block title %}Add a surprise gift for {{ target_user.name }}{% endblock %}
 
 {% block head %}
 <script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/scraper.js') }}"></script>
@@ -8,16 +8,15 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-4">Add Custom Gift for {{ target_user.name }}</h1>
+    <h1 class="text-4xl font-bold mb-4">Add a surprise gift for {{ target_user.name }}</h1>
     <p class="text-gray-400 mb-8">
-        Add an item you're planning to buy for {{ target_user.name }} that's not on their wishlist.
-        <strong>They won't see this</strong>, but other users will (to avoid duplicate gifts).
+        Something you're giving {{ target_user.name }} that isn't on their wishlist.
     </p>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8">
         <div class="mb-6 p-4 bg-purple-900 rounded">
             <p class="text-sm text-gray-200">
-                <strong>Custom Gift:</strong> This item will appear on {{ target_user.name }}'s wishlist for others to see, but {{ target_user.name }} won't see it themselves.
+                🔒 {{ target_user.name }} can't see this. It's hidden from {{ target_user.name }}'s list and emails. Everyone else sees it, marked as yours, so nobody gets it twice.
             </p>
             <p class="text-xs text-gray-300 mt-2">
                 <strong>Tip:</strong> You can paste a URL and click "Auto-Fill" to extract product details automatically!
@@ -81,7 +80,7 @@
             </div>
 
             <div class="flex gap-4">
-                {{ form.submit(class="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 cursor-pointer", value="Add Custom Gift") }}
+                {{ form.submit(class="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 cursor-pointer", value="Add surprise gift") }}
                 <a href="{{ url_for('wishlist.view_user_list', user_id=target_user.id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
                     Cancel
                 </a>

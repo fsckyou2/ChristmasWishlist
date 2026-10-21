@@ -1,0 +1,9 @@
+Dear {{ user.name }},
+
+The family wishlists are open for Christmas {{ christmas }}! 🎄
+
+Last year's gifts have been cleared from everyone's lists. Now's a great time to add what you'd like this year.
+
+{{ app_url }}
+
+{% include 'email/_signature.txt' %}

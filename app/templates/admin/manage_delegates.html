@@ -1,29 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}Manage Delegates for {{ proxy.name }}'s Wishlist{% endblock %}
+{% block title %}Helpers for {{ proxy.name }}'s list{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
     <div class="flex justify-between items-center mb-8">
         <div>
-            <h1 class="text-4xl font-bold">Manage Delegates</h1>
-            <p class="text-gray-400 mt-2">{{ proxy.name }}'s Wishlist</p>
+            <h1 class="text-4xl font-bold">Helpers for {{ proxy.name }}'s list</h1>
         </div>
         <a href="{{ url_for('admin.proxy_wishlists') }}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-            Back to Proxy Wishlists
+            ← Lists for Someone
         </a>
     </div>
 
     <div class="bg-blue-900 border border-blue-700 rounded-lg p-4 mb-6">
         <p class="text-blue-100">
-            <strong>About Delegates:</strong> Delegates can add, edit, and remove items from this wishlist,
-            but they won't see who has claimed items (to preserve the gift surprise).
+            <strong>About helpers:</strong> Helpers can add, edit, and remove items on {{ proxy.name }}'s list.
+            🔒 Helpers see what's claimed, but not who claimed it. Surprise gifts other people add are hidden from them too.
         </p>
     </div>
 
     <!-- Add New Delegate -->
     <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-        <h2 class="text-2xl font-bold mb-4">Add New Delegate</h2>
+        <h2 class="text-2xl font-bold mb-4">Add helper</h2>
         {% if available_users %}
             <form method="POST" action="{{ url_for('admin.add_delegate', proxy_id=proxy.id) }}" class="flex gap-4">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -34,18 +33,18 @@
                     {% endfor %}
                 </select>
                 <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
-                    Add Delegate
+                    Add helper
                 </button>
             </form>
         {% else %}
-            <p class="text-gray-400">All users are either already delegates or the creator of this wishlist.</p>
+            <p class="text-gray-400">Everyone is already a helper or started this list.</p>
         {% endif %}
     </div>
 
     <!-- Current Delegates -->
     <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
         <div class="px-6 py-4 bg-gray-700">
-            <h2 class="text-2xl font-bold">Current Delegates</h2>
+            <h2 class="text-2xl font-bold">Helpers</h2>
         </div>
 
         {% if delegates %}
@@ -71,15 +70,15 @@
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <label class="flex items-center">
                                         <input type="checkbox" name="can_add_items" class="mr-1" {% if delegate.can_add_items %}checked{% endif %}>
-                                        Add
+                                        Can add items
                                     </label>
                                     <label class="flex items-center">
                                         <input type="checkbox" name="can_edit_items" class="mr-1" {% if delegate.can_edit_items %}checked{% endif %}>
-                                        Edit
+                                        Can edit items
                                     </label>
                                     <label class="flex items-center">
                                         <input type="checkbox" name="can_remove_items" class="mr-1" {% if delegate.can_remove_items %}checked{% endif %}>
-                                        Remove
+                                        Can remove items
                                     </label>
                                     <button type="submit" class="ml-2 text-blue-600 hover:underline">Update</button>
                                 </form>
@@ -90,8 +89,8 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                 <form method="POST" action="{{ url_for('admin.remove_delegate', delegate_id=delegate.id) }}" class="inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" data-confirm="Remove {{ delegate.user.name }} as delegate?" class="text-red-600 hover:underline">
-                                        Remove
+                                    <button type="submit" data-confirm="Remove {{ delegate.user.name }} as a helper?" class="text-red-600 hover:underline">
+                                        Remove helper
                                     </button>
                                 </form>
                             </td>
@@ -101,7 +100,7 @@
             </table>
         {% else %}
             <div class="p-8 text-center">
-                <p class="text-gray-400">No delegates have been added yet.</p>
+                <p class="text-gray-400">No helpers yet.</p>
             </div>
         {% endif %}
     </div>

@@ -6,16 +6,15 @@ You can now:
 
 • Create and manage your Christmas wishlist
 • Browse wishlists from your family
-• Claim gifts to help coordinate who's giving what
+• Say "I'll get this" so nobody buys the same gift twice
 • Keep the holiday spirit alive with easy gift planning
 
-To get started, open the link below to log in to your account:
+To get started, open your magic link below to log in:
 
 {{ login_url }}
 
-This link works once and expires in {{ expiry_minutes }} minutes. You can always request a new one from the login page.
+This link works once and expires in {{ expiry_minutes }} minutes. You can always ask for a new magic link on the Log in page.
 
 Happy holidays!
 
-Best regards,
-{{ app_name }} Team
+{% include 'email/_signature.txt' %}

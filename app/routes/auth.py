@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, current_user, login_required
 from flask_wtf import FlaskForm
 
 from app import db, limiter
-from app.models import Invite, User, ProxyWishlist, WishlistItem
+from app.models import GiftHistory, Invite, User, ProxyWishlist, WishlistItem
 from app.forms import (
     RegistrationForm,
     LoginForm,
@@ -117,6 +117,11 @@ def merge_proxy_wishlist_to_user(proxy, user):
             proxy_item.user_id = user.id
             # Keep added_by_id to preserve who added custom gifts
 
+    # Gifts given to this person in past seasons follow them to their account
+    GiftHistory.query.filter_by(recipient_proxy_id=proxy.id).update(
+        {GiftHistory.recipient_user_id: user.id, GiftHistory.recipient_proxy_id: None}, synchronize_session=False
+    )
+
     # Delete the proxy wishlist
     db.session.delete(proxy)
 
@@ -178,7 +183,7 @@ def register():
         # Send welcome email with login link included
         send_welcome_email(user)
 
-        flash("Registration successful! Check your email for a welcome message with your login link.", "success")
+        flash("Registration successful! Check your email for a welcome message with your magic link.", "success")
         return redirect(url_for("auth.login"))
 
     return render_template("auth/unified_register.html", email_form=email_form, password_form=password_form)
@@ -238,7 +243,7 @@ def login():
         if user:
             send_magic_link_email(user)
         # Always show success message to prevent email enumeration
-        flash("If an account exists with that email, a login link has been sent.", "info")
+        flash("If an account exists with that email, a magic link has been sent.", "info")
         return redirect(url_for("auth.login"))
 
     return render_template("auth/unified_auth.html", email_form=email_form, password_form=password_form)
@@ -259,6 +264,7 @@ def login_username():
             user.record_login()
             db.session.commit()
             login_user(user, remember=form.remember_me.data)
+            session["offer_passkey"] = True
             flash(f"Welcome, {user.name}!", "success")
             return redirect(url_for("main.index"))
         flash("Invalid username or password.", "danger")
@@ -275,7 +281,7 @@ def magic_login(token):
 
     user = User.verify_magic_link_token(token)
     if not user:
-        flash("Invalid or expired login link (each link works once). Request a new one below.", "danger")
+        flash("Invalid or expired magic link (each link works once). Request a new one below.", "danger")
         return redirect(url_for("auth.login"))
 
     form = FlaskForm()
@@ -283,7 +289,8 @@ def magic_login(token):
         session.clear()
         user.record_login()
         db.session.commit()
-        login_user(user)
+        login_user(user, remember=True)
+        session["offer_passkey"] = True  # one-time "sign in faster next time" banner
         flash(f"Welcome, {user.name}!", "success")
         return redirect(url_for("main.index"))
 
@@ -297,8 +304,8 @@ def logout():
         session.pop("impersonate_user_id")
         flash("Stopped impersonating user.", "info")
         return redirect(url_for("admin.dashboard"))
-    logout_user()
     session.clear()
+    logout_user()  # after clear(): it leaves the marker that makes Flask-Login delete the remember cookie
     flash("You have been logged out.", "info")
     return redirect(url_for("main.index"))
 

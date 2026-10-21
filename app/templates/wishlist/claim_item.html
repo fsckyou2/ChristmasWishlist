@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Claim Item{% endblock %}
+{% block title %}I'll get this{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Claim Gift Item</h1>
+    <h1 class="text-4xl font-bold mb-8">I'll get this</h1>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8 mb-6">
         <div class="flex gap-6 mb-6">
@@ -27,7 +27,7 @@
 
         <div class="bg-blue-900 p-4 rounded mb-6">
             <p class="text-sm text-gray-200">
-                <strong>Note:</strong> {{ item.user.name }} will NOT see that this item has been claimed. This keeps the surprise! After claiming, you can track when you've acquired and wrapped the gift in "My Claims".
+                🔒 {{ item.user.name if item.user else item.proxy_wishlist.name }} can't see that you're getting this. It shows up in Gifts I'm Giving, where you can tick Bought, Arrived and Wrapped.
             </p>
         </div>
 
@@ -35,7 +35,7 @@
             {{ form.hidden_tag() }}
 
             <div>
-                {{ form.quantity.label(class="block text-gray-200 font-semibold mb-2") }}
+                {{ form.quantity.label(text="How many will you get?", class="block text-gray-200 font-semibold mb-2") }}
                 {{ form.quantity(class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 placeholder-gray-400", max=remaining) }}
                 <p class="text-sm text-gray-400 mt-1">Maximum: {{ remaining }}</p>
                 {% if form.quantity.errors %}
@@ -44,7 +44,7 @@
             </div>
 
             <div class="flex gap-4">
-                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer", value="Claim This Gift") }}
+                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer", value="I'll get this") }}
                 {% if item.proxy_wishlist_id %}
                     <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=item.proxy_wishlist_id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
                         Cancel

@@ -115,6 +115,7 @@ def register_complete():
         # Clear session
         session.pop("passkey_challenge", None)
         session.pop("passkey_device_name", None)
+        session.pop("offer_passkey", None)
 
         return jsonify({"success": True, "passkey_id": passkey.id, "device_name": passkey.device_name})
 
@@ -144,7 +145,7 @@ def login_begin():
 
     except Exception:
         current_app.logger.exception("Passkey login begin error")
-        return jsonify({"error": "Failed to begin login"}), 500
+        return jsonify({"error": "Could not start logging in with a passkey. Please try again."}), 500
 
 
 @bp.route("/login-complete", methods=["POST"])
@@ -194,13 +195,21 @@ def login_complete():
 
         # Fresh session for the logged-in user (also drops the used challenge)
         session.clear()
-        login_user(passkey.user)
+        login_user(passkey.user, remember=True)
 
         return jsonify({"success": True, "user_name": passkey.user.name})
 
     except Exception:
         current_app.logger.exception("Passkey login complete error")
-        return jsonify({"error": "Passkey login failed. Please try again."}), 400
+        return jsonify({"error": "Logging in with your passkey failed. Please try again."}), 400
+
+
+@bp.route("/dismiss-offer", methods=["POST"])
+@login_required
+def dismiss_offer():
+    """Hide the post-login "set up a passkey" banner for the rest of this session"""
+    session.pop("offer_passkey", None)
+    return "", 204
 
 
 @bp.route("/list", methods=["GET"])

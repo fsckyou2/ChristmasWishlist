@@ -104,7 +104,7 @@ class TestDelegateAdminRoutes:
             f"/admin/proxy-wishlist/{proxy_id}/delegates/add", data={"user_id": user_id}, follow_redirects=True
         )
         assert response.status_code == 200
-        assert b"already a delegate" in response.data
+        assert b"already a helper" in response.data
 
     def test_add_delegate_no_user_id(self, client, app, admin_user):
         """Adding delegate without user_id shows error"""

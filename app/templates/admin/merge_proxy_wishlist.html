@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Merge Proxy Wishlist{% endblock %}
+{% block title %}Link {{ proxy.name }}'s list to an account{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Merge Proxy Wishlist</h1>
+    <h1 class="text-4xl font-bold mb-8">Link {{ proxy.name }}'s list to an account</h1>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8 mb-6">
-        <h2 class="text-2xl font-bold mb-4">Proxy Wishlist: {{ proxy.name }}</h2>
+        <h2 class="text-2xl font-bold mb-4">{{ proxy.name }}'s list</h2>
 
         <div class="mb-4 text-gray-300">
             <p><strong>Email:</strong> {{ proxy.email or 'No email' }}</p>
@@ -17,7 +17,7 @@
 
         {% if items %}
         <div class="mb-6">
-            <h3 class="text-xl font-semibold mb-3">Items on this wishlist:</h3>
+            <h3 class="text-xl font-semibold mb-3">Items on this list:</h3>
             <div class="bg-gray-700 rounded p-4">
                 <ul class="list-disc list-inside space-y-2">
                     {% for item in items %}
@@ -38,16 +38,16 @@
 
         <div class="bg-blue-900 p-4 rounded mb-6">
             <p class="text-sm text-gray-200">
-                <strong>Note:</strong> Merging will transfer all items from this proxy wishlist to the selected user's wishlist.
-                Items that match existing items (by URL or name similarity) will be merged together.
-                The proxy wishlist will be deleted after merging.
+                <strong>What happens:</strong> Every item on {{ proxy.name }}'s list moves to the chosen person's wishlist.
+                Items that match one already there (same link or a similar name) are combined into one.
+                {{ proxy.name }}'s separate list is then removed.
             </p>
         </div>
 
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div>
-                <label for="user_id" class="block text-gray-200 font-semibold mb-2">Select User to Merge With:</label>
+                <label for="user_id" class="block text-gray-200 font-semibold mb-2">Whose account should this list go to?</label>
                 <select name="user_id" id="user_id" required class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600">
                     <option value="">-- Select a user --</option>
                     {% for user in users %}
@@ -57,8 +57,8 @@
             </div>
 
             <div class="flex gap-4">
-                <button type="submit" data-confirm="Are you sure you want to merge this proxy wishlist? This action cannot be undone." class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700">
-                    Merge Wishlist
+                <button type="submit" data-confirm="Link {{ proxy.name }}'s list to this account? This can't be undone." class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700">
+                    Link to account
                 </button>
                 <a href="{{ url_for('admin.proxy_wishlists') }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
                     Cancel

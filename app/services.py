@@ -7,7 +7,7 @@ the daily-digest change log honest.
 from difflib import SequenceMatcher
 
 from app import db
-from app.models import Claim, WishlistChange, WishlistItem
+from app.models import Claim, GiftHistory, WishlistChange, WishlistItem, utcnow
 from app.validation import clean_item_fields
 
 _ITEM_FIELDS = ("name", "url", "description", "price", "image_url", "quantity", "available_images")
@@ -130,3 +130,64 @@ def item_form_data(form, request_form):
     if request_form.get("available_images"):  # absent/empty: keep the item's existing image choices
         data["available_images"] = request_form.get("available_images")
     return data
+
+
+# --- Seasons -------------------------------------------------------------------------------------------------------
+
+
+def default_season_label(now=None):
+    """The Christmas being closed: last year's, unless we're already past this year's."""
+    now = now or utcnow()
+    return str(now.year if (now.month, now.day) >= (12, 26) else now.year - 1)
+
+
+def next_christmas(season):
+    """The Christmas that starts when `season` is closed ("2025" -> 2026)."""
+    return int(season) + 1
+
+
+def season_preview():
+    """Counts of what close_season() would do. No item names, so it can't spoil anyone (including the admin)."""
+    items = WishlistItem.query.all()
+    claimed = [i for i in items if i.claims]
+    return {
+        "total_items": len(items),
+        "claimed_items": len(claimed),
+        "unclaimed_items": len(items) - len(claimed),
+        "claims": sum(len(i.claims) for i in claimed),
+        "lists": len({(i.user_id, i.proxy_wishlist_id) for i in items}),
+    }
+
+
+def close_season(season):
+    """Start fresh: archive every item on every list, then clear them all.
+
+    - Every item, claimed or not, is saved to gift_history (a silent record, not shown on the site): what was wished
+      for, how many, how many were claimed, and by whom.
+    - Then every item is removed along with all claims. Lists themselves (including lists for someone and their
+      helpers) stay.
+    - No WishlistChange rows are written, so this never shows up in the daily digest.
+    Returns the same counts as season_preview(). The caller commits.
+    """
+    stats = season_preview()
+    for item in WishlistItem.query.all():
+        givers = ", ".join(dict.fromkeys(c.claimed_by.name for c in item.claims if c.claimed_by))
+        db.session.add(
+            GiftHistory(
+                season=season,
+                recipient_user_id=item.user_id,
+                recipient_proxy_id=item.proxy_wishlist_id,
+                recipient_name=item.user.name if item.user else item.proxy_wishlist.name,
+                item_name=item.name,
+                url=item.url,
+                image_url=item.image_url,
+                price=item.price,
+                quantity=item.quantity or 1,
+                claimed_quantity=min(item.total_claimed, item.quantity or 1),
+                givers=givers[:500] or None,
+                was_surprise=item.is_custom_gift,
+            )
+        )
+        db.session.delete(item)  # claims cascade
+    db.session.flush()
+    return stats

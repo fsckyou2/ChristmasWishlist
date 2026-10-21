@@ -9,13 +9,15 @@ from app.validation import ValidationError
 bp = Blueprint("wishlist", __name__, url_prefix="/wishlist")
 
 
-def _list_url(item):
-    """Where to send someone after acting on `item`."""
+def _list_url(item, anchor=False):
+    """Where to send someone after acting on `item` (optionally scrolled back to its card)."""
     if item.proxy_wishlist_id:
-        return url_for("wishlist.view_proxy_wishlist", proxy_id=item.proxy_wishlist_id)
-    if item.user_id and item.user_id != current_user.id:
-        return url_for("wishlist.view_user_list", user_id=item.user_id)
-    return url_for("wishlist.my_list")
+        url = url_for("wishlist.view_proxy_wishlist", proxy_id=item.proxy_wishlist_id)
+    elif item.user_id and item.user_id != current_user.id:
+        url = url_for("wishlist.view_user_list", user_id=item.user_id)
+    else:
+        return url_for("wishlist.my_list")
+    return f"{url}#item-{item.id}" if anchor else url
 
 
 def _int_or_none(value):
@@ -70,9 +72,9 @@ def add_item():
             return render_template("wishlist/add_item.html", form=form)
         db.session.commit()
         if merged:
-            flash(f'Item merged with existing item "{item.name}" in your wishlist!', "info")
+            flash(f'Combined with "{item.name}", which was already on your list.', "info")
         else:
-            flash("Item added to your wishlist!", "success")
+            flash("Item added to My Wishlist.", "success")
         return redirect(url_for("wishlist.my_list"))
     return render_template("wishlist/add_item.html", form=form)
 
@@ -83,7 +85,7 @@ def add_custom_gift(user_id):
     """Add a custom gift to another user's wishlist"""
     target_user = db.get_or_404(User, user_id)
     if target_user.id == current_user.id:
-        flash("You cannot add custom gifts to your own wishlist!", "warning")
+        flash("You can't add a surprise gift to your own list.", "warning")
         return redirect(url_for("wishlist.my_list"))
 
     form = WishlistItemForm()
@@ -97,8 +99,7 @@ def add_custom_gift(user_id):
             return render_template("wishlist/add_custom_gift.html", form=form, target_user=target_user)
         db.session.commit()
         flash(
-            f'Custom gift "{item.name}" added to {target_user.name}\'s wishlist and claimed by you! '
-            "They won't see it, but other users will.",
+            f'Surprise gift "{item.name}" added for {target_user.name}. It\'s hidden from {target_user.name}.',
             "success",
         )
         return redirect(url_for("wishlist.view_user_list", user_id=target_user.id))
@@ -149,11 +150,11 @@ def delete_item(item_id):
     db.session.commit()
 
     if is_custom_gift:
-        flash("Custom gift deleted.", "success")
+        flash("Surprise gift deleted.", "success")
         if request.form.get("next") == "my_claims":
             return redirect(url_for("wishlist.my_claims"))
         return redirect(destination)
-    flash("Item deleted from your wishlist.", "success")
+    flash("Item deleted from My Wishlist.", "success")
     return redirect(url_for("wishlist.my_list"))
 
 
@@ -176,27 +177,28 @@ def claim_item(item_id):
     if policy.is_hidden_from(current_user, item):
         abort(404)
     if not policy.can_claim(current_user, item):
-        flash("You cannot claim items from your own wishlist!", "warning")
+        flash("You can't get items from your own list.", "warning")
         return redirect(url_for("wishlist.my_list"))
 
     remaining = item.remaining_quantity
     if remaining <= 0:
-        flash("This item is already fully claimed.", "info")
+        flash("Everything on this item is already claimed.", "info")
         return redirect(_list_url(item))
 
     form = ClaimForm()
     if form.validate_on_submit():
         quantity = form.quantity.data
         if quantity > remaining:
-            flash(f"Only {remaining} remaining to claim.", "warning")
+            flash(f"Only {remaining} left.", "warning")
         else:
             db.session.add(Claim(item=item, claimed_by_id=current_user.id, quantity=quantity))
             db.session.commit()
+            what = f'"{item.name}"' if quantity == 1 else f'{quantity} of "{item.name}"'
             flash(
-                f'Claimed {quantity} of "{item.name}"! Don\'t forget to mark it as purchased when you order it.',
+                f"You're getting {what}. It's on Gifts I'm Giving; tap Undo on the item if you change your mind.",
                 "success",
             )
-            return redirect(_list_url(item))
+            return redirect(_list_url(item, anchor=True))
 
     form.quantity.data = remaining
     return render_template("wishlist/claim_item.html", form=form, item=item, remaining=remaining)
@@ -208,16 +210,16 @@ def unclaim_item(claim_id):
     """Unclaim an item you claimed"""
     claim = db.get_or_404(Claim, claim_id)
     if claim.claimed_by_id != current_user.id:
-        flash("You can only unclaim items you claimed.", "danger")
+        flash("You can only undo gifts you're getting.", "danger")
         return redirect(url_for("wishlist.all_users"))
 
     item = claim.item
     db.session.delete(claim)
     db.session.commit()
-    flash(f'Unclaimed "{item.name}".', "success")
+    flash(f'Undone: you\'re no longer getting "{item.name}".', "success")
     if request.form.get("next") == "my_claims":
         return redirect(url_for("wishlist.my_claims"))
-    return redirect(_list_url(item))
+    return redirect(_list_url(item, anchor=True))
 
 
 @bp.route("/add-empty", methods=["POST"])
@@ -286,7 +288,7 @@ def add_item_from_scraped_data():
                 "success": True,
                 "merged": True,
                 "merged_with_id": item.id,
-                "message": f'Item merged with existing item "{item.name}"',
+                "message": f'Combined with "{item.name}".',
             }
         )
     # Same response whether or not a hidden surprise was folded into this item
@@ -354,7 +356,7 @@ def create_proxy_wishlist():
         )
         db.session.add(proxy)
         db.session.commit()
-        flash(f'Proxy wishlist created for "{proxy.name}"!', "success")
+        flash(f'Started a list for "{proxy.name}".', "success")
         return redirect(url_for("wishlist.all_users"))
     return render_template("wishlist/create_proxy_wishlist.html", form=form)
 
@@ -365,8 +367,13 @@ def view_proxy_wishlist(proxy_id):
     """View a proxy wishlist. Delegates stand in for the owner, so other people's custom gifts are hidden."""
     proxy = db.get_or_404(ProxyWishlist, proxy_id)
     items = WishlistItem.query.filter_by(proxy_wishlist_id=proxy_id).order_by(WishlistItem.created_at.desc()).all()
+    is_helper = proxy.is_delegate(current_user)
     return render_template(
-        "wishlist/view_proxy_list.html", proxy=proxy, items=policy.visible_items(current_user, items)
+        "wishlist/view_proxy_list.html",
+        proxy=proxy,
+        items=policy.visible_items(current_user, items),
+        is_helper=is_helper,
+        show_claimers=not is_helper,  # policy.can_view_claimers: helpers see that it's claimed, not by whom
     )
 
 
@@ -385,7 +392,7 @@ def add_to_proxy_wishlist(proxy_id):
             flash(str(exc), "danger")
             return render_template("wishlist/add_to_proxy.html", form=form, proxy=proxy)
         db.session.commit()
-        flash(f'Custom gift "{item.name}" added to {proxy.name}\'s wishlist and claimed by you!', "success")
+        flash(f'Surprise gift "{item.name}" added for {proxy.name}. It\'s hidden from {proxy.name}.', "success")
         return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=proxy.id))
     return render_template("wishlist/add_to_proxy.html", form=form, proxy=proxy)
 
@@ -396,7 +403,7 @@ def edit_proxy_wishlist(proxy_id):
     """Edit proxy wishlist name and email (creator or admin)"""
     proxy = db.get_or_404(ProxyWishlist, proxy_id)
     if proxy.created_by_id != current_user.id and not current_user.is_admin:
-        flash("You can only edit proxy wishlists you created.", "danger")
+        flash("You can only edit lists you started.", "danger")
         return redirect(url_for("wishlist.all_users"))
 
     form = ProxyWishlistForm(obj=proxy)
@@ -404,7 +411,7 @@ def edit_proxy_wishlist(proxy_id):
         proxy.name = form.name.data
         proxy.email = form.email.data.lower() if form.email.data else None
         db.session.commit()
-        flash(f'Proxy wishlist for "{proxy.name}" updated!', "success")
+        flash(f'"{proxy.name}"\'s list details updated.', "success")
         return redirect(url_for("wishlist.view_proxy_wishlist", proxy_id=proxy.id))
     return render_template("wishlist/edit_proxy.html", form=form, proxy=proxy)
 
@@ -427,12 +434,12 @@ def merge_items_manual():
     if policy.is_hidden_from(current_user, source_item) or policy.is_hidden_from(current_user, target_item):
         return jsonify({"error": "Item not found"}), 404
     if not policy.can_merge(current_user, source_item, target_item):
-        return jsonify({"error": "You can only merge items you added into items on the same wishlist."}), 403
+        return jsonify({"error": "You can only combine items you added with items on the same list."}), 403
 
     services.merge_items(target_item, source_item)
     db.session.commit()
     return jsonify(
-        {"success": True, "message": f'Item merged with "{target_item.name}"', "target_item_id": target_item.id}
+        {"success": True, "message": f'Combined with "{target_item.name}".', "target_item_id": target_item.id}
     )
 
 
@@ -460,7 +467,7 @@ def manage_as_delegate(proxy_id):
     """Manage a proxy wishlist as its creator, an admin or a delegate (no claims, no others' custom gifts)"""
     proxy = db.get_or_404(ProxyWishlist, proxy_id)
     if not proxy.can_manage(current_user):
-        flash("You don't have permission to manage this wishlist.", "danger")
+        flash("You don't have permission to help with this list.", "danger")
         return redirect(url_for("wishlist.all_users"))
 
     delegate_record = None
@@ -485,7 +492,7 @@ def delegate_add_item(proxy_id):
     """Add item to proxy wishlist as a delegate"""
     proxy = db.get_or_404(ProxyWishlist, proxy_id)
     if not proxy.can_manage(current_user):
-        flash("You don't have permission to add items to this wishlist.", "danger")
+        flash("You don't have permission to help with this list.", "danger")
         return redirect(url_for("wishlist.all_users"))
     if not policy.delegate_permission(current_user, proxy, "add"):
         flash("You don't have permission to add items.", "danger")
@@ -501,7 +508,7 @@ def delegate_add_item(proxy_id):
             flash(str(exc), "danger")
             return render_template("wishlist/delegate_add_item.html", form=form, proxy=proxy)
         db.session.commit()
-        flash(f'Item "{item.name}" added to {proxy.name}\'s wishlist!', "success")
+        flash(f'Item "{item.name}" added to {proxy.name}\'s Wishlist.', "success")
         return redirect(url_for("wishlist.manage_as_delegate", proxy_id=proxy.id))
 
     return render_template("wishlist/delegate_add_item.html", form=form, proxy=proxy)
@@ -513,12 +520,12 @@ def delegate_edit_item(item_id):
     """Edit item on proxy wishlist as a delegate"""
     item = db.get_or_404(WishlistItem, item_id)
     if not item.proxy_wishlist:
-        flash("This item doesn't belong to a proxy wishlist.", "danger")
+        flash("This item isn't on a list for someone.", "danger")
         return redirect(url_for("wishlist.my_list"))
 
     proxy = item.proxy_wishlist
     if not proxy.can_manage(current_user):
-        flash("You don't have permission to edit items on this wishlist.", "danger")
+        flash("You don't have permission to help with this list.", "danger")
         return redirect(url_for("wishlist.all_users"))
     if policy.is_hidden_from(current_user, item):
         abort(404)
@@ -546,11 +553,11 @@ def delegate_delete_item(item_id):
     """Delete item from proxy wishlist as a delegate"""
     item = db.get_or_404(WishlistItem, item_id)
     if not item.proxy_wishlist:
-        return jsonify({"error": "This item doesn't belong to a proxy wishlist"}), 400
+        return jsonify({"error": "This item isn't on a list for someone."}), 400
 
     proxy = item.proxy_wishlist
     if not proxy.can_manage(current_user):
-        return jsonify({"error": "You don't have permission to delete items from this wishlist"}), 403
+        return jsonify({"error": "You don't have permission to help with this list."}), 403
     if policy.is_hidden_from(current_user, item):
         return jsonify({"error": "Item not found"}), 404
     if not policy.delegate_permission(current_user, proxy, "remove"):

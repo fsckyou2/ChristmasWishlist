@@ -3,3 +3,7 @@
 Dockerfile text eol=lf
 *.py text eol=lf
 migrations/** text eol=lf
+.dockerignore text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+.env.example text eol=lf

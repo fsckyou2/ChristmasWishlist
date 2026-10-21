@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 from dotenv import load_dotenv
 
@@ -30,6 +31,9 @@ class Config:
     MAIL_USERNAME = os.getenv("MAIL_USERNAME")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "noreply@example.com")
+    # MAIL_DELIVERY=off: nothing leaves the server (Flask-Mail suppresses sending); admins see previews instead
+    MAIL_DELIVERY = _env_bool("MAIL_DELIVERY", True)
+    MAIL_SUPPRESS_SEND = not MAIL_DELIVERY
 
     # App configuration
     APP_NAME = os.getenv("APP_NAME", "Christmas Wishlist")
@@ -52,6 +56,9 @@ class Config:
     REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = "Lax"
+    # Family members visit a few times a season; keep them signed in rather than emailing a link every visit
+    REMEMBER_COOKIE_DURATION = timedelta(days=int(os.getenv("REMEMBER_LOGIN_DAYS", 120)))
+    REMEMBER_COOKIE_REFRESH_EACH_REQUEST = True
     PREFERRED_URL_SCHEME = os.getenv("PREFERRED_URL_SCHEME", "http")
 
     # Number of reverse proxies in front of the app whose X-Forwarded-* headers we trust (0 = none)
@@ -87,6 +94,7 @@ class TestingConfig(Config):
 
     TESTING = True
     SECRET_KEY = "testing-secret-key"
+    MAIL_SUPPRESS_SEND = True  # never talk to a real SMTP server from tests
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
     RATELIMIT_ENABLED = False

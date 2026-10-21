@@ -100,7 +100,7 @@ class TestAdminRoutes:
         self.login_user(client, app, admin_user)
         response = client.post(f"/admin/user/{user.id}/send-login-link", follow_redirects=True)
         assert response.status_code == 200
-        assert b"Login link sent" in response.data
+        assert b"Magic link sent" in response.data
 
     def test_admin_impersonate_user(self, client, app, admin_user, user):
         """Test admin impersonating user"""
@@ -390,7 +390,7 @@ class TestAdminProxyWishlists:
             data={},  # No user_id provided
             follow_redirects=True,
         )
-        assert b"Please select a user" in response.data
+        assert b"Please select an account" in response.data
 
     def test_merge_proxy_wishlist_success(self, client, app, admin_user, user):
         """Test successful merge of proxy wishlist"""
@@ -415,7 +415,7 @@ class TestAdminProxyWishlists:
             follow_redirects=True,
         )
         assert response.status_code == 200
-        assert b"merged" in response.data
+        assert b"is now linked to" in response.data
 
         # Verify proxy was deleted
         with app.app_context():

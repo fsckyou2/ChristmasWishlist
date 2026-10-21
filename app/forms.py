@@ -1,3 +1,5 @@
+import re
+
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, FloatField, IntegerField, SubmitField, PasswordField, BooleanField
 from wtforms.validators import DataRequired, Email, ValidationError, Optional, NumberRange, Length, EqualTo
@@ -50,7 +52,7 @@ class LoginForm(FlaskForm):
     """Passwordless login form - sends magic link"""
 
     email = StringField("Email", validators=[DataRequired(), Email()])
-    submit = SubmitField("Send Login Link")
+    submit = SubmitField("Email me a magic link")
 
 
 class UsernamePasswordLoginForm(FlaskForm):
@@ -58,8 +60,8 @@ class UsernamePasswordLoginForm(FlaskForm):
 
     username = StringField("Username", validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
-    remember_me = BooleanField("Remember Me")
-    submit = SubmitField("Login")
+    remember_me = BooleanField("Keep me logged in", default=True)
+    submit = SubmitField("Log in")
 
 
 class WishlistItemForm(FlaskForm):
@@ -77,16 +79,16 @@ class WishlistItemForm(FlaskForm):
 class ClaimForm(FlaskForm):
     """Claim some quantity of an item to give"""
 
-    quantity = IntegerField("Quantity to Claim", validators=[DataRequired(), NumberRange(min=1, max=MAX_QUANTITY)])
-    submit = SubmitField("Claim")
+    quantity = IntegerField("How many will you get?", validators=[DataRequired(), NumberRange(min=1, max=MAX_QUANTITY)])
+    submit = SubmitField("I'll get this")
 
 
 class ProxyWishlistForm(FlaskForm):
     """Form for creating a proxy wishlist for someone without an account"""
 
     name = StringField("Name", validators=[DataRequired()])
-    email = StringField("Email (Optional)", validators=[Optional(), Email()])
-    submit = SubmitField("Create Wishlist")
+    email = StringField("Their email (optional; links the list when they join)", validators=[Optional(), Email()])
+    submit = SubmitField("Start the list")
 
 
 class AccountSettingsForm(FlaskForm):
@@ -114,4 +116,21 @@ class InviteForm(FlaskForm):
 
     note = StringField("Who is it for? (optional)", validators=[Optional(), Length(max=200)])
     days = IntegerField("Expires after (days)", validators=[DataRequired(), NumberRange(min=1, max=365)], default=30)
-    submit = SubmitField("Create Invite")
+    submit = SubmitField("Create invite link")
+
+
+class NewSeasonForm(FlaskForm):
+    """Admin: archive last season's gifts and clear them from everyone's lists"""
+
+    season = StringField("Which Christmas is ending?", validators=[DataRequired(), Length(max=20)])
+    confirm = StringField("Type it again to confirm", validators=[DataRequired(), Length(max=20)])
+    notify = BooleanField("Email everyone that lists are open", default=True)
+    submit = SubmitField("Start the next Christmas")
+
+    def validate_season(self, field):
+        if not re.fullmatch(r"\d{4}", (field.data or "").strip()):
+            raise ValidationError("Enter the year of the Christmas that's ending, like 2025.")
+
+    def validate_confirm(self, field):
+        if (field.data or "").strip() != (self.season.data or "").strip():
+            raise ValidationError("Type the year exactly as shown to confirm.")

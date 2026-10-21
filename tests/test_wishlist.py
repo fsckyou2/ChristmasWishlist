@@ -30,7 +30,7 @@ class TestWishlistRoutes:
         self.login_user(client, app, user)
         response = client.get("/wishlist/my-list/table")
         assert response.status_code == 200
-        assert b"Table View" in response.data
+        assert b"Cards" in response.data
 
     def test_add_item_page_loads(self, client, app, user):
         """Test add item page loads"""
@@ -186,7 +186,7 @@ class TestWishlistRoutes:
             follow_redirects=True,
         )
 
-        assert b"cannot claim items from your own wishlist" in response.data
+        assert b"items from your own list" in response.data
 
     def test_unpurchase_item(self, client, app, user, admin_user):
         """Test unclaiming an item"""
@@ -206,7 +206,7 @@ class TestWishlistRoutes:
         response = client.post(f"/wishlist/unclaim/{purchase_id}", follow_redirects=True)
 
         assert response.status_code == 200
-        assert b"Unclaimed" in response.data
+        assert b"Undone" in response.data
 
         # Verify unclaim
         with app.app_context():
@@ -390,9 +390,9 @@ class TestPurchaseStatusPrivacy:
         # Should see item name
         assert b"Admin Gift Item" in response.data
         # Should see claim status (1/3 claimed)
-        assert b"1/3 Claimed" in response.data
+        assert b"1 of 3 claimed" in response.data
         # Should see "You Claimed" section since user claimed it
-        assert b"You Claimed" in response.data
+        assert b"You're getting this" in response.data
 
     def test_viewer_sees_fully_purchased_status(self, client, app, user, admin_user):
         """Test viewer sees 'Fully Claimed' badge when item is fully claimed"""
@@ -413,7 +413,7 @@ class TestPurchaseStatusPrivacy:
 
         assert response.status_code == 200
         # Should see "Fully Claimed" badge
-        assert b"Fully Claimed" in response.data
+        assert b"Claimed by" in response.data
         assert b"Fully Bought Gift" in response.data
 
     def test_unpurchased_items_have_no_status_for_owner(self, client, app, user):
@@ -451,10 +451,10 @@ class TestPurchaseStatusPrivacy:
         # Should see item
         assert b"Available Item" in response.data
         # Item should be available for claiming (button present)
-        assert b"Claim Gift" in response.data
+        assert b"I'll get this" in response.data
         # Should not see claim status badges (no claims yet)
-        assert b"Fully Claimed" not in response.data
-        assert b"Claimed" not in response.data or b"Claim Gift" in response.data
+        assert b"Claimed by" not in response.data
+        assert b"Claimed" not in response.data or b"I'll get this" in response.data
 
 
 class TestAddItemFromURL:
@@ -732,7 +732,7 @@ class TestProxyWishlist:
         )
 
         assert response.status_code == 200
-        assert b"Proxy wishlist created" in response.data
+        assert b"Started a list for" in response.data
 
         # Verify proxy was created
         with app.app_context():
@@ -755,7 +755,7 @@ class TestProxyWishlist:
 
         assert response.status_code == 200
         assert b"Test Proxy" in response.data
-        assert b"Pending Account" in response.data
+        assert b"No account yet" in response.data
 
     def test_add_item_to_proxy_wishlist(self, client, app, user):
         """Test adding items to proxy wishlist"""
@@ -783,7 +783,7 @@ class TestProxyWishlist:
         )
 
         assert response.status_code == 200
-        assert b"Custom gift" in response.data
+        assert b"Surprise gift" in response.data
 
         # Verify item was added and auto-claimed
         with app.app_context():
@@ -842,7 +842,7 @@ class TestProxyWishlist:
 
         assert response.status_code == 200
         assert b"Test Proxy" in response.data
-        assert b"Pending Account" in response.data
+        assert b"No account yet" in response.data
 
     def test_my_claims_shows_proxy_badge(self, client, app, user):
         """Test that My Claims shows proxy wishlist badge"""
@@ -870,7 +870,7 @@ class TestProxyWishlist:
 
         assert response.status_code == 200
         assert b"Test Proxy" in response.data
-        assert b"Pending Account" in response.data
+        assert b"No account yet" in response.data
 
     def test_proxy_conversion_on_registration(self, client, app, invite):
         """Test that proxy wishlist is converted when user registers"""
@@ -1335,7 +1335,7 @@ class TestProxyWishlist:
 
         assert response.status_code == 403
         data = json.loads(response.data)
-        assert "same wishlist" in data["error"].lower()
+        assert "same list" in data["error"].lower()
 
     def test_manual_merge_transfers_purchases(self, client, app, user, other_user, admin_user):
         """Test that merging items transfers purchases correctly"""
@@ -1496,7 +1496,7 @@ class TestCustomGiftEditing:
         response = client.post(f"/wishlist/delete/{item_id}", follow_redirects=True)
 
         assert response.status_code == 200
-        assert b"Custom gift deleted" in response.data
+        assert b"Surprise gift deleted" in response.data
 
         # Verify deletion
         with app.app_context():

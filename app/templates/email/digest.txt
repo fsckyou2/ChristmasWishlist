@@ -9,5 +9,4 @@ Visit {{ app_url }} to see all wishlists.
 
 Happy holidays!
 
-Best regards,
-{{ app_name }} Team
+{% include 'email/_signature.txt' %}

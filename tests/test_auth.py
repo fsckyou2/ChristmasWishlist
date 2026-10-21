@@ -47,7 +47,7 @@ class TestAuthRoutes:
         """Test login page loads"""
         response = client.get("/auth/login")
         assert response.status_code == 200
-        assert b"Login" in response.data
+        assert b"Log in" in response.data
 
     def test_login_sends_magic_link(self, client, user):
         """Test login sends magic link - verifies email function is called without error"""
@@ -183,7 +183,7 @@ class TestUsernamePasswordAuth:
         """Test username login page loads"""
         response = client.get("/auth/login-username")
         assert response.status_code == 200
-        assert b"Login" in response.data
+        assert b"Log in" in response.data
         assert b"Username" in response.data
 
     def test_login_username_success(self, client, app):

@@ -1,22 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}My Wishlist (Table View){% endblock %}
+{% block title %}My Wishlist{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto">
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-4xl font-bold">My Wishlist</h1>
         <div class="flex gap-3">
-            <a href="{{ url_for('wishlist.my_list') }}" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
-                Card View
-            </a>
+            <div class="inline-flex rounded-lg border border-gray-600 overflow-hidden text-sm font-semibold" role="group" aria-label="Layout">
+                <a href="{{ url_for('wishlist.my_list') }}" class="px-4 py-2 text-gray-300 hover:bg-gray-700">Cards</a>
+                <a href="{{ url_for('wishlist.my_list_table') }}" aria-current="page" class="px-4 py-2 bg-gray-600 text-white">List</a>
+            </div>
             <button id="add-row-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
-                + Add New Row
+                + Add item
             </button>
         </div>
     </div>
 
-    <!-- URL Scraper -->
+    {# URL Scraper #}
     <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
         <h2 class="text-xl font-bold mb-4">Quick Add from URL</h2>
         <div class="flex gap-3">
@@ -28,7 +29,7 @@
         <div id="scrape-status" class="mt-2 text-sm"></div>
     </div>
 
-    <!-- Wishlist Table -->
+    {# Wishlist Table #}
     {% if items %}
         <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             <div class="overflow-x-auto">
@@ -157,10 +158,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Failed to add row');
             }
         } catch (error) {
-            alert('Error adding row: ' + error.message);
+            alert('Error adding item: ' + error.message);
         } finally {
             addRowBtn.disabled = false;
-            addRowBtn.textContent = '+ Add New Row';
+            addRowBtn.textContent = '+ Add item';
         }
     });
 

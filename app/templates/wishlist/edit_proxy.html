@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Edit Proxy Wishlist{% endblock %}
+{% block title %}Edit list details{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Edit Proxy Wishlist</h1>
+    <h1 class="text-4xl font-bold mb-8">Edit list details</h1>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8">
         <form method="POST" class="space-y-4">
@@ -25,12 +25,12 @@
                     <p class="text-red-600 text-sm mt-1">{{ form.email.errors[0] }}</p>
                 {% endif %}
                 <p class="text-xs text-gray-400 mt-1">
-                    If you provide their email, the wishlist will automatically convert when they register.
+                    If they join later with this email, the list becomes theirs.
                 </p>
             </div>
 
             <div class="flex gap-4">
-                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
+                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer", value="Save") }}
                 <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
                     Cancel
                 </a>

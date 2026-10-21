@@ -1,17 +1,17 @@
-<!-- Welcome Tour Overlay -->
+{# Welcome Tour Overlay #}
 {% if current_user.is_authenticated and not current_user.has_seen_tour %}
 <div id="welcome-tour" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 hidden">
     <div class="bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full mx-4 p-8 relative">
-        <!-- Close Button -->
+        {# Close Button #}
         <button id="tour-skip" class="absolute top-4 right-4 text-gray-400 hover:text-white">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
         </button>
 
-        <!-- Tour Content -->
+        {# Tour Content #}
         <div id="tour-content" class="text-center">
-            <!-- Step 1: Welcome -->
+            {# Step 1: Welcome #}
             <div class="tour-step" data-step="1">
                 <div class="text-6xl mb-6">🎁</div>
                 <h2 class="text-3xl font-bold mb-4">Welcome to Christmas Wishlist!</h2>
@@ -23,7 +23,7 @@
                 </p>
             </div>
 
-            <!-- Step 2: Your Wishlist -->
+            {# Step 2: Your Wishlist #}
             <div class="tour-step hidden" data-step="2">
                 <div class="text-6xl mb-6">📝</div>
                 <h2 class="text-3xl font-bold mb-4">Create Your Wishlist</h2>
@@ -32,7 +32,7 @@
                 </p>
                 <ul class="text-left text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
                     <li>✓ Products from any online store (we'll auto-fill details!)</li>
-                    <li>✓ Custom items with your own descriptions</li>
+                    <li>✓ Your own items with your own descriptions</li>
                     <li>✓ Multiple quantities if you want more than one</li>
                 </ul>
                 <p class="text-sm text-gray-400">
@@ -40,7 +40,7 @@
                 </p>
             </div>
 
-            <!-- Step 3: Browse Others -->
+            {# Step 3: Browse Others #}
             <div class="tour-step hidden" data-step="3">
                 <div class="text-6xl mb-6">👀</div>
                 <h2 class="text-3xl font-bold mb-4">Browse Other Wishlists</h2>
@@ -49,65 +49,66 @@
                 </p>
                 <ul class="text-left text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
                     <li>✓ View everyone's wishlists</li>
-                    <li>✓ Claim items you want to buy</li>
-                    <li>✓ See what others have claimed (to avoid duplicates)</li>
+                    <li>✓ Pick out what you'll give</li>
+                    <li>✓ See what others have claimed, so nobody gets it twice</li>
                 </ul>
                 <p class="text-sm text-yellow-400">
-                    Don't worry - wishlist owners can't see who claimed their items!
+                    🔒 The person whose list it is can't see what's claimed or by whom.
                 </p>
             </div>
 
-            <!-- Step 4: Claim Gifts -->
+            {# Step 4: Claim Gifts #}
             <div class="tour-step hidden" data-step="4">
                 <div class="text-6xl mb-6">🎯</div>
-                <h2 class="text-3xl font-bold mb-4">Claim Gifts to Buy</h2>
+                <h2 class="text-3xl font-bold mb-4">Say "I'll get this"</h2>
                 <p class="text-gray-300 mb-4">
-                    When you find something you want to buy:
+                    When you find something you want to give:
                 </p>
                 <ul class="text-left text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
-                    <li>✓ Click "Claim Gift" to reserve it</li>
-                    <li>✓ Other users will see it's claimed (no duplicates!)</li>
-                    <li>✓ The recipient won't see anything (keeps the surprise!)</li>
+                    <li>✓ Click "I'll get this" to claim it</li>
+                    <li>✓ Everyone else sees it's claimed, so nobody gets it twice</li>
+                    <li>✓ It's hidden from the person it's for, so the surprise is safe</li>
+                    <li>✓ Changed your mind? Click "Undo"</li>
                 </ul>
                 <p class="text-sm text-gray-400">
-                    Track your claimed gifts in "My Gifts for Others".
+                    Everything you're getting shows up in "Gifts I'm Giving".
                 </p>
             </div>
 
-            <!-- Step 5: Track Progress -->
+            {# Step 5: Track Progress #}
             <div class="tour-step hidden" data-step="5">
                 <div class="text-6xl mb-6">✅</div>
                 <h2 class="text-3xl font-bold mb-4">Track Your Gift Progress</h2>
                 <p class="text-gray-300 mb-4">
-                    In "My Gifts for Others", you can track each gift:
+                    In "Gifts I'm Giving", tick off each step:
                 </p>
                 <ul class="text-left text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
-                    <li>💳 <strong>Purchased</strong> - Mark when you buy it</li>
-                    <li>📦 <strong>Received</strong> - Mark when it arrives</li>
-                    <li>🎁 <strong>Wrapped</strong> - Mark when it's ready to give</li>
+                    <li>💳 <strong>Bought</strong> - when you buy it</li>
+                    <li>📦 <strong>Arrived</strong> - when it's in your hands</li>
+                    <li>🎁 <strong>Wrapped</strong> - when it's ready to give</li>
                 </ul>
                 <p class="text-sm text-gray-400">
                     Stay organized throughout the holiday season!
                 </p>
             </div>
 
-            <!-- Step 6: Custom Gifts -->
+            {# Step 6: Custom Gifts #}
             <div class="tour-step hidden" data-step="6">
                 <div class="text-6xl mb-6">✨</div>
-                <h2 class="text-3xl font-bold mb-4">Custom Gifts (Bonus Feature!)</h2>
+                <h2 class="text-3xl font-bold mb-4">Surprise Gifts</h2>
                 <p class="text-gray-300 mb-4">
-                    Want to buy something not on their list?
+                    Want to give something that's not on their list?
                 </p>
                 <p class="text-gray-300 mb-6">
-                    Click <strong>"Add Custom Gift"</strong> on their wishlist to add it yourself.
-                    They won't see it, but others will - avoiding duplicate gifts!
+                    Click <strong>"Add a surprise gift"</strong> on their wishlist to add it yourself.
+                    It's hidden from them, but everyone else sees it, marked as yours, so nobody gets it twice.
                 </p>
                 <p class="text-sm text-purple-400">
                     Perfect for those special surprises! 🎉
                 </p>
             </div>
 
-            <!-- Step 7: Ready! -->
+            {# Step 7: Ready! #}
             <div class="tour-step hidden" data-step="7">
                 <div class="text-6xl mb-6">🎉</div>
                 <h2 class="text-3xl font-bold mb-4">You're All Set!</h2>
@@ -123,7 +124,7 @@
             </div>
         </div>
 
-        <!-- Tour Navigation -->
+        {# Tour Navigation #}
         <div class="mt-8 flex justify-between items-center">
             <div class="text-sm text-gray-400">
                 <span id="tour-step-counter">Step 1 of 7</span>

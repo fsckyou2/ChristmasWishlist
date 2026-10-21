@@ -1,0 +1,7 @@
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <p>Dear {{ user.name }},</p>
+    <p>The family wishlists are open for Christmas {{ christmas }}! 🎄</p>
+    <p>Last year's gifts have been cleared from everyone's lists. Now's a great time to add what you'd like this year.</p>
+    <p><a href="{{ app_url }}">{{ app_url }}</a></p>
+    {% include 'email/_signature.html' %}
+</div>

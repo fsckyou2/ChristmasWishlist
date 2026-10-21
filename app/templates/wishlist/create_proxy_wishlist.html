@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Create Wishlist for Non-User{% endblock %}
+{% block title %}Start a list for someone{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Create Wishlist for Someone Without an Account</h1>
+    <h1 class="text-4xl font-bold mb-2">Start a list for someone</h1>
+    <p class="text-gray-400 mb-8">For kids or anyone who won't log in.</p>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8">
         <div class="mb-6 p-4 bg-blue-900 rounded">
             <p class="text-sm text-gray-200">
-                <strong>Info:</strong> Create a wishlist for someone who doesn't have an account yet. You and others can add gift ideas to it. If they later register with the email you provide, it will automatically become their wishlist!
+                Everyone can see this list and say "I'll get this". If you add their email and they join later with it, the list becomes theirs.
             </p>
         </div>
 
@@ -31,7 +32,7 @@
                     <p class="text-red-600 text-sm mt-1">{{ form.email.errors[0] }}</p>
                 {% endif %}
                 <p class="text-xs text-gray-400 mt-1">
-                    If you provide their email, the wishlist will automatically convert when they register.
+                    If they join later with this email, the list becomes theirs.
                 </p>
             </div>
 
