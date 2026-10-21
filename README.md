@@ -69,7 +69,7 @@ All settings come from environment variables; [.env.example](.env.example) docum
 | `WEBAUTHN_RP_ID` | Bare domain of `APP_URL`. |
 | `TRUSTED_PROXY_COUNT` | Reverse proxies whose `X-Forwarded-*` headers are trusted (default 1). Only expose the app port to that proxy. |
 | `ADMIN_EMAIL`, `ADMIN_NAME` | First admin, created on start if missing. |
-| `MAIL_*` | SMTP settings. |
+| `MAIL_*` | SMTP settings. `MAIL_DELIVERY=off` stops all outgoing email (for testing); the admin dashboard shows a banner and the season page previews the email instead. |
 | `DAILY_DIGEST_HOUR` | Hour (0-23) in the container's `TZ` (or `DIGEST_TIMEZONE`). |
 | `SCRAPER_API_KEY` | Optional ScraperAPI key for Amazon/Etsy auto-fill. |
 | `RATELIMIT_STORAGE_URI` | Optional shared rate-limit store (e.g. Redis). The default is per-worker memory. |

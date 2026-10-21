@@ -145,7 +145,7 @@ def login_begin():
 
     except Exception:
         current_app.logger.exception("Passkey login begin error")
-        return jsonify({"error": "Failed to begin login"}), 500
+        return jsonify({"error": "Could not start logging in with a passkey. Please try again."}), 500
 
 
 @bp.route("/login-complete", methods=["POST"])
@@ -201,7 +201,7 @@ def login_complete():
 
     except Exception:
         current_app.logger.exception("Passkey login complete error")
-        return jsonify({"error": "Passkey login failed. Please try again."}), 400
+        return jsonify({"error": "Logging in with your passkey failed. Please try again."}), 400
 
 
 @bp.route("/dismiss-offer", methods=["POST"])

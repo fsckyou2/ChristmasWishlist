@@ -5,6 +5,12 @@
 {% block content %}
 <div class="max-w-6xl mx-auto">
     <h1 class="text-4xl font-bold mb-8">Admin Dashboard</h1>
+    {% if not config.MAIL_DELIVERY %}
+        <div class="bg-yellow-900 border border-yellow-600 text-yellow-100 rounded-lg p-4 mb-8">
+            ✉️ <strong>Email delivery is off</strong> (MAIL_DELIVERY=off). No magic links, digests or other emails are
+            being sent. Turn it back on before family members need to log in by email.
+        </div>
+    {% endif %}
 
     <div class="grid md:grid-cols-3 gap-6 mb-8">
         <div class="bg-gray-800 rounded-lg shadow-lg p-6">
@@ -31,7 +37,7 @@
                     👥 Manage Users
                 </a>
                 <a href="{{ url_for('admin.proxy_wishlists') }}" class="block p-3 bg-gray-700 rounded hover:bg-gray-700">
-                    📋 Manage Proxy Wishlists
+                    📋 Lists for Someone
                 </a>
                 <a href="{{ url_for('admin.items') }}" class="block p-3 bg-gray-700 rounded hover:bg-gray-700">
                     📝 View All Items
@@ -40,10 +46,10 @@
                     🎁 View All Claims
                 </a>
                 <a href="{{ url_for('admin.invites') }}" class="block p-3 bg-gray-700 rounded hover:bg-gray-700">
-                    ✉️ Registration Invites
+                    ✉️ Invites
                 </a>
                 <a href="{{ url_for('admin.new_season') }}" class="block p-3 bg-gray-700 rounded hover:bg-gray-700">
-                    🎄 Start a New Season
+                    🎄 Start the next Christmas
                 </a>
             </div>
         </div>

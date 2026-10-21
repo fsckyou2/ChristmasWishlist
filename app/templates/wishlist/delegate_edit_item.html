@@ -9,7 +9,7 @@
 {% block content %}
 <div class="max-w-2xl mx-auto">
     <h1 class="text-4xl font-bold mb-2">Edit Item on {{ proxy.name }}'s Wishlist</h1>
-    <p class="text-gray-400 mb-8">Managing as delegate</p>
+    <p class="text-gray-400 mb-8">You're a helper on this list.</p>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8">
         <form method="POST" id="itemForm" class="space-y-4">
@@ -65,7 +65,7 @@
                 {% endif %}
             </div>
 
-            <!-- Image selector container -->
+            {# Image selector container #}
             <div id="image-selector-container"></div>
 
             <div class="flex gap-4">

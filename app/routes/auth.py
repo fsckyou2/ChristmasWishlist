@@ -183,7 +183,7 @@ def register():
         # Send welcome email with login link included
         send_welcome_email(user)
 
-        flash("Registration successful! Check your email for a welcome message with your login link.", "success")
+        flash("Registration successful! Check your email for a welcome message with your magic link.", "success")
         return redirect(url_for("auth.login"))
 
     return render_template("auth/unified_register.html", email_form=email_form, password_form=password_form)
@@ -243,7 +243,7 @@ def login():
         if user:
             send_magic_link_email(user)
         # Always show success message to prevent email enumeration
-        flash("If an account exists with that email, a login link has been sent.", "info")
+        flash("If an account exists with that email, a magic link has been sent.", "info")
         return redirect(url_for("auth.login"))
 
     return render_template("auth/unified_auth.html", email_form=email_form, password_form=password_form)
@@ -281,7 +281,7 @@ def magic_login(token):
 
     user = User.verify_magic_link_token(token)
     if not user:
-        flash("Invalid or expired login link (each link works once). Request a new one below.", "danger")
+        flash("Invalid or expired magic link (each link works once). Request a new one below.", "danger")
         return redirect(url_for("auth.login"))
 
     form = FlaskForm()

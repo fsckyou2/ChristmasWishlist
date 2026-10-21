@@ -96,9 +96,9 @@ class TestTourFeature:
         assert b"Welcome to Christmas Wishlist!" in response.data
         assert b"Create Your Wishlist" in response.data
         assert b"Browse Other Wishlists" in response.data
-        assert b"Claim Gifts to Buy" in response.data
+        assert b'Say "I\'ll get this"' in response.data
         assert b"Track Your Gift Progress" in response.data
-        assert b"Custom Gifts" in response.data
+        assert b"Surprise Gifts" in response.data
         assert b"You're All Set!" in response.data
 
     def test_tour_navigation_buttons_present(self, client, user, app):

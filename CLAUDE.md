@@ -61,7 +61,7 @@ Always run black and flake8 after code changes; CI enforces both strictly.
    - Build DOM nodes, or wrap values in `escapeHtml()`, before using `innerHTML`.
 4. **CSRF.** POST forms need `{{ form.hidden_tag() }}` or `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">`. `fetch()` gets the header automatically from `app.js`. State changes never use GET.
 5. **Every item write goes through `services` / `validation`.**
-6. **Terminology.** The UI says "claim", and so does the code (`Claim`). "Purchased" only means the claimed gift has been bought.
+6. **Terminology.** User-facing words come from `docs/GLOSSARY.md` (one word per idea; privacy phrase "hidden from {Name}" / "can't see"). `tests/test_terms.py` renders pages and emails and fails on retired words. Code names (`Claim`, `proxy`, `delegate`) are internal and never shown.
 
 ## Migrations
 

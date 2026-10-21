@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Registration Invites{% endblock %}
+{% block title %}Invites{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
-    <h1 class="text-4xl font-bold mb-2">Registration Invites</h1>
+    <h1 class="text-4xl font-bold mb-2">Invites</h1>
     <p class="text-gray-400 mb-8">Accounts can only be created with an invite link. Each link works once.</p>
 
     {% if new_invite_url %}
@@ -15,7 +15,7 @@
     {% endif %}
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-bold mb-4">Create an Invite</h2>
+        <h2 class="text-2xl font-bold mb-4">Create an invite link</h2>
         <form method="POST" class="grid md:grid-cols-3 gap-4 items-end">
             {{ form.hidden_tag() }}
             <div>

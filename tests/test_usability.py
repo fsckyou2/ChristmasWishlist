@@ -119,7 +119,7 @@ class TestOneTapClaim:
         db.session.commit()
         login(client, family["aunt"])
         html = client.get(f"/wishlist/view/{family['kid'].id}").get_data(as_text=True)
-        assert "Claim Gift (2 left)" in html
+        assert "I'll get this (2 left)" in html
         # Socks has exactly one left, so it gets the one-tap button
         assert f'action="/wishlist/claim/{family["socks"].id}"' in html
 
@@ -170,8 +170,9 @@ class TestNewSeason:
     def test_admin_page_requires_typed_confirmation(self, client, family):
         login(client, family["admin"])
         page = client.get("/admin/season").get_data(as_text=True)
-        assert "<strong>2</strong> fully claimed" in page
+        assert "<strong>2</strong> item(s) claimed in full" in page
         assert "of 4 item(s) remain" in page and "built-in method" not in page
+        assert f'value="Start Christmas {int(services.default_season_label()) + 1}"' in page
         client.post("/admin/season", data={"season": "2025", "confirm": "2024", "notify": ""})
         assert WishlistItem.query.count() == 4  # nothing happened
 
@@ -196,7 +197,7 @@ class TestNewSeason:
         db.session.commit()
 
         login(client, family["kid"])
-        assert "Gifts You've Received" in client.get("/wishlist/my-list").get_data(as_text=True)
+        assert "Gifts I've Received" in client.get("/wishlist/my-list").get_data(as_text=True)
         html = client.get("/wishlist/received").get_data(as_text=True)
         assert "Christmas 2025" in html and "LEGO" in html and "From Aunt Rebecca" in html
 
@@ -229,3 +230,46 @@ class TestNewSeason:
 
         assert services.default_season_label(datetime(2026, 10, 20)) == "2025"
         assert services.default_season_label(datetime(2026, 12, 27)) == "2026"
+
+
+class TestHelpersSeeClaimsNotClaimers:
+    @pytest.fixture
+    def kid_list(self, family):
+        from app.models import WishlistDelegate
+
+        proxy = ProxyWishlist(name="Lynn", created_by_id=family["admin"].id)
+        db.session.add(proxy)
+        db.session.flush()
+        db.session.add(WishlistDelegate(proxy_wishlist_id=proxy.id, user_id=family["kid"].id))
+        doll = WishlistItem(proxy_wishlist_id=proxy.id, added_by_id=family["kid"].id, name="Doll", quantity=1)
+        paints = WishlistItem(proxy_wishlist_id=proxy.id, added_by_id=family["kid"].id, name="Paints", quantity=2)
+        db.session.add_all([doll, paints])
+        db.session.flush()
+        db.session.add_all(
+            [
+                Claim(wishlist_item_id=doll.id, claimed_by_id=family["uncle"].id, quantity=1),
+                Claim(wishlist_item_id=paints.id, claimed_by_id=family["uncle"].id, quantity=1),
+            ]
+        )
+        db.session.commit()
+        return proxy
+
+    def test_helper_sees_claimed_status_without_names(self, client, family, kid_list):
+        login(client, family["kid"])  # Westley is a helper on Lynn's list
+        html = client.get(f"/wishlist/view-proxy/{kid_list.id}").get_data(as_text=True)
+        assert "✓ Claimed" in html and "1 of 2 claimed" in html
+        assert "Uncle Fred" not in html
+        assert "you see what's claimed but not who claimed it" in html
+
+    def test_other_givers_still_see_names(self, client, family, kid_list):
+        login(client, family["aunt"])
+        html = client.get(f"/wishlist/view-proxy/{kid_list.id}").get_data(as_text=True)
+        assert "Claimed by Uncle Fred" in html and "by Uncle Fred" in html
+
+    def test_policy(self, family, kid_list):
+        from app import policy
+
+        doll = WishlistItem.query.filter_by(name="Doll").one()
+        assert policy.can_view_claims(family["kid"], doll)
+        assert not policy.can_view_claimers(family["kid"], doll)
+        assert policy.can_view_claimers(family["aunt"], doll)

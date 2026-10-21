@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Add Gift to {{ proxy.name }}'s Wishlist{% endblock %}
+{% block title %}Add a surprise gift for {{ proxy.name }}{% endblock %}
 
 {% block head %}
 <script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/scraper.js') }}"></script>
@@ -9,12 +9,12 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Add Gift to {{ proxy.name }}'s Wishlist</h1>
+    <h1 class="text-4xl font-bold mb-8">Add a surprise gift for {{ proxy.name }}</h1>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-8">
         <div class="mb-6 p-4 bg-purple-900 rounded">
             <p class="text-sm text-gray-200">
-                <strong>Note:</strong> You're adding a gift to {{ proxy.name }}'s proxy wishlist. This will be automatically claimed by you and hidden from {{ proxy.name }} if they later create an account.
+                🔒 {{ proxy.name }} can't see this. It's hidden from {{ proxy.name }}'s list and emails. Everyone else sees it, marked as yours, so nobody gets it twice.
             </p>
         </div>
 
@@ -77,11 +77,11 @@
                 </p>
             </div>
 
-            <!-- Image selector container -->
+            {# Image selector container #}
             <div id="image-selector-container"></div>
 
             <div class="flex gap-4">
-                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
+                {{ form.submit(class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer", value="Add surprise gift") }}
                 <a href="{{ url_for('wishlist.view_proxy_wishlist', proxy_id=proxy.id) }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">
                     Cancel
                 </a>

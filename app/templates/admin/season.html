@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Start a New Season{% endblock %}
+{% block title %}{% set next_christmas = (form.season.data|int + 1) if form.season.data and form.season.data|string|int else 'next year' %}Start Christmas {{ next_christmas }}{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto">
-    <h1 class="text-4xl font-bold mb-2">🎄 Start a New Season</h1>
+    {% set next_christmas = (form.season.data|int + 1) if form.season.data and form.season.data|string|int else 'next year' %}
+    <h1 class="text-4xl font-bold mb-2">🎄 Start Christmas {{ next_christmas }}</h1>
     <p class="text-gray-400 mb-8">Do this after Christmas, once last year's gifts have been given.</p>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
         <h2 class="text-2xl font-bold mb-4">What will happen</h2>
         <ul class="space-y-2 text-gray-200">
-            <li>🎁 <strong>{{ preview.fully_claimed }}</strong> fully claimed item(s) are archived and removed from their lists.</li>
+            <li>🎁 <strong>{{ preview.fully_claimed }}</strong> item(s) claimed in full are archived and removed from their lists.</li>
             <li>➗ <strong>{{ preview.partly_claimed }}</strong> partly claimed item(s) stay, with the claimed quantity archived and the rest still open.</li>
-            <li>🧾 <strong>{{ preview.claims }}</strong> claim(s) are cleared, so everyone's "My Gifts for Others" starts empty.</li>
-            <li>📜 Archived gifts appear on each recipient's <em>Gifts You've Received</em> page, including who they were from.</li>
+            <li>🧾 <strong>{{ preview.claims }}</strong> claim(s) are cleared, so everyone's "Gifts I'm Giving" starts empty.</li>
+            <li>📜 Archived gifts appear on each recipient's <em>Gifts I've Received</em> page, including who they were from.</li>
             <li>📋 <strong>{{ preview.remaining_after }}</strong> of {{ preview.total_items }} item(s) remain on lists afterwards. No digest email is sent about the removals.</li>
         </ul>
         <p class="mt-4 text-yellow-300 text-sm">This can't be undone from the app, and it reveals who gave what. Don't run it before the gifts have been opened.</p>
@@ -35,13 +36,27 @@
             <label class="flex items-center gap-2 text-gray-200">
                 {{ form.notify(class="w-4 h-4") }} {{ form.notify.label.text }}
             </label>
-            {{ form.submit(class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 cursor-pointer") }}
+            {{ form.submit(value="Start Christmas " ~ next_christmas, class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 cursor-pointer") }}
         </form>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-xl font-bold mb-1">The "lists are open" email</h2>
+        {% if mail_delivery %}
+            <p class="text-sm text-gray-400 mb-4">If the box above is ticked, {{ email_recipients }} people get this, each with their own name. Here's yours:</p>
+        {% else %}
+            <p class="text-sm text-yellow-300 mb-4">✉️ Email delivery is off (MAIL_DELIVERY=off), so nothing is sent. This is what {{ email_recipients }} people would get, each with their own name:</p>
+        {% endif %}
+        <div class="bg-gray-900 rounded border border-gray-700 p-4 text-sm">
+            <p class="text-gray-400">To: {{ email_preview.to }}</p>
+            <p class="text-gray-200 font-semibold mb-3">Subject: {{ email_preview.subject }}</p>
+            <pre class="whitespace-pre-wrap font-sans text-gray-200">{{ email_preview.text }}</pre>
+        </div>
     </div>
 
     {% if past %}
         <div class="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h2 class="text-xl font-bold mb-3">Past seasons</h2>
+            <h2 class="text-xl font-bold mb-3">Past Christmases</h2>
             <ul class="text-gray-300">
                 {% for season, count in past %}<li>Christmas {{ season }}: {{ count }} gift(s) archived</li>{% endfor %}
             </ul>

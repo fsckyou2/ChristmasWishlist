@@ -28,7 +28,15 @@ def send_async_email(app, msg):
             logger.exception("Failed to send email %r to %s", msg.subject, msg.recipients)
 
 
+def delivery_enabled():
+    """False when MAIL_DELIVERY=off: emails are rendered as usual but never leave the server."""
+    return bool(current_app.config.get("MAIL_DELIVERY", True))
+
+
 def send_email(subject, recipients, text_body, html_body):
+    if not delivery_enabled():
+        logger.info("Email delivery is off; not sending %r to %s", subject, recipients)
+        return False
     msg = Message(
         subject=subject,
         recipients=recipients if isinstance(recipients, list) else [recipients],
@@ -37,6 +45,7 @@ def send_email(subject, recipients, text_body, html_body):
     msg.body = text_body
     msg.html = html_body
     Thread(target=send_async_email, args=(current_app._get_current_object(), msg), daemon=False).start()
+    return True
 
 
 def _render(template, **context):
@@ -64,8 +73,7 @@ def send_magic_link_email(user):
     if context is None:
         return False
     text, html = _render("magic_link", **context)
-    send_email("Your Login Link", user.email, text, html)
-    return True
+    return send_email("Your magic link", user.email, text, html)
 
 
 def send_welcome_email(user):
@@ -76,8 +84,7 @@ def send_welcome_email(user):
     if context is None:
         return False
     text, html = _render("welcome", **context)
-    send_email(f"Welcome to {current_app.config['APP_NAME']}!", user.email, text, html)
-    return True
+    return send_email(f"Welcome to {current_app.config['APP_NAME']}!", user.email, text, html)
 
 
 def send_daily_wishlist_digest():
@@ -115,19 +122,29 @@ def send_daily_wishlist_digest():
             recipient=recipient,
             sections=[(owners[uid], changes) for uid, changes in sections.items()],
         )
-        send_email("Wishlist Updates from Your Family", recipient.email, text, html)
+        send_email("What's new on the family wishlists", recipient.email, text, html)
 
     for change in pending:
         change.notified = True
     db.session.commit()
 
 
-def send_season_open_email():
-    """Tell everyone with an email address that lists are open for the new season. Returns how many were sent."""
+def render_season_open_email(user):
+    """(subject, text, html) of the "lists are open" email for one person. Used for sending and for the preview."""
+    text, html = _render("season_open", user=user)
+    return f"{current_app.config['APP_NAME']}: time to update your list!", text, html
+
+
+def season_open_recipients():
     from app.models import User
 
-    recipients = User.query.filter(User.email.isnot(None)).all()
-    for user in recipients:
-        text, html = _render("season_open", user=user)
-        send_email(f"{current_app.config['APP_NAME']}: time to update your list!", user.email, text, html)
-    return len(recipients)
+    return User.query.filter(User.email.isnot(None)).order_by(User.name).all()
+
+
+def send_season_open_email():
+    """Tell everyone with an email address that lists are open. Returns how many were actually sent (0 when off)."""
+    sent = 0
+    for user in season_open_recipients():
+        subject, text, html = render_season_open_email(user)
+        sent += bool(send_email(subject, user.email, text, html))
+    return sent

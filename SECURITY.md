@@ -46,7 +46,7 @@ This is a family app on a home server. The things it protects, in order:
 - Rate limits use per-worker memory by default (limits are effectively multiplied by the number of gunicorn workers). Set `RATELIMIT_STORAGE_URI` to a shared store for strict limits.
 - Changing your email in Account Settings does not re-verify the new address.
 - Proxy wishlists are merged into a new account by matching name or email at registration. With invite-only registration, only invited people can trigger this.
-- Delegates of a proxy wishlist can see its claims (the recipient has no account, so nothing is spoiled).
+- Helpers of a list kept for someone see *that* items are claimed (so they don't buy something twice) but not *who* claimed them, and never see surprise gifts others add.
 
 ## Reporting
 

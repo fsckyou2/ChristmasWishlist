@@ -3,9 +3,9 @@
 The core invariant: a person never learns what others are giving them. On their own list they cannot see claims,
 claimers, or custom gifts that someone else added, anywhere (pages, JSON responses, emails, admin pages).
 
-Proxy wishlists belong to someone without an account. Their delegates manage the list, so (as before) other
-people's custom gifts are hidden from them; they can still see claims, which helps them coordinate and spoils
-nothing for the recipient.
+Proxy wishlists belong to someone without an account. Their delegates ("helpers") manage the list, so other
+people's custom gifts are hidden from them. They see *that* items are claimed (so they don't buy something twice)
+but not *who* claimed them.
 
 Admins can manage everything except that they are also protected on their own list. While impersonating, the
 impersonated user *is* current_user, so the admin sees exactly what that user would.
@@ -40,6 +40,14 @@ def visible_items(user, items):
 def can_view_claims(user, item):
     """Claim status and claimer names are never shown to the person the gift is for."""
     return not owns_list_of(user, item)
+
+
+def can_view_claimers(user, item):
+    """Who claimed an item. Hidden from the list owner (as with all claim info) and from the helpers of a list kept
+    for someone: helpers still see *that* an item is claimed, so they don't buy it twice, but not by whom."""
+    if not can_view_claims(user, item):
+        return False
+    return not (item.proxy_wishlist_id is not None and item.proxy_wishlist.is_delegate(user))
 
 
 def can_view_user_list(viewer, list_owner):

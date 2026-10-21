@@ -18,7 +18,7 @@
 
 {% if current_user.is_authenticated %}
     <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        <!-- My Wishlist Card -->
+        {# My Wishlist Card #}
         <div class="bg-gray-800 rounded-lg shadow-lg p-8 text-center hover:shadow-xl transition">
             <div class="text-6xl mb-4">📝</div>
             <h2 class="text-2xl font-bold mb-4">My Wishlist</h2>
@@ -33,15 +33,15 @@
             </a>
         </div>
 
-        <!-- Browse Wishlists Card -->
+        {# Browse Wishlists Card #}
         <div class="bg-gray-800 rounded-lg shadow-lg p-8 text-center hover:shadow-xl transition">
             <div class="text-6xl mb-4">🎁</div>
             <h2 class="text-2xl font-bold mb-4">Browse Wishlists</h2>
             <p class="text-gray-400 mb-6">
-                See what others are wishing for and mark items as purchased
+                See what others are wishing for and tap "I'll get this" on what you'll give
             </p>
             <a href="{{ url_for('wishlist.all_users') }}" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
-                Browse Lists
+                Browse Wishlists
             </a>
         </div>
     </div>
@@ -73,7 +73,7 @@
         </p>
         <div class="flex gap-4 justify-center">
             <a href="{{ url_for('auth.login') }}" class="bg-gray-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-700">
-                Login
+                Log in
             </a>
         </div>
     </div>
@@ -93,8 +93,8 @@
             </div>
             <div class="bg-gray-800 rounded-lg shadow p-6 text-center">
                 <div class="text-5xl mb-4">3️⃣</div>
-                <h3 class="text-xl font-bold mb-2">Mark What You're Getting</h3>
-                <p class="text-gray-400">Keep track of gifts without spoiling the surprise</p>
+                <h3 class="text-xl font-bold mb-2">Say "I'll get this"</h3>
+                <p class="text-gray-400">Others see what's claimed, so nobody gets it twice. The person can't see what's claimed or by whom.</p>
             </div>
         </div>
     </div>

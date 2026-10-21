@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Manage Wishlists{% endblock %}
+{% block title %}Lists I Help With{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
     <div class="flex justify-between items-center mb-8">
-        <h1 class="text-4xl font-bold">Wishlists I Manage</h1>
+        <h1 class="text-4xl font-bold">Lists I Help With</h1>
     </div>
 
     <div class="bg-blue-900 border border-blue-700 rounded-lg p-4 mb-6">
         <p class="text-blue-100">
-            <span class="font-semibold">Note:</span> You can add, edit, and remove items from these wishlists,
-            but you won't see who has claimed items (to preserve the gift surprise).
+            You're a helper on these lists, so you can add, edit and remove items.
+            🔒 Helpers see what's claimed, but not who claimed it. Surprise gifts other people add are hidden from them too.
         </p>
     </div>
 
@@ -34,15 +34,15 @@
 
                     <a href="{{ url_for('wishlist.manage_as_delegate', proxy_id=proxy.id) }}"
                        class="block w-full bg-green-600 text-white px-4 py-2 rounded text-center font-semibold hover:bg-green-700">
-                        Manage List
+                        Open list
                     </a>
                 </div>
             {% endfor %}
         </div>
     {% else %}
         <div class="bg-gray-800 rounded-lg p-8 text-center">
-            <p class="text-gray-400 text-lg mb-4">You're not currently managing any wishlists.</p>
-            <p class="text-sm text-gray-500">An administrator can grant you access to manage wishlists for others.</p>
+            <p class="text-gray-400 text-lg mb-4">You're not a helper on any lists yet.</p>
+            <p class="text-sm text-gray-500">An admin can add you as a helper on a list.</p>
         </div>
     {% endif %}
 </div>

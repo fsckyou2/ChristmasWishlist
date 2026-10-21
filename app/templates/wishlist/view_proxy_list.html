@@ -8,7 +8,7 @@
         <div>
             <h1 class="text-4xl font-bold flex items-center gap-3">
                 {{ proxy.name }}'s Wishlist
-                <span class="bg-yellow-600 text-white text-sm px-3 py-1 rounded-full">Pending Account</span>
+                <span class="bg-yellow-600 text-white text-sm px-3 py-1 rounded-full">No account yet</span>
             </h1>
             {% if proxy.email %}
                 <p class="text-gray-400 text-sm mt-2">Email: {{ proxy.email }}</p>
@@ -17,21 +17,21 @@
         <div class="flex gap-2">
             {% if proxy.created_by_id == current_user.id or current_user.is_admin %}
                 <a href="{{ url_for('wishlist.edit_proxy_wishlist', proxy_id=proxy.id) }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                    Edit Info
+                    Edit list details
                 </a>
             {% endif %}
             <a href="{{ url_for('wishlist.add_to_proxy_wishlist', proxy_id=proxy.id) }}" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2">
-                <span>✨</span>
-                <span>Add Gift</span>
+                <span>🎁</span>
+                <span>Add a surprise gift</span>
             </a>
         </div>
     </div>
 
     <div class="mb-6 p-4 bg-yellow-900/30 rounded-lg border border-yellow-700">
-        <p class="text-sm text-gray-300">
-            <strong>💡 Proxy Wishlist:</strong> This wishlist is for someone who doesn't have an account yet. Items added by authorized delegates can be claimed as gifts. If you add surprise gifts, they'll be marked as custom gifts.
-            {% if proxy.email %}If they register with {{ proxy.email }}, this will automatically become their wishlist!{% endif %}
-        </p>
+        <p class="text-sm text-gray-300">🔒 {{ proxy.name }} can't see what's claimed or by whom.{% if is_helper %} As a helper, you see what's claimed but not who claimed it.{% endif %}</p>
+        {% if proxy.email %}
+            <p class="text-xs text-gray-400 mt-1">If {{ proxy.name }} signs up with {{ proxy.email }}, this list becomes theirs.</p>
+        {% endif %}
     </div>
 
     {% if items %}
@@ -45,11 +45,11 @@
                     {% endif %}
 
                     <div class="p-4">
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="text-xl font-bold flex-1">{{ item.name }}</h3>
+                        <div class="mb-2">
+                            <h3 class="text-xl font-bold">{{ item.name }}</h3>
                             {% if item.is_custom_gift %}
-                                <span class="ml-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap" title="Added by {{ item.added_by.name }}">
-                                    ✨ Custom Gift
+                                <span class="inline-block mt-1 bg-purple-600 text-white text-xs px-2 py-1 rounded-full" title="Added by {{ item.added_by.name }}">
+                                    {% if item.added_by_id == current_user.id %}🎁 Your surprise gift · hidden from {{ proxy.name }}{% else %}🎁 Surprise gift · hidden from {{ proxy.name }}{% endif %}
                                 </span>
                             {% endif %}
                         </div>
@@ -68,33 +68,30 @@
 
                         {% if item.is_fully_claimed %}
                             <div class="bg-green-100 text-green-800 px-3 py-2 rounded mb-3">
-                                <div class="text-center font-semibold">✓ Fully Claimed</div>
-                                {% if item.claims %}
-                                    <div class="text-xs text-center mt-1">{{ item.claimers|map(attribute='name')|join(', ') }}</div>
-                                {% endif %}
+                                <div class="text-center font-semibold">{% if show_claimers %}Claimed by {{ item.claimers|map(attribute='name')|join(', ') }}{% else %}✓ Claimed{% endif %}</div>
                             </div>
                         {% elif item.total_claimed > 0 %}
                             <div class="bg-yellow-100 text-yellow-800 px-3 py-2 rounded mb-3">
-                                <div class="text-center font-semibold">{{ item.total_claimed }}/{{ item.quantity }} Claimed</div>
+                                <div class="text-center font-semibold">{{ item.total_claimed }} of {{ item.quantity }} claimed</div>
                                 {% if item.claims %}
-                                    <div class="text-xs text-center mt-1">{{ item.claimers|map(attribute='name')|join(', ') }}</div>
+                                    {% if show_claimers %}<div class="text-xs text-center mt-1">by {{ item.claimers|map(attribute='name')|join(', ') }}</div>{% endif %}
                                 {% endif %}
                             </div>
                         {% endif %}
 
                         {% if item.is_custom_gift and item.added_by_id == current_user.id %}
-                            <!-- Custom gift added by current user - show delete option -->
+                            {# Custom gift added by current user - show delete option #}
                             <div class="bg-purple-100 text-purple-800 px-3 py-2 rounded mb-3">
                                 <div class="flex justify-between items-center text-sm">
-                                    <span class="font-semibold">Your Custom Gift</span>
+                                    <span class="font-semibold">You added this</span>
                                     <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="text-red-600 hover:text-red-800 font-semibold" data-confirm="Delete this custom gift?">Delete</button>
+                                        <button type="submit" class="text-red-600 hover:text-red-800 font-semibold" data-confirm="Delete this surprise gift?">Delete</button>
                                     </form>
                                 </div>
                             </div>
                         {% else %}
-                            <!-- Regular claims (not custom gifts) -->
+                            {# Regular claims (not custom gifts) #}
                             {% set my_claims = item.claims_by(current_user) %}
                             {% if my_claims %}
                                 <div class="bg-blue-100 text-blue-800 px-3 py-2 rounded mb-3">
@@ -123,12 +120,12 @@
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <input type="hidden" name="quantity" value="1">
                                         <button type="submit" class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-green-700">
-                                            Claim Gift
+                                            I'll get this
                                         </button>
                                     </form>
                                 {% else %}
                                     <a href="{{ url_for('wishlist.claim_item', item_id=item.id) }}" class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-green-700">
-                                        Claim Gift ({{ item.remaining_quantity }} left)
+                                        I'll get this ({{ item.remaining_quantity }} left)
                                     </a>
                                 {% endif %}
                             {% endif %}
@@ -141,15 +138,15 @@
         <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
             <div class="text-6xl mb-4">📝</div>
             <h2 class="text-2xl font-bold mb-4">No items on this wishlist yet</h2>
-            <p class="text-gray-400 mb-4">Be the first to add a gift idea!</p>
+            <p class="text-gray-400 mb-4">Want to give {{ proxy.name }} something? Add a surprise gift.</p>
             <a href="{{ url_for('wishlist.add_to_proxy_wishlist', proxy_id=proxy.id) }}" class="inline-block bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700">
-                Add First Gift
+                Add a surprise gift
             </a>
         </div>
     {% endif %}
 
     <div class="mt-8">
-        <a href="{{ url_for('wishlist.all_users') }}" class="text-red-600 hover:underline">← Back to All Users</a>
+        <a href="{{ url_for('wishlist.all_users') }}" class="text-red-600 hover:underline">← Browse Wishlists</a>
     </div>
 </div>
 {% endblock %}

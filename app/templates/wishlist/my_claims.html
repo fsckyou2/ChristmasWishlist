@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}My Gifts for Others{% endblock %}
+{% block title %}Gifts I'm Giving{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
     <div class="flex justify-between items-center mb-8">
-        <h1 class="text-4xl font-bold">My Gifts for Others</h1>
+        <h1 class="text-4xl font-bold">Gifts I'm Giving</h1>
         <a href="{{ url_for('wishlist.all_users') }}" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
             Browse Wishlists
         </a>
@@ -13,7 +13,7 @@
 
     <div class="bg-blue-900 p-4 rounded-lg mb-6">
         <p class="text-sm text-gray-200">
-            <strong>Tip:</strong> Track your gift-giving progress! Mark items as "Purchased" when you order them, "Received" when they arrive, and "Wrapped" when they're ready to go. The recipients won't see this information.
+            Tick <strong>Bought</strong> when you order a gift, <strong>Arrived</strong> when it's in your hands, and <strong>Wrapped</strong> when it's ready to give. 🔒 The people you're giving to can't see any of this.
         </p>
     </div>
 
@@ -23,7 +23,7 @@
                 <h2 class="text-2xl font-bold mb-4 flex items-center gap-3">
                     Gifts for {{ data.recipient.name }}
                     {% if data.is_proxy %}
-                        <span class="bg-yellow-600 text-white text-sm px-3 py-1 rounded-full">Pending Account</span>
+                        <span class="bg-yellow-600 text-white text-sm px-3 py-1 rounded-full">No account yet</span>
                     {% endif %}
                 </h2>
 
@@ -32,19 +32,19 @@
                         {% set item = claim.item %}
                         <div class="bg-gray-750 rounded-lg p-4 border border-gray-700">
                             <div class="flex gap-4">
-                                <!-- Item Image -->
+                                {# Item Image #}
                                 {% if item.image_url %}
                                     <img src="{{ item.image_url|safe_img }}" referrerpolicy="no-referrer" alt="{{ item.name }}" class="w-24 h-24 object-cover rounded">
                                 {% else %}
                                     <div class="w-24 h-24 bg-gray-600 flex items-center justify-center text-4xl rounded">🎁</div>
                                 {% endif %}
 
-                                <!-- Item Details -->
+                                {# Item Details #}
                                 <div class="flex-1">
                                     <h3 class="text-xl font-bold mb-1">
                                         {{ item.name }}
                                         {% if item.is_custom_gift and item.added_by_id == current_user.id %}
-                                            <span class="ml-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full">✨ Custom Gift</span>
+                                            <span class="ml-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full">🎁 Your surprise gift · hidden from {{ data.recipient.name }}</span>
                                         {% endif %}
                                     </h3>
                                     <div class="flex gap-4 text-sm text-gray-400 mb-2">
@@ -59,7 +59,7 @@
                                     {% endif %}
                                 </div>
 
-                                <!-- Status Checkboxes -->
+                                {# Status Checkboxes #}
                                 <div class="flex flex-col gap-3">
                                     <label class="flex items-center gap-2 cursor-pointer">
                                         <input type="checkbox"
@@ -68,7 +68,7 @@
                                                data-status="purchased"
                                                {% if claim.purchased %}checked{% endif %}>
                                         <span class="text-sm font-semibold {% if claim.purchased %}text-blue-600{% else %}text-gray-400{% endif %}">
-                                            💳 Purchased
+                                            💳 Bought
                                         </span>
                                     </label>
                                     <label class="flex items-center gap-2 cursor-pointer">
@@ -78,7 +78,7 @@
                                                data-status="received"
                                                {% if claim.received %}checked{% endif %}>
                                         <span class="text-sm font-semibold {% if claim.received %}text-green-600{% else %}text-gray-400{% endif %}">
-                                            📦 Received
+                                            📦 Arrived
                                         </span>
                                     </label>
                                     <label class="flex items-center gap-2 cursor-pointer">
@@ -93,11 +93,11 @@
                                     </label>
                                 </div>
 
-                                <!-- Delete/Unclaim Button -->
+                                {# Delete/Unclaim Button #}
                                 <div>
                                     {% if item.is_custom_gift and item.added_by_id == current_user.id %}
-                                        <!-- Custom gift - Delete entire item -->
-                                        <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" data-confirm="Delete this custom gift? This cannot be undone.">
+                                        {# Custom gift - Delete entire item #}
+                                        <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" data-confirm="Delete this surprise gift? This cannot be undone.">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <input type="hidden" name="next" value="my_claims">
                                             <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
@@ -105,12 +105,12 @@
                                             </button>
                                         </form>
                                     {% else %}
-                                        <!-- Regular claim - Unclaim only -->
-                                        <form method="POST" action="{{ url_for('wishlist.unclaim_item', claim_id=claim.id) }}" class="inline" data-confirm="Unclaim this item?">
+                                        {# Regular claim - Unclaim only #}
+                                        <form method="POST" action="{{ url_for('wishlist.unclaim_item', claim_id=claim.id) }}" class="inline" data-confirm="Remove this from Gifts I'm Giving?">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <input type="hidden" name="next" value="my_claims">
                                             <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
-                                                Unclaim
+                                                Undo
                                             </button>
                                         </form>
                                     {% endif %}
@@ -120,15 +120,15 @@
                     {% endfor %}
                 </div>
 
-                <!-- Summary Stats for Recipient -->
+                {# Summary Stats for Recipient #}
                 <div class="mt-4 flex gap-6 text-sm text-gray-400" data-recipient-stats="{{ recipient_id }}">
                     {% set total_claims = data.claims|length %}
                     {% set purchased_count = data.claims|selectattr('purchased', 'equalto', true)|list|length %}
                     {% set received_count = data.claims|selectattr('received', 'equalto', true)|list|length %}
                     {% set wrapped_count = data.claims|selectattr('wrapped', 'equalto', true)|list|length %}
                     <span>Total items: <span data-total>{{ total_claims }}</span></span>
-                    <span class="text-blue-600">Purchased: <span data-purchased>{{ purchased_count }}</span>/<span data-total>{{ total_claims }}</span></span>
-                    <span class="text-green-600">Received: <span data-received>{{ received_count }}</span>/<span data-total>{{ total_claims }}</span></span>
+                    <span class="text-blue-600">Bought: <span data-purchased>{{ purchased_count }}</span>/<span data-total>{{ total_claims }}</span></span>
+                    <span class="text-green-600">Arrived: <span data-received>{{ received_count }}</span>/<span data-total>{{ total_claims }}</span></span>
                     <span class="text-purple-600">Wrapped: <span data-wrapped>{{ wrapped_count }}</span>/<span data-total>{{ total_claims }}</span></span>
                 </div>
             </div>
@@ -136,8 +136,8 @@
     {% else %}
         <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
             <div class="text-6xl mb-4">🎁</div>
-            <h2 class="text-2xl font-bold mb-4">You haven't claimed any gifts yet</h2>
-            <p class="text-gray-400 mb-6">Browse wishlists and claim items you'd like to give!</p>
+            <h2 class="text-2xl font-bold mb-4">You're not getting anything yet</h2>
+            <p class="text-gray-400 mb-6">Browse wishlists and click "I'll get this" on anything you'd like to give.</p>
             <a href="{{ url_for('wishlist.all_users') }}" class="inline-block bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700">
                 Browse Wishlists
             </a>

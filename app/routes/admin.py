@@ -3,7 +3,7 @@ from functools import wraps
 from flask import Blueprint, abort, current_app, render_template, redirect, url_for, flash, request, session
 from flask_login import login_required, current_user
 
-from app import db, policy, services
+from app import db, email, policy, services
 from app.forms import InviteForm, NewSeasonForm, WishlistItemForm
 from app.models import User, WishlistItem, Claim, GiftHistory, Invite, ProxyWishlist, WishlistDelegate
 from app.routes.auth import merge_proxy_wishlist_to_user
@@ -169,9 +169,9 @@ def send_user_login_link(user_id):
 
     success = send_magic_link_email(user)
     if success:
-        flash(f"Login link sent to {user.email}.", "success")
+        flash(f"Magic link sent to {user.email}.", "success")
     else:
-        flash(f"Could not send login link to {user.name}.", "danger")
+        flash(f"Could not send a magic link to {user.name}.", "danger")
     return redirect(url_for("admin.view_user", user_id=user_id))
 
 
@@ -190,7 +190,7 @@ def impersonate(user_id):
     # The logged-in admin stays the session's user; load_user() swaps in the target while this is set
     session["impersonate_user_id"] = user_id
 
-    flash(f'Now impersonating {user.name}. Click "Stop Impersonating" to return.', "info")
+    flash(f'Now impersonating {user.name}. Click "Stop impersonating" to return.', "info")
     return redirect(url_for("main.index"))
 
 
@@ -275,7 +275,7 @@ def merge_proxy_wishlist(proxy_id):
     if request.method == "POST":
         user_id = request.form.get("user_id", type=int)
         if not user_id:
-            flash("Please select a user to merge with.", "danger")
+            flash("Please select an account to link to.", "danger")
             return redirect(url_for("admin.merge_proxy_wishlist", proxy_id=proxy_id))
 
         user = db.get_or_404(User, user_id)
@@ -287,20 +287,19 @@ def merge_proxy_wishlist(proxy_id):
             transferred_count = total_items - merged_count
             message_parts = []
             if transferred_count > 0:
-                message_parts.append(f"{transferred_count} item(s) transferred")
+                message_parts.append(f"{transferred_count} item(s) moved")
             if merged_count > 0:
-                message_parts.append(f"{merged_count} item(s) merged with existing items")
+                message_parts.append(f"{merged_count} item(s) combined with items already on their list")
 
             flash(
-                f"Proxy wishlist for '{proxy.name}' merged into {user.name}'s wishlist. "
-                f"{', '.join(message_parts)}.",
+                f"{proxy.name}'s list is now linked to {user.name}'s account. {', '.join(message_parts)}.",
                 "success",
             )
             return redirect(url_for("admin.proxy_wishlists"))
         except Exception:
             db.session.rollback()
             current_app.logger.exception("Error merging proxy wishlist %s", proxy_id)
-            flash("Error merging proxy wishlist; nothing was changed.", "danger")
+            flash("Error linking list to account; nothing was changed.", "danger")
             return redirect(url_for("admin.merge_proxy_wishlist", proxy_id=proxy_id))
 
     # GET request - show merge form
@@ -320,7 +319,7 @@ def delete_proxy_wishlist(proxy_id):
     db.session.delete(proxy)
     db.session.commit()
 
-    flash(f"Proxy wishlist for '{proxy_name}' has been deleted.", "success")
+    flash(f"{proxy_name}'s list has been deleted.", "success")
     return redirect(url_for("admin.proxy_wishlists"))
 
 
@@ -370,7 +369,7 @@ def add_delegate(proxy_id):
     existing = WishlistDelegate.query.filter_by(proxy_wishlist_id=proxy_id, user_id=user_id).first()
 
     if existing:
-        flash(f"{user.name} is already a delegate for {proxy.name}'s wishlist.", "warning")
+        flash(f"{user.name} is already a helper for {proxy.name}'s list.", "warning")
         return redirect(url_for("admin.manage_delegates", proxy_id=proxy_id))
 
     # Create delegate
@@ -381,7 +380,7 @@ def add_delegate(proxy_id):
     db.session.add(delegate)
     db.session.commit()
 
-    flash(f"{user.name} added as delegate for {proxy.name}'s wishlist!", "success")
+    flash(f"{user.name} is now a helper for {proxy.name}'s list.", "success")
     return redirect(url_for("admin.manage_delegates", proxy_id=proxy_id))
 
 
@@ -398,7 +397,7 @@ def remove_delegate(delegate_id):
     db.session.delete(delegate)
     db.session.commit()
 
-    flash(f"{user_name} removed as delegate for {proxy_name}'s wishlist.", "success")
+    flash(f"{user_name} is no longer a helper for {proxy_name}'s list.", "success")
     return redirect(url_for("admin.manage_delegates", proxy_id=proxy_id))
 
 
@@ -415,7 +414,7 @@ def update_delegate_permissions(delegate_id):
 
     db.session.commit()
 
-    flash(f"Permissions updated for {delegate.user.name}.", "success")
+    flash(f"Helper permissions updated for {delegate.user.name}.", "success")
     return redirect(url_for("admin.manage_delegates", proxy_id=delegate.proxy_wishlist_id))
 
 
@@ -472,15 +471,19 @@ def new_season():
         season = form.season.data.strip()
         stats = services.close_season(season)
         db.session.commit()
-        sent = 0
-        if form.notify.data:
-            from app.email import send_season_open_email
-
-            sent = send_season_open_email()
+        if not form.notify.data:
+            email_note = "."
+        elif email.delivery_enabled():
+            email_note = f"; emailed {email.send_season_open_email()} people that lists are open."
+        else:
+            email.send_season_open_email()  # renders and logs only
+            email_note = (
+                f". Email delivery is off, so nothing was sent; the preview below is what "
+                f"{len(email.season_open_recipients())} people would have received."
+            )
         flash(
-            f"Season {season} closed: {stats['fully_claimed']} given gift(s) archived and removed, "
-            f"{stats['partly_claimed']} partly claimed item(s) kept with their remaining quantity"
-            + (f"; emailed {sent} people that lists are open." if form.notify.data else "."),
+            f"Christmas {season} is wrapped up: {stats['fully_claimed']} gift(s) moved to Gifts I've Received, "
+            f"{stats['partly_claimed']} partly claimed item(s) kept with what's left" + email_note,
             "success",
         )
         return redirect(url_for("admin.new_season"))
@@ -491,4 +494,13 @@ def new_season():
         .order_by(GiftHistory.season.desc())
         .all()
     )
-    return render_template("admin/season.html", form=form, preview=services.season_preview(), past=past)
+    subject, text, _ = email.render_season_open_email(current_user)
+    return render_template(
+        "admin/season.html",
+        form=form,
+        preview=services.season_preview(),
+        past=past,
+        email_preview={"subject": subject, "text": text, "to": current_user.email},
+        email_recipients=len(email.season_open_recipients()),
+        mail_delivery=email.delivery_enabled(),
+    )
