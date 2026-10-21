@@ -47,6 +47,9 @@ class User(UserMixin, db.Model):
     has_seen_tour = db.Column(db.Boolean, default=False)
     # Changes on every login; magic-link tokens embed it, which makes each link single-use
     last_login_at = db.Column(db.DateTime, nullable=True)
+    # Daily digest email: "daily", "weekly" or "off"; last_digest_at marks what they've already been told about
+    digest_frequency = db.Column(db.String(10), nullable=False, default="daily", server_default="daily")
+    last_digest_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
@@ -126,6 +129,10 @@ class WishlistItem(db.Model):
     image_url = db.Column(db.String(500))
     available_images = db.Column(db.Text)  # JSON array of image URLs scraped from product page
     quantity = db.Column(db.Integer, default=1)
+    most_wanted = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    size = db.Column(db.String(50))
+    color = db.Column(db.String(50))
+    position = db.Column(db.Integer)  # the owner's drag-to-reorder order (lower first); None = newest, unsorted
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
@@ -405,3 +412,60 @@ class GiftHistory(db.Model):
 
     def __repr__(self):
         return f"<GiftHistory {self.season} {self.item_name!r} -> {self.recipient_name}>"
+
+
+def list_order(query):
+    """Most wanted first, then the owner's chosen order, then (never ordered) newest first."""
+    return query.order_by(
+        WishlistItem.most_wanted.desc(),
+        WishlistItem.position.is_(None).asc(),
+        WishlistItem.position.asc(),
+        WishlistItem.created_at.desc(),
+    )
+
+
+class ListVisit(db.Model):
+    """When someone last looked at a list, for the "new since your last visit" badge on Browse Wishlists."""
+
+    __tablename__ = "list_visits"
+    __table_args__ = (
+        db.UniqueConstraint("viewer_id", "list_user_id", "list_proxy_id", name="uq_list_visits_viewer_list"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    viewer_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    list_user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    list_proxy_id = db.Column(db.Integer, db.ForeignKey("proxy_wishlists.id", ondelete="CASCADE"), nullable=True)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    @classmethod
+    def touch(cls, viewer, list_user_id=None, list_proxy_id=None):
+        visit = cls.query.filter_by(viewer_id=viewer.id, list_user_id=list_user_id, list_proxy_id=list_proxy_id).first()
+        if visit is None:
+            visit = cls(viewer_id=viewer.id, list_user_id=list_user_id, list_proxy_id=list_proxy_id)
+            db.session.add(visit)
+        visit.last_seen_at = utcnow()
+        return visit
+
+
+class Reminder(db.Model):
+    """A "please add to your wishlist" nudge one family member sent another (rate-limited per recipient)."""
+
+    __tablename__ = "reminders"
+
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    sent_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
+
+
+class DeletedItem(db.Model):
+    """A just-deleted item (with its claims), kept briefly so the person who deleted it can Undo."""
+
+    __tablename__ = "deleted_items"
+
+    id = db.Column(db.Integer, primary_key=True)
+    payload = db.Column(db.Text, nullable=False)  # JSON snapshot of the item and its claims
+    deleted_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    change_id = db.Column(db.Integer, nullable=True)  # the digest "deleted" row to drop if undone
+    deleted_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)

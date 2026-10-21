@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_item_details.html" import item_details %}
 
 {% block title %}Gifts I'm Giving{% endblock %}
 
@@ -18,19 +19,42 @@
     </div>
 
     {% if claims_by_recipient %}
-        {% for recipient_id, data in claims_by_recipient.items() %}
-            <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-                <h2 class="text-2xl font-bold mb-4 flex items-center gap-3">
-                    Gifts for {{ data.recipient.name }}
-                    {% if data.is_proxy %}
-                        <span class="bg-yellow-600 text-white text-sm px-3 py-1 rounded-full">No account yet</span>
-                    {% endif %}
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6" data-overall>
+            <div class="flex flex-wrap justify-between items-baseline gap-2">
+                <h2 class="text-xl font-bold">
+                    {{ overall.gifts }} gift{{ "s" if overall.gifts != 1 }} for {{ claims_by_recipient|length }} {{ "people" if claims_by_recipient|length != 1 else "person" }}
                 </h2>
+                <p class="text-2xl font-bold text-green-500">${{ "%.2f"|format(overall.spend) }}</p>
+            </div>
+            {% if overall.unpriced %}<p class="text-xs text-gray-400">{{ overall.unpriced }} without a price not counted</p>{% endif %}
+            <div class="w-full bg-gray-700 rounded-full h-3 mt-3" role="progressbar" aria-label="Wrapped" aria-valuemin="0" aria-valuemax="{{ overall.gifts }}" aria-valuenow="{{ overall.done }}">
+                <div class="bg-green-500 h-3 rounded-full w-0" data-progress-bar></div>
+            </div>
+            <div class="mt-2">
+                <p class="text-sm text-gray-300" data-progress>
+                        <span data-to-buy>{{ overall.to_buy }}</span> to buy ·
+                        <span data-to-wrap>{{ overall.to_wrap }}</span> to wrap ·
+                        <span data-done>{{ overall.done }}</span> done
+                    </p>
+            </div>
+        </div>
+
+        {% for recipient_id, data in claims_by_recipient.items() %}
+            <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6" data-recipient>
+                <div class="flex flex-wrap justify-between items-baseline gap-2 mb-4">
+                    <h2 class="text-2xl font-bold flex items-center gap-3">
+                        Gifts for {{ data.recipient.name }}
+                        {% if data.is_proxy %}
+                            <span class="bg-yellow-600 text-white text-sm px-3 py-1 rounded-full">No account yet</span>
+                        {% endif %}
+                    </h2>
+                    <span class="text-lg font-semibold text-green-500">${{ "%.2f"|format(data.spend) }}</span>
+                </div>
 
                 <div class="space-y-4">
                     {% for claim in data.claims %}
                         {% set item = claim.item %}
-                        <div class="bg-gray-750 rounded-lg p-4 border border-gray-700">
+                        <div class="bg-gray-750 rounded-lg p-4 border border-gray-700" data-claim>
                             <div class="flex gap-4">
                                 {# Item Image #}
                                 {% if item.image_url %}
@@ -47,6 +71,7 @@
                                             <span class="ml-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full">🎁 Your surprise gift · hidden from {{ data.recipient.name }}</span>
                                         {% endif %}
                                     </h3>
+                                    {{ item_details(item) }}
                                     <div class="flex gap-4 text-sm text-gray-400 mb-2">
                                         {% if item.price %}
                                             <span class="text-green-600 font-semibold">${{ "%.2f"|format(item.price * claim.quantity) }}</span>
@@ -97,7 +122,7 @@
                                 <div>
                                     {% if item.is_custom_gift and item.added_by_id == current_user.id %}
                                         {# Custom gift - Delete entire item #}
-                                        <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline" data-confirm="Delete this surprise gift? This cannot be undone.">
+                                        <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="inline">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <input type="hidden" name="next" value="my_claims">
                                             <button type="submit" class="text-red-600 hover:text-red-700 text-sm font-semibold">
@@ -120,16 +145,12 @@
                     {% endfor %}
                 </div>
 
-                {# Summary Stats for Recipient #}
-                <div class="mt-4 flex gap-6 text-sm text-gray-400" data-recipient-stats="{{ recipient_id }}">
-                    {% set total_claims = data.claims|length %}
-                    {% set purchased_count = data.claims|selectattr('purchased', 'equalto', true)|list|length %}
-                    {% set received_count = data.claims|selectattr('received', 'equalto', true)|list|length %}
-                    {% set wrapped_count = data.claims|selectattr('wrapped', 'equalto', true)|list|length %}
-                    <span>Total items: <span data-total>{{ total_claims }}</span></span>
-                    <span class="text-blue-600">Bought: <span data-purchased>{{ purchased_count }}</span>/<span data-total>{{ total_claims }}</span></span>
-                    <span class="text-green-600">Arrived: <span data-received>{{ received_count }}</span>/<span data-total>{{ total_claims }}</span></span>
-                    <span class="text-purple-600">Wrapped: <span data-wrapped>{{ wrapped_count }}</span>/<span data-total>{{ total_claims }}</span></span>
+                <div class="mt-4">
+                    <p class="text-sm text-gray-300" data-progress>
+                        <span data-to-buy>{{ data.to_buy }}</span> to buy ·
+                        <span data-to-wrap>{{ data.to_wrap }}</span> to wrap ·
+                        <span data-done>{{ data.done }}</span> done
+                    </p>
                 </div>
             </div>
         {% endfor %}
@@ -145,85 +166,5 @@
     {% endif %}
 </div>
 
-<script nonce="{{ csp_nonce() }}">
-document.addEventListener('DOMContentLoaded', function() {
-    // Function to update stats for a recipient section
-    function updateRecipientStats(recipientSection) {
-        const statsDiv = recipientSection.querySelector('[data-recipient-stats]');
-        if (!statsDiv) return;
-
-        // Count all checkboxes of each type in this section
-        const allCheckboxes = recipientSection.querySelectorAll('.status-checkbox');
-        let purchasedCount = 0;
-        let receivedCount = 0;
-        let wrappedCount = 0;
-
-        allCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                const status = checkbox.dataset.status;
-                if (status === 'purchased') purchasedCount++;
-                else if (status === 'received') receivedCount++;
-                else if (status === 'wrapped') wrappedCount++;
-            }
-        });
-
-        // Update the display
-        statsDiv.querySelector('[data-purchased]').textContent = purchasedCount;
-        statsDiv.querySelector('[data-received]').textContent = receivedCount;
-        statsDiv.querySelector('[data-wrapped]').textContent = wrappedCount;
-    }
-
-    // Handle status checkbox changes
-    document.querySelectorAll('.status-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', async function() {
-            const claimId = this.dataset.claimId;
-            const status = this.dataset.status;
-            const isChecked = this.checked;
-
-            // Find the parent recipient section
-            const recipientSection = this.closest('.bg-gray-800');
-
-            try {
-                const response = await fetch(`/wishlist/update-claim-status/${claimId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        [status]: isChecked
-                    })
-                });
-
-                if (response.ok) {
-                    // Update label color
-                    const label = this.nextElementSibling;
-                    const colorMap = {
-                        'purchased': 'text-blue-600',
-                        'received': 'text-green-600',
-                        'wrapped': 'text-purple-600'
-                    };
-                    if (isChecked) {
-                        label.classList.remove('text-gray-400');
-                        label.classList.add(colorMap[status]);
-                    } else {
-                        label.classList.add('text-gray-400');
-                        label.classList.remove('text-blue-600', 'text-green-600', 'text-purple-600');
-                    }
-
-                    // Update the stats for this recipient
-                    updateRecipientStats(recipientSection);
-                } else {
-                    // Revert checkbox on error
-                    this.checked = !isChecked;
-                    alert('Error updating status. Please try again.');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                this.checked = !isChecked;
-                alert('Error updating status. Please try again.');
-            }
-        });
-    });
-});
-</script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/gifts-giving.js') }}"></script>
 {% endblock %}

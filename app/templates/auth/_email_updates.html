@@ -1,0 +1,21 @@
+{#
+  The "Email updates" choice (daily / weekly / off), on Account Settings and on the page linked from every digest.
+  {% from "auth/_email_updates.html" import email_updates_form with context %}
+#}
+{% macro email_updates_form(form, action) %}
+<form method="POST" action="{{ action }}" class="space-y-3">
+    {{ form.hidden_tag() }}
+    <fieldset>
+        <legend class="text-gray-300 mb-3">{{ form.digest_frequency.label.text }}</legend>
+        <div class="space-y-2">
+            {% for choice in form.digest_frequency %}
+                <label class="flex items-center gap-3 bg-gray-700 rounded-lg p-3 cursor-pointer">
+                    {{ choice(class="w-5 h-5") }}
+                    <span>{{ choice.label.text }}</span>
+                </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+    {{ form.submit(class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 cursor-pointer") }}
+</form>
+{% endmacro %}

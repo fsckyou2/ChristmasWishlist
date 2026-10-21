@@ -1,0 +1,8 @@
+Dear {{ recipient.name }},
+
+{{ sender.name }} is wondering what you'd like for Christmas! Your wishlist is still empty.
+
+Add a few ideas here:
+{{ app_url }}/wishlist/my-list
+
+{% include 'email/_signature.txt' %}

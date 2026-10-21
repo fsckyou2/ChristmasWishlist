@@ -58,3 +58,7 @@ htmlcov/
 scripts/truenas-api.sh
 scripts/truenas-deploy.sh
 TRUENAS_ACCESS.md
+
+# Built CSS (scripts/build_css.sh or the Docker build) and its CLI
+app/static/css/app.css
+.cache/

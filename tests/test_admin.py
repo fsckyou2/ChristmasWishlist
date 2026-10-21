@@ -140,7 +140,7 @@ class TestAdminRoutes:
 
         response = client.post(f"/admin/item/{item_id}/delete", follow_redirects=True)
         assert response.status_code == 200
-        assert b"deleted" in response.data
+        assert b"Deleted" in response.data and b">Undo<" in response.data
 
         # Verify deletion
         with app.app_context():

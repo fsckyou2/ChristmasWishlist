@@ -18,7 +18,8 @@ This is a family app on a home server. The things it protects, in order:
   - Every item write goes through [`app/validation.py`](app/validation.py) (http/https URLs only; images are http/https or `/static/`).
   - Templates re-check URLs at render time (`safe_href` / `safe_img`).
   - Client code builds DOM nodes rather than HTML strings.
-  - A nonce-based CSP with no inline handlers. `style-src` allows inline styles for the Tailwind CDN.
+  - A nonce-based CSP with no inline handlers and no inline styles (`script-src`/`style-src` are `'self'` plus the
+    nonce). Tailwind is a stylesheet built into the image, not a CDN script.
 - **Headers**: CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`, and HSTS on HTTPS.
 - **Email**: Bodies are rendered from autoescaped templates.
 - **Errors**: Clients get generic messages; details go to the logs.
@@ -29,7 +30,7 @@ This is a family app on a home server. The things it protects, in order:
   - Designed for a read-only root filesystem with all capabilities dropped and `no-new-privileges`.
 - **Supply chain**:
   - Pinned dependencies, with Dependabot and `pip-audit` in CI.
-  - A pinned Tailwind CDN version.
+  - Tailwind's standalone CLI is pinned and checked against its sha256 when the image is built.
   - No third-party CORS proxies; product pages are fetched only by the server.
 
 ## Deployment checklist

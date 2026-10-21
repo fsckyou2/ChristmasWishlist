@@ -3,7 +3,7 @@
  *
  * - Adds the CSRF token to same-origin, state-changing fetch() calls.
  * - Confirmation prompts via data-confirm="..." on forms or submit buttons (no inline handlers; see the CSP).
- * - Navigation toggles.
+ * - Navigation menus (data-menu) and show/hide toggles (data-toggle-target).
  */
 (function () {
     const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
@@ -45,6 +45,31 @@
         if (message && !window.confirm(message)) {
             event.preventDefault();
         }
+    });
+
+    // Menus: <button data-menu="panel-id" aria-expanded="false">. Tap/click to open; tap outside or Escape to close.
+    function setMenu(button, open) {
+        const panel = document.getElementById(button.dataset.menu);
+        if (!panel) return;
+        panel.classList.toggle('hidden', !open);
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-menu]');
+        document.querySelectorAll('[data-menu][aria-expanded="true"]').forEach(function (open) {
+            const panel = document.getElementById(open.dataset.menu);
+            if (open !== button && !(panel && panel.contains(event.target))) setMenu(open, false);
+        });
+        if (button) setMenu(button, button.getAttribute('aria-expanded') !== 'true');
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('[data-menu][aria-expanded="true"]').forEach(function (open) {
+            setMenu(open, false);
+            open.focus();
+        });
     });
 
     document.addEventListener('click', function (event) {

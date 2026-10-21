@@ -1,0 +1,96 @@
+{#
+  The one item form used for adding/editing items everywhere (own list, surprise gifts, lists kept for someone, admin).
+  Import with context so csp_nonce() works:  {% from "_item_form.html" import item_form with context %}
+
+  item_form(form, cancel_url, submit_label, item=None, accent="green", show_priority=True)
+  - Pasting a product link fills in the details right away (static/js/item-form.js).
+  - show_priority: show "★ Most wanted" (owners and helpers; not for surprise gifts).
+#}
+{% macro item_form(form, cancel_url, submit_label, item=None, accent="green", show_priority=True) %}
+{# Whole class names only, so the Tailwind build can find them #}
+{% set accents = {
+    "green": {"field": "focus:ring-green-600 focus:border-green-600", "button": "bg-green-600 hover:bg-green-700"},
+    "purple": {"field": "focus:ring-purple-600 focus:border-purple-600", "button": "bg-purple-600 hover:bg-purple-700"},
+} %}
+{% set field_class = "w-full px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 placeholder-gray-400 " ~ accents[accent].field %}
+<form method="POST" class="space-y-4" data-item-form>
+    {{ form.hidden_tag() }}
+
+    <div>
+        {{ form.url.label(class="block text-gray-200 font-semibold mb-2") }}
+        {{ form.url(class=field_class, id="url-input", placeholder="Paste a product link (Amazon, Target, Etsy, ...)", autocomplete="off", **{"data-autofill-url": ""}) }}
+        <div class="flex items-center gap-3 mt-2">
+            <p class="text-sm text-gray-400" data-autofill-status aria-live="polite">Paste a product link and the details fill in by themselves.</p>
+            <button type="button" class="hidden text-sm text-blue-400 underline hover:no-underline whitespace-nowrap" data-autofill-refresh>Fetch details again</button>
+        </div>
+        {% for error in form.url.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div>
+        {{ form.name.label(class="block text-gray-200 font-semibold mb-2") }}
+        {{ form.name(class=field_class, id="name-input", required=true) }}
+        {% for error in form.name.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div>
+        {{ form.description.label(class="block text-gray-200 font-semibold mb-2") }}
+        {{ form.description(class=field_class, rows=3, id="description-input") }}
+        {% for error in form.description.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+        <div>
+            {{ form.price.label(class="block text-gray-200 font-semibold mb-2") }}
+            {{ form.price(class=field_class, step="0.01", id="price-input") }}
+            {% for error in form.price.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+            {{ form.quantity.label(class="block text-gray-200 font-semibold mb-2") }}
+            {{ form.quantity(class=field_class, id="quantity-input") }}
+            {% for error in form.quantity.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+        <div>
+            {{ form.size.label(class="block text-gray-200 font-semibold mb-2") }}
+            {{ form.size(class=field_class, id="size-input", placeholder="e.g. Women's M") }}
+            {% for error in form.size.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+            {{ form.color.label(class="block text-gray-200 font-semibold mb-2") }}
+            {{ form.color(class=field_class, id="color-input", placeholder="e.g. Navy") }}
+            {% for error in form.color.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+
+    {% if show_priority %}
+        <label class="flex items-start gap-3 bg-gray-700 rounded-lg p-3 cursor-pointer">
+            {{ form.most_wanted(class="mt-1 w-5 h-5") }}
+            <span>
+                <span class="font-semibold text-yellow-300">{{ form.most_wanted.label.text }}</span>
+                <span class="block text-sm text-gray-300">Shown first, with a star, to everyone shopping for this list.</span>
+            </span>
+        </label>
+    {% endif %}
+
+    <div>
+        {{ form.image_url.label(class="block text-gray-200 font-semibold mb-2") }}
+        {{ form.image_url(class=field_class, id="image-input") }}
+        {% for error in form.image_url.errors %}<p class="text-red-500 text-sm mt-1">{{ error }}</p>{% endfor %}
+        <p class="text-xs text-gray-400 mt-1">Filled in from the product link, or pick one of the pictures below.</p>
+    </div>
+
+    <div id="image-selector-container"
+         data-current-image="{{ item.image_url if item and item.image_url else '' }}"
+         data-images="{{ (item.get_available_images() if item else [])|tojson|forceescape }}"></div>
+
+    <div class="flex gap-4">
+        {{ form.submit(value=submit_label, class="flex-1 text-white py-3 rounded-lg font-semibold cursor-pointer " ~ accents[accent].button) }}
+        <a href="{{ cancel_url }}" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 text-center">Cancel</a>
+    </div>
+</form>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/scraper.js') }}"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/image-selector.js') }}"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/item-form.js') }}"></script>
+{% endmacro %}

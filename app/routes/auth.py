@@ -1,8 +1,8 @@
-from flask import Blueprint, render_template, redirect, request, url_for, flash, session, jsonify
+from flask import Blueprint, abort, render_template, redirect, request, url_for, flash, session, jsonify
 from flask_login import login_user, logout_user, current_user, login_required
 from flask_wtf import FlaskForm
 
-from app import db, limiter
+from app import csrf, db, limiter
 from app.models import GiftHistory, Invite, User, ProxyWishlist, WishlistItem
 from app.forms import (
     RegistrationForm,
@@ -11,8 +11,9 @@ from app.forms import (
     UsernamePasswordLoginForm,
     AccountSettingsForm,
     ChangePasswordForm,
+    EmailPreferencesForm,
 )
-from app.email import send_magic_link_email, send_welcome_email
+from app.email import send_magic_link_email, send_welcome_email, user_from_preferences_token
 from app.services import merge_items, similar_items
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -387,4 +388,54 @@ def settings():
         account_form.email.data = current_user.email
         account_form.username.data = current_user.username
 
-    return render_template("auth/settings.html", account_form=account_form, password_form=password_form)
+    email_form = EmailPreferencesForm(digest_frequency=current_user.digest_frequency)
+    return render_template(
+        "auth/settings.html", account_form=account_form, password_form=password_form, email_form=email_form
+    )
+
+
+def _save_email_preferences(user, form):
+    user.digest_frequency = form.digest_frequency.data
+    db.session.commit()
+    flash(f"Email updates: {dict(form.digest_frequency.choices)[user.digest_frequency]}.", "success")
+
+
+@bp.route("/settings/email-updates", methods=["POST"])
+@login_required
+def save_email_updates():
+    form = EmailPreferencesForm()
+    if form.validate_on_submit():
+        _save_email_preferences(current_user, form)
+    return redirect(url_for("auth.settings"))
+
+
+@bp.route("/email-preferences/<token>", methods=["GET", "POST"])
+@limiter.limit(AUTH_LIMIT, methods=["POST"])
+def email_preferences(token):
+    """Linked from every digest: change how often you get it, without logging in."""
+    person = user_from_preferences_token(token)
+    if person is None:
+        abort(404)
+    form = EmailPreferencesForm(digest_frequency=person.digest_frequency)
+    if form.validate_on_submit():
+        _save_email_preferences(person, form)
+        return redirect(url_for("auth.email_preferences", token=token))
+    return render_template("auth/email_preferences.html", form=form, person=person, token=token)
+
+
+@bp.route("/email-preferences/<token>/one-click", methods=["GET", "POST"])
+@csrf.exempt
+@limiter.limit(AUTH_LIMIT)
+def one_click_unsubscribe(token):
+    """RFC 8058 one-click unsubscribe (the List-Unsubscribe header): a POST turns the digest off.
+
+    A GET (some mail apps just open the link) shows the normal preferences page instead of changing anything.
+    """
+    person = user_from_preferences_token(token)
+    if person is None:
+        abort(404)
+    if request.method == "GET":
+        return redirect(url_for("auth.email_preferences", token=token))
+    person.digest_frequency = "off"
+    db.session.commit()
+    return "Email updates are off.", 200, {"Content-Type": "text/plain; charset=utf-8"}

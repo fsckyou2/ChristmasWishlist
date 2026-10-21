@@ -275,12 +275,11 @@ PREFERRED_URL_SCHEME=https
 
 ### Issue: Static files not loading
 
-**Cause:** CSP header blocking external resources.
+**Cause:** A second Content-Security-Policy added by the proxy, or an image built without its stylesheet.
 
-**Solution:** Adjust CSP in Nginx config to allow Tailwind CSS CDN:
-```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;" always;
-```
+**Solution:** The app sends its own nonce-based Content-Security-Policy and serves everything (including the
+prebuilt Tailwind stylesheet, `/static/css/app.css`) from its own origin. Don't add another CSP header in the proxy.
+When running from source, build the stylesheet first with `scripts/build_css.sh`.
 
 ## Performance Optimization
 

@@ -1,0 +1,13 @@
+{#
+  Small details shown under an item's name everywhere it's listed: "★ Most wanted", size and colour.
+  {% from "_item_details.html" import item_details %}
+#}
+{% macro item_details(item) %}
+{% if item.most_wanted or item.size or item.color %}
+<div class="flex flex-wrap gap-2 mt-1 mb-2 text-xs">
+    {% if item.most_wanted %}<span class="bg-yellow-400 text-gray-900 font-semibold px-2 py-1 rounded-full">★ Most wanted</span>{% endif %}
+    {% if item.size %}<span class="bg-gray-700 text-gray-200 px-2 py-1 rounded-full">Size: {{ item.size }}</span>{% endif %}
+    {% if item.color %}<span class="bg-gray-700 text-gray-200 px-2 py-1 rounded-full">Colour: {{ item.color }}</span>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}
