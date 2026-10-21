@@ -143,11 +143,10 @@ class TestNewSeason:
     def test_preview_counts(self, family):
         assert services.season_preview() == {
             "total_items": 4,
-            "fully_claimed": 2,  # LEGO and the surprise Bike
-            "partly_claimed": 1,  # Socks: 2 of 3
+            "claimed_items": 3,  # LEGO, Socks (2 of 3), the surprise Bike
+            "unclaimed_items": 1,  # Book
             "claims": 3,
-            "recipients": 1,
-            "remaining_after": 2,
+            "lists": 1,
         }
 
     def test_close_season_archives_and_clears(self, family):
@@ -155,23 +154,23 @@ class TestNewSeason:
         services.close_season("2025")
         db.session.commit()
 
-        names = {i.name: i for i in WishlistItem.query.all()}
-        assert set(names) == {"Socks", "Book"}
-        assert names["Socks"].quantity == 1 and names["Socks"].claims == []
+        assert WishlistItem.query.count() == 0  # every list starts fresh, claimed or not
         assert Claim.query.count() == 0
         assert WishlistChange.query.count() == changes_before  # nothing for the digest
 
         history = {h.item_name: h for h in GiftHistory.query.all()}
-        assert set(history) == {"LEGO", "Socks", "Bike"}
-        assert history["Socks"].quantity == 2 and history["Socks"].givers == "Uncle Fred"
+        assert set(history) == {"LEGO", "Socks", "Bike", "Book"}  # unclaimed items are archived too
+        assert (history["Socks"].quantity, history["Socks"].claimed_quantity) == (3, 2)
+        assert history["Socks"].givers == "Uncle Fred"
+        assert (history["Book"].claimed_quantity, history["Book"].givers) == (0, None)
         assert history["Bike"].was_surprise and history["Bike"].givers == "Aunt Rebecca"
         assert all(h.season == "2025" and h.recipient_user_id == family["kid"].id for h in history.values())
 
     def test_admin_page_requires_typed_confirmation(self, client, family):
         login(client, family["admin"])
         page = client.get("/admin/season").get_data(as_text=True)
-        assert "<strong>2</strong> item(s) claimed in full" in page
-        assert "of 4 item(s) remain" in page and "built-in method" not in page
+        assert "<strong>All 4</strong> item(s)" in page and "<strong>3</strong> claimed item(s)" in page
+        assert "built-in method" not in page
         assert f'value="Start Christmas {int(services.default_season_label()) + 1}"' in page
         client.post("/admin/season", data={"season": "2025", "confirm": "2024", "notify": ""})
         assert WishlistItem.query.count() == 4  # nothing happened
@@ -184,7 +183,7 @@ class TestNewSeason:
         login(client, family["admin"])
         response = client.post("/admin/season", data={"season": "2025", "confirm": "2025", "notify": "y"})
         assert response.status_code == 302
-        assert WishlistItem.query.count() == 2 and GiftHistory.query.count() == 3
+        assert WishlistItem.query.count() == 0 and GiftHistory.query.count() == 4
         assert sorted(sent) == sorted(u.email for u in User.query.all())
 
     def test_only_admins_can_close_season(self, client, family):
@@ -195,7 +194,7 @@ class TestNewSeason:
     def test_archive_is_kept_but_never_shown_on_the_site(self, client, app, family):
         services.close_season("2025")
         db.session.commit()
-        assert GiftHistory.query.filter_by(recipient_user_id=family["kid"].id).count() == 3
+        assert GiftHistory.query.filter_by(recipient_user_id=family["kid"].id).count() == 4
 
         login(client, family["kid"])
         assert client.get("/wishlist/received").status_code == 404
@@ -205,7 +204,7 @@ class TestNewSeason:
         admin = app.test_client()
         login(admin, family["admin"])
         page = admin.get("/admin/season").get_data(as_text=True)
-        assert "Christmas 2025: 3 gift(s) archived" in page  # counts only, for the admin
+        assert "Christmas 2025: 4 item(s) archived" in page  # counts only, for the admin
         assert "LEGO" not in page and "Aunt Rebecca" not in page
 
     def test_proxy_history_follows_the_person_when_they_join(self, client, family, invite):
@@ -227,6 +226,23 @@ class TestNewSeason:
         )
         lynn = User.query.filter_by(username="lynn").one()
         assert GiftHistory.query.filter_by(recipient_user_id=lynn.id, item_name="Quilt").count() == 1
+
+    def test_season_must_be_a_year(self, client, family):
+        login(client, family["admin"])
+        client.post("/admin/season", data={"season": "last", "confirm": "last"})
+        assert WishlistItem.query.count() == 4
+
+    def test_season_email_names_the_new_christmas(self, client, family, monkeypatch):
+        import app.email as email_mod
+
+        sent = []
+        monkeypatch.setattr(email_mod, "send_email", lambda subject, to, text, html: sent.append((subject, text)))
+        login(client, family["admin"])
+        client.post("/admin/season", data={"season": "2025", "confirm": "2025", "notify": "y"})
+        subject, text = sent[0]
+        assert subject.endswith(": Time to update your list!")
+        assert "The family wishlists are open for Christmas 2026! 🎄" in text
+        assert text.rstrip().endswith("Ho ho ho,\nSanta 🎅")
 
     def test_default_season_label(self):
         from datetime import datetime

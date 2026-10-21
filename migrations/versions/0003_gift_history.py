@@ -30,6 +30,7 @@ def upgrade():
         sa.Column("image_url", sa.String(length=500), nullable=True),
         sa.Column("price", sa.Float(), nullable=True),
         sa.Column("quantity", sa.Integer(), nullable=False),
+        sa.Column("claimed_quantity", sa.Integer(), server_default="0", nullable=False),
         sa.Column("givers", sa.String(length=500), nullable=True),
         sa.Column("was_surprise", sa.Boolean(), nullable=False),
         sa.Column("archived_at", sa.DateTime(), nullable=False),

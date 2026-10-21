@@ -1,3 +1,5 @@
+import re
+
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, FloatField, IntegerField, SubmitField, PasswordField, BooleanField
 from wtforms.validators import DataRequired, Email, ValidationError, Optional, NumberRange, Length, EqualTo
@@ -124,6 +126,10 @@ class NewSeasonForm(FlaskForm):
     confirm = StringField("Type it again to confirm", validators=[DataRequired(), Length(max=20)])
     notify = BooleanField("Email everyone that lists are open", default=True)
     submit = SubmitField("Start the next Christmas")
+
+    def validate_season(self, field):
+        if not re.fullmatch(r"\d{4}", (field.data or "").strip()):
+            raise ValidationError("Enter the year of the Christmas that's ending, like 2025.")
 
     def validate_confirm(self, field):
         if (field.data or "").strip() != (self.season.data or "").strip():

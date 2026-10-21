@@ -469,21 +469,23 @@ def new_season():
 
     if form.validate_on_submit():
         season = form.season.data.strip()
+        christmas = services.next_christmas(season)
         stats = services.close_season(season)
         db.session.commit()
         if not form.notify.data:
-            email_note = "."
+            email_note = ""
         elif email.delivery_enabled():
-            email_note = f"; emailed {email.send_season_open_email()} people that lists are open."
+            email_note = f" Emailed {email.send_season_open_email(christmas)} people that lists are open."
         else:
-            email.send_season_open_email()  # renders and logs only
+            email.send_season_open_email(christmas)  # renders and logs only
             email_note = (
-                f". Email delivery is off, so nothing was sent; the preview below is what "
+                f" Email delivery is off, so nothing was sent; the preview below is what "
                 f"{len(email.season_open_recipients())} people would have received."
             )
         flash(
-            f"Christmas {season} is wrapped up: {stats['fully_claimed']} gift(s) archived and cleared from lists, "
-            f"{stats['partly_claimed']} partly claimed item(s) kept with what's left" + email_note,
+            f"Christmas {season} is wrapped up: all {stats['total_items']} item(s) archived and cleared "
+            f"({stats['claimed_items']} claimed, {stats['unclaimed_items']} not claimed). "
+            f"Welcome to Christmas {christmas}!" + email_note,
             "success",
         )
         return redirect(url_for("admin.new_season"))
@@ -494,7 +496,10 @@ def new_season():
         .order_by(GiftHistory.season.desc())
         .all()
     )
-    subject, text, _ = email.render_season_open_email(current_user)
+    upcoming = services.next_christmas(services.default_season_label())
+    if form.season.data and str(form.season.data).strip().isdigit():
+        upcoming = services.next_christmas(form.season.data)
+    subject, text, _ = email.render_season_open_email(current_user, upcoming)
     return render_template(
         "admin/season.html",
         form=form,

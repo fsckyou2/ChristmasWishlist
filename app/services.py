@@ -141,57 +141,53 @@ def default_season_label(now=None):
     return str(now.year if (now.month, now.day) >= (12, 26) else now.year - 1)
 
 
+def next_christmas(season):
+    """The Christmas that starts when `season` is closed ("2025" -> 2026)."""
+    return int(season) + 1
+
+
 def season_preview():
     """Counts of what close_season() would do. No item names, so it can't spoil anyone (including the admin)."""
     items = WishlistItem.query.all()
     claimed = [i for i in items if i.claims]
-    full = [i for i in claimed if i.is_fully_claimed]
-    recipients = {(i.user_id, i.proxy_wishlist_id) for i in claimed}
     return {
         "total_items": len(items),
-        "fully_claimed": len(full),
-        "partly_claimed": len(claimed) - len(full),
+        "claimed_items": len(claimed),
+        "unclaimed_items": len(items) - len(claimed),
         "claims": sum(len(i.claims) for i in claimed),
-        "recipients": len(recipients),
-        "remaining_after": len(items) - len(full),
+        "lists": len({(i.user_id, i.proxy_wishlist_id) for i in items}),
     }
 
 
 def close_season(season):
-    """Archive everything that was given this season and clear it from the lists.
+    """Start fresh: archive every item on every list, then clear them all.
 
-    - Fully claimed items: archived, then removed (their claims go with them).
-    - Partly claimed items: the claimed quantity is archived; the item stays with the remaining quantity and no claims.
+    - Every item, claimed or not, is saved to gift_history (a silent record, not shown on the site): what was wished
+      for, how many, how many were claimed, and by whom.
+    - Then every item is removed along with all claims. Lists themselves (including lists for someone and their
+      helpers) stay.
     - No WishlistChange rows are written, so this never shows up in the daily digest.
     Returns the same counts as season_preview(). The caller commits.
     """
     stats = season_preview()
     for item in WishlistItem.query.all():
-        if not item.claims:
-            continue
-        given = min(item.total_claimed, item.quantity or 1)
         givers = ", ".join(dict.fromkeys(c.claimed_by.name for c in item.claims if c.claimed_by))
-        recipient_name = item.user.name if item.user else item.proxy_wishlist.name
         db.session.add(
             GiftHistory(
                 season=season,
                 recipient_user_id=item.user_id,
                 recipient_proxy_id=item.proxy_wishlist_id,
-                recipient_name=recipient_name,
+                recipient_name=item.user.name if item.user else item.proxy_wishlist.name,
                 item_name=item.name,
                 url=item.url,
                 image_url=item.image_url,
                 price=item.price,
-                quantity=given,
+                quantity=item.quantity or 1,
+                claimed_quantity=min(item.total_claimed, item.quantity or 1),
                 givers=givers[:500] or None,
                 was_surprise=item.is_custom_gift,
             )
         )
-        if item.is_fully_claimed:
-            db.session.delete(item)
-        else:
-            item.quantity = item.quantity - given
-            for claim in list(item.claims):
-                db.session.delete(claim)
+        db.session.delete(item)  # claims cascade
     db.session.flush()
     return stats

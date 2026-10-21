@@ -129,10 +129,10 @@ def send_daily_wishlist_digest():
     db.session.commit()
 
 
-def render_season_open_email(user):
+def render_season_open_email(user, christmas):
     """(subject, text, html) of the "lists are open" email for one person. Used for sending and for the preview."""
-    text, html = _render("season_open", user=user)
-    return f"{current_app.config['APP_NAME']}: time to update your list!", text, html
+    text, html = _render("season_open", user=user, christmas=christmas)
+    return f"{current_app.config['APP_NAME']}: Time to update your list!", text, html
 
 
 def season_open_recipients():
@@ -141,10 +141,10 @@ def season_open_recipients():
     return User.query.filter(User.email.isnot(None)).order_by(User.name).all()
 
 
-def send_season_open_email():
+def send_season_open_email(christmas):
     """Tell everyone with an email address that lists are open. Returns how many were actually sent (0 when off)."""
     sent = 0
     for user in season_open_recipients():
-        subject, text, html = render_season_open_email(user)
+        subject, text, html = render_season_open_email(user, christmas)
         sent += bool(send_email(subject, user.email, text, html))
     return sent

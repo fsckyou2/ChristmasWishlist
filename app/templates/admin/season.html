@@ -11,13 +11,13 @@
     <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
         <h2 class="text-2xl font-bold mb-4">What will happen</h2>
         <ul class="space-y-2 text-gray-200">
-            <li>🎁 <strong>{{ preview.fully_claimed }}</strong> item(s) claimed in full are archived and removed from their lists.</li>
-            <li>➗ <strong>{{ preview.partly_claimed }}</strong> partly claimed item(s) stay, with the claimed quantity archived and the rest still open.</li>
+            <li>🧹 <strong>All {{ preview.total_items }}</strong> item(s) on all {{ preview.lists }} list(s) are cleared, claimed or not, so everyone starts fresh.</li>
+            <li>🎁 That includes <strong>{{ preview.claimed_items }}</strong> claimed item(s) and <strong>{{ preview.unclaimed_items }}</strong> item(s) nobody claimed.</li>
             <li>🧾 <strong>{{ preview.claims }}</strong> claim(s) are cleared, so everyone's "Gifts I'm Giving" starts empty.</li>
-            <li>📜 Before anything is cleared, the given gifts (and who gave them) are saved to an archive in the database. It isn't shown on the site; it's a record in case you ever need to look something up or undo this.</li>
-            <li>📋 <strong>{{ preview.remaining_after }}</strong> of {{ preview.total_items }} item(s) remain on lists afterwards. No digest email is sent about the removals.</li>
+            <li>📜 Before anything is cleared, every item (and who claimed it, if anyone) is saved to an archive in the database. It isn't shown on the site; it's a record in case you ever need to look something up or undo this.</li>
+            <li>👨‍👩‍👧 Lists for someone and their helpers stay; only the items are cleared. No digest email is sent about the removals.</li>
         </ul>
-        <p class="mt-4 text-yellow-300 text-sm">This can't be undone from the app, and it reveals who gave what. Don't run it before the gifts have been opened.</p>
+        <p class="mt-4 text-yellow-300 text-sm">This can't be undone from the app. Don't run it before the gifts have been opened.</p>
     </div>
 
     <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
@@ -58,7 +58,7 @@
         <div class="bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 class="text-xl font-bold mb-3">Past Christmases</h2>
             <ul class="text-gray-300">
-                {% for season, count in past %}<li>Christmas {{ season }}: {{ count }} gift(s) archived</li>{% endfor %}
+                {% for season, count in past %}<li>Christmas {{ season }}: {{ count }} item(s) archived</li>{% endfor %}
             </ul>
         </div>
     {% endif %}

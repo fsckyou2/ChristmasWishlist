@@ -378,7 +378,7 @@ class Invite(db.Model):
 
 
 class GiftHistory(db.Model):
-    """A gift that was given in a past season, kept when an admin starts a new season.
+    """An item from a past season's lists, saved when an admin starts a new Christmas (claimed or not).
 
     Rows belong to the recipient (a user, or a proxy wishlist until that person joins). Denormalised on purpose:
     the original item and claims are deleted when the season is closed.
@@ -397,8 +397,9 @@ class GiftHistory(db.Model):
     url = db.Column(db.String(500))
     image_url = db.Column(db.String(500))
     price = db.Column(db.Float)
-    quantity = db.Column(db.Integer, nullable=False, default=1)
-    givers = db.Column(db.String(500))  # display names, comma-separated
+    quantity = db.Column(db.Integer, nullable=False, default=1)  # how many were wished for
+    claimed_quantity = db.Column(db.Integer, nullable=False, default=0, server_default="0")  # 0 = nobody claimed it
+    givers = db.Column(db.String(500))  # display names of whoever claimed it, comma-separated
     was_surprise = db.Column(db.Boolean, nullable=False, default=False)
     archived_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
