@@ -16,6 +16,7 @@ MAX_DESCRIPTION_LENGTH = 5000
 MAX_QUANTITY = 999
 MAX_PRICE = 1_000_000
 MAX_AVAILABLE_IMAGES = 20
+MAX_DETAIL_LENGTH = 50
 DEFAULT_GIFT_IMAGE = "/static/images/default-gift.svg"
 
 _STATIC_PATH_RE = re.compile(r"^/static/[A-Za-z0-9_\-./]+$")
@@ -124,6 +125,28 @@ def clean_quantity(value):
     return quantity
 
 
+def clean_detail(value):
+    """Short free-text details like size or colour."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValidationError("Size and colour must be text.")
+    value = value.strip()
+    if len(value) > MAX_DETAIL_LENGTH:
+        raise ValidationError(f"Size and colour must be at most {MAX_DETAIL_LENGTH} characters.")
+    return value or None
+
+
+def clean_flag(value):
+    if isinstance(value, bool):
+        return value
+    if value in (None, "", 0, "0", "false", "False", "off", "n"):
+        return False
+    if value in (1, "1", "true", "True", "on", "y"):
+        return True
+    raise ValidationError("Expected true or false.")
+
+
 _CLEANERS = {
     "name": clean_name,
     "url": clean_http_url,
@@ -132,6 +155,9 @@ _CLEANERS = {
     "image_url": clean_image_url,
     "quantity": clean_quantity,
     "available_images": clean_available_images,
+    "size": clean_detail,
+    "color": clean_detail,
+    "most_wanted": clean_flag,
 }
 
 

@@ -5,14 +5,20 @@ A family wishlist app: everyone keeps a list, browses everyone else's, and claim
 ## ✨ Features
 
 ### For Users
-- **Wishlists**: Add items manually or auto-fill from a product URL (Amazon, eBay, Walmart, most shops with Open Graph tags)
-- **Claims**: Claim some or all of an item's quantity; track purchased / received / wrapped in "My Gifts for Others"
+- **My Wishlist**: Paste a product link and it's added (details filled in from Amazon, eBay, Walmart and most shops
+  with Open Graph tags). Edit in place, mark **★ Most wanted**, add size and colour, and drag or ↑ ↓ to reorder.
+  Deleting has **Undo** instead of "are you sure?".
+- **Browse Wishlists**: How much is still available on each list, **new** badges for items added since your last
+  visit, and **Send a reminder** to someone whose list is still empty.
+- **I'll get this**: Reserve some or all of an item; **Gifts I'm Giving** tracks Bought / Arrived / Wrapped, with
+  totals per person and overall.
 - **Surprise-safe**: You never see claims, claimers, or surprise gifts on your own list: not in pages, not in emails, not even as an admin
-- **Custom gifts**: Add a surprise gift to someone's list; everyone but them can see it, so nobody duplicates it
-- **Proxy wishlists**: Keep a list for someone without an account (e.g. a small child), optionally managed by delegates
-- **Daily digest email**: What changed on other people's lists in the last day
+- **Surprise gifts**: Add something to someone's list that they didn't ask for; everyone but them can see it, so nobody duplicates it
+- **Lists for someone**: Keep a list for someone without an account (e.g. a small child), optionally with helpers
+- **Email updates**: "What's new on the family wishlists" every day, once a week (Mondays), or off; every email has
+  a link to change it, and supports one-click unsubscribe
 - **Passwordless login**: Single-use magic links and passkeys; username/password also supported
-- **Mobile-friendly**: Responsive, installable as a PWA
+- **Mobile-friendly**: Tab bar on phones, installable as a PWA
 
 ### For Administrators
 - **Invite-only registration**: Create single-use invite links (Admin → Registration Invites, or `flask create-invite`)
@@ -54,6 +60,7 @@ pip install -r requirements-dev.txt
 cp .env.example .env              # set APP_ENV=development, APP_URL=http://localhost:5000, WEBAUTHN_RP_ID=localhost
 flask --app run:app init-db
 flask --app run:app bootstrap-admin
+scripts/build_css.sh              # builds app/static/css/app.css (re-run after adding Tailwind classes; --watch works)
 APP_ENV=development python run.py
 ```
 
@@ -77,11 +84,15 @@ All settings come from environment variables; [.env.example](.env.example) docum
 ## 📖 User Guide
 
 1. **Join**: Open the invite link you were sent and register with email (magic-link login) or a username and password. If someone already kept a proxy list for you, it's merged into your account.
-2. **Build your list**: My Wishlist → Add Item. Paste a product URL and click **Auto-Fill**, or type the details. The table view is handy for quick edits.
-3. **Browse and claim**: Browse Wishlists → pick a person → **Claim Gift**. You can claim part of a quantity.
-4. **Surprise gifts**: On someone's list, **Add Custom Gift** adds something they didn't ask for. It's claimed by you and hidden from them.
-5. **Track your gifts**: My Gifts for Others shows everything you've claimed, grouped by person, with purchased / received / wrapped checkboxes.
-6. **Log in later**: Enter your email for a one-time login link, use a passkey (Account Settings → Passkeys), or your username and password.
+2. **Build your list**: On My Wishlist, paste a product link into **Add from a link**, or use **+ Add item**. Use
+   **Edit** to change things in place, **☆ Most wanted** for the things you want most, and ↑ ↓ (or drag ⠿) to order the rest.
+3. **Browse and give**: Browse Wishlists → pick a person → **I'll get this**. You can get part of a quantity.
+4. **Surprise gifts**: On someone's list, **Add a surprise gift** adds something they didn't ask for. It's yours to
+   give and hidden from them.
+5. **Track your gifts**: Gifts I'm Giving shows everything you're getting, grouped by person, with Bought / Arrived /
+   Wrapped checkboxes, what you're spending, and how many are left to buy and wrap.
+6. **Email updates**: Account Settings → Email updates (every day, once a week, or off).
+7. **Log in later**: Enter your email for a magic link, use a passkey (Account Settings → Passkeys), or your username and password.
 
 ## 🛡️ Admin Commands
 
@@ -111,12 +122,14 @@ app/
 ├── services.py        Item create/update/merge/delete and digest change tracking
 ├── validation.py      Input validation shared by forms, JSON endpoints and templates
 ├── net.py             SSRF-safe outbound HTTP for the product scraper
-├── models.py          User, WishlistItem, Claim, ProxyWishlist, WishlistDelegate, Invite, Passkey, WishlistChange
+├── models.py          User, WishlistItem, Claim, ProxyWishlist, WishlistDelegate, Invite, Passkey, WishlistChange,
+│                      GiftHistory, ListVisit, Reminder, DeletedItem
 ├── email.py           Email sending (bodies in templates/email/)
 ├── scheduler.py       Periodic jobs (daily digest)
 ├── cli.py             init-db, bootstrap-admin, create-invite, send-digest
 ├── routes/            auth, wishlist, admin, passkey, scraper, main
-├── static/js/         app.js (CSRF + UI behaviour), image-selector.js, passkey.js, scraper.js
+├── static/css/        input.css → app.css (Tailwind, built by the Dockerfile or scripts/build_css.sh)
+├── static/js/         app.js (CSRF, menus, toggles), my-list.js, item-form.js, gifts-giving.js, passkey.js, ...
 └── templates/
 migrations/            Alembic migrations (see docs/MIGRATIONS.md)
 scheduler_worker.py    Scheduler process (runs in its own container)

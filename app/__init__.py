@@ -25,9 +25,6 @@ limiter = Limiter(key_func=get_remote_address)
 
 logger = logging.getLogger(__name__)
 
-# Tailwind's play CDN, pinned. It generates styles at runtime, hence 'unsafe-inline' for styles only.
-TAILWIND_CDN = "https://cdn.tailwindcss.com/3.4.17"
-
 
 def create_app(config_name=None):
     """Application factory.
@@ -86,7 +83,6 @@ def _register_template_helpers(app):
             "app_version": __version__,
             "app_name": app.config["APP_NAME"],
             "csp_nonce": _csp_nonce,
-            "tailwind_cdn": TAILWIND_CDN,
         }
 
 
@@ -102,8 +98,8 @@ def _register_security_headers(app):
         csp = "; ".join(
             [
                 "default-src 'self'",
-                f"script-src 'self' 'nonce-{_csp_nonce()}' {TAILWIND_CDN}",
-                "style-src 'self' 'unsafe-inline'",
+                f"script-src 'self' 'nonce-{_csp_nonce()}'",
+                "style-src 'self'",  # Tailwind is a prebuilt stylesheet; no inline styles anywhere
                 "img-src 'self' https: http: data:",  # product images come from anywhere
                 "connect-src 'self'",
                 "font-src 'self' data:",

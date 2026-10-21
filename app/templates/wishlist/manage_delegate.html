@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_item_details.html" import item_details %}
 
 {% block title %}Helping with {{ proxy.name }}'s Wishlist{% endblock %}
 
@@ -37,6 +38,7 @@
 
                     <div class="p-4">
                         <h3 class="text-xl font-bold mb-2">{{ item.name }}</h3>
+                        {{ item_details(item) }}
                         {% if item.description %}
                             <p class="text-gray-400 text-sm mb-3 line-clamp-2">{{ item.description }}</p>
                         {% endif %}
@@ -89,14 +91,10 @@
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-delete-item]');
-    if (button) deleteItem(button.dataset.deleteItem, button.dataset.itemName);
+    if (button) deleteItem(button.dataset.deleteItem);
 });
 
-function deleteItem(itemId, itemName) {
-    if (!confirm(`Are you sure you want to delete "${itemName}"?`)) {
-        return;
-    }
-
+function deleteItem(itemId) {
     fetch(`/wishlist/delegate/delete-item/${itemId}`, {
         method: 'POST',
         headers: {

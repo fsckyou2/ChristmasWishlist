@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "auth/_email_updates.html" import email_updates_form with context %}
 
 {% block title %}Account Settings - {{ app_name }}{% endblock %}
 
@@ -95,6 +96,16 @@
         </form>
     </div>
 
+    <!-- Email updates -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6" id="email-updates">
+        <h2 class="text-2xl font-bold mb-4">Email updates</h2>
+        {% if current_user.email %}
+            {{ email_updates_form(email_form, url_for('auth.save_email_updates')) }}
+        {% else %}
+            <p class="text-gray-400">Add an email address above to get updates about the family wishlists.</p>
+        {% endif %}
+    </div>
+
     <!-- Passkeys Section -->
     <div class="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
         <div class="flex justify-between items-center mb-4">
@@ -110,7 +121,7 @@
             <p class="text-gray-500">Loading passkeys...</p>
         </div>
 
-        <div id="passkey-error" class="mt-4 text-red-600 text-sm" style="display: none;"></div>
+        <div id="passkey-error" class="hidden mt-4 text-red-600 text-sm"></div>
     </div>
 
     <!-- Log out Section -->

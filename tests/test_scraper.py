@@ -16,7 +16,7 @@ class TestScraperFunctionality:
         """Test that the scraper endpoint exists for table view"""
         self.login_user(client, app, user)
 
-        # This is the endpoint that my_list_table.html tries to call
+        # The endpoint behind auto-fill and My Wishlist's "Add from a link"
         response = client.post(
             "/scraper/scrape",
             json={"url": "https://www.ebay.com/itm/394585942413"},

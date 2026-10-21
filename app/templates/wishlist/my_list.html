@@ -1,76 +1,118 @@
 {% extends "base.html" %}
+{% from "_item_details.html" import item_details %}
 
 {% block title %}My Wishlist{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto">
-    <div class="flex justify-between items-center mb-8">
+<div class="max-w-4xl mx-auto">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
         <h1 class="text-4xl font-bold">My Wishlist</h1>
-        <div class="flex flex-wrap gap-3">
-            <div class="inline-flex rounded-lg border border-gray-600 overflow-hidden text-sm font-semibold" role="group" aria-label="Layout">
-                <a href="{{ url_for('wishlist.my_list') }}" aria-current="page" class="px-4 py-3 bg-gray-600 text-white">Cards</a>
-                <a href="{{ url_for('wishlist.my_list_table') }}" class="px-4 py-3 text-gray-300 hover:bg-gray-700">List</a>
-            </div>
-            <a href="{{ url_for('wishlist.add_item') }}" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700">
-                + Add item
-            </a>
-        </div>
+        <a href="{{ url_for('wishlist.add_item') }}" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700">
+            + Add item
+        </a>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg shadow-lg p-4 mb-6">
+        <label for="quick-add" class="block font-semibold mb-2">Add from a link</label>
+        <input type="url" id="quick-add" data-quick-add autocomplete="off"
+               placeholder="Paste a product link (Amazon, Target, Etsy, ...) and it's added right away"
+               class="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-green-600 placeholder-gray-400">
+        <p class="text-sm text-gray-400 mt-2" data-quick-add-status aria-live="polite"></p>
     </div>
 
     {% if items %}
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <p class="text-sm text-gray-400 mb-3" data-order-status aria-live="polite">
+            ★ Most wanted items stay at the top. Drag ⠿ or use ↑ ↓ to put the rest in the order you like.
+        </p>
+        <ol class="space-y-3" data-sortable>
             {% for item in items %}
-                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-                    {% if item.image_url %}
-                        <img src="{{ item.image_url|safe_img }}" referrerpolicy="no-referrer" alt="{{ item.name }}" class="w-full h-48 object-cover">
-                    {% else %}
-                        <div class="w-full h-48 bg-gray-600 flex items-center justify-center text-6xl">🎁</div>
-                    {% endif %}
-
-                    <div class="p-4">
-                        <h3 class="text-xl font-bold mb-2">{{ item.name }}</h3>
-                        {% if item.description %}
-                            <p class="text-gray-400 text-sm mb-3 line-clamp-2">{{ item.description }}</p>
+                <li id="item-{{ item.id }}" data-item-id="{{ item.id }}" data-most-wanted="{{ 'yes' if item.most_wanted else 'no' }}"
+                    class="scroll-mt-24 bg-gray-800 rounded-lg shadow-lg p-3 {% if item.most_wanted %}ring-2 ring-yellow-400{% endif %}">
+                    <div class="flex gap-3 items-start">
+                        <span class="hidden sm:block cursor-move select-none text-2xl text-gray-500 pt-6" data-drag-handle title="Drag to reorder" aria-hidden="true">⠿</span>
+                        {% if item.image_url %}
+                            <img src="{{ item.image_url|safe_img }}" referrerpolicy="no-referrer" alt="{{ item.name }}" class="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded flex-shrink-0">
+                        {% else %}
+                            <div class="w-20 h-20 sm:w-24 sm:h-24 bg-gray-600 rounded flex items-center justify-center text-4xl flex-shrink-0">🎁</div>
                         {% endif %}
 
-                        <div class="flex justify-between items-center mb-3">
-                            {% if item.price %}
-                                <span class="text-lg font-semibold text-green-600">${{ "%.2f"|format(item.price) }}</span>
-                            {% else %}
-                                <span class="text-gray-400">No price</span>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-lg font-bold break-words">{{ item.name }}</h3>
+                            {{ item_details(item) }}
+                            {% if item.description %}
+                                <p class="text-gray-400 text-sm line-clamp-2">{{ item.description }}</p>
                             {% endif %}
-                            <span class="text-sm text-gray-400">Qty: {{ item.quantity }}</span>
-                        </div>
+                            <p class="text-sm mt-1">
+                                {% if item.price %}<span class="font-semibold text-green-500">${{ "%.2f"|format(item.price) }}</span>{% else %}<span class="text-gray-400">No price</span>{% endif %}
+                                <span class="text-gray-400"> · Qty {{ item.quantity }}</span>
+                                {% if item.url|safe_href %}
+                                    · <a href="{{ item.url|safe_href }}" rel="noopener noreferrer" target="_blank" class="text-blue-400 hover:underline">View</a>
+                                {% endif %}
+                            </p>
 
-                        <div class="flex gap-2">
-                            {% if item.url|safe_href %}
-                                <a href="{{ item.url|safe_href }}" rel="noopener noreferrer" target="_blank" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-blue-700">
-                                    View
-                                </a>
-                            {% endif %}
-                            <a href="{{ url_for('wishlist.edit_item', item_id=item.id) }}" class="flex-1 bg-gray-600 text-white px-3 py-2 rounded text-center text-sm hover:bg-gray-700">
-                                Edit
-                            </a>
-                            <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" class="flex-1">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" data-confirm="Delete this item?" class="w-full bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700">
-                                    Delete
+                            <div class="flex flex-wrap gap-2 mt-3 text-sm">
+                                <button type="button" data-star="{{ item.id }}" aria-pressed="{{ 'true' if item.most_wanted else 'false' }}"
+                                        class="px-3 py-2 rounded font-semibold {% if item.most_wanted %}bg-yellow-400 text-gray-900 hover:bg-yellow-300{% else %}bg-gray-700 text-yellow-300 hover:bg-gray-600{% endif %}">
+                                    {% if item.most_wanted %}★ Most wanted{% else %}☆ Most wanted{% endif %}
                                 </button>
-                            </form>
+                                <button type="button" data-move="up" aria-label="Move {{ item.name }} up" class="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600">↑</button>
+                                <button type="button" data-move="down" aria-label="Move {{ item.name }} down" class="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600">↓</button>
+                                <button type="button" data-toggle-target="edit-{{ item.id }}" class="px-3 py-2 rounded bg-gray-600 text-white hover:bg-gray-500">Edit</button>
+                                <form method="POST" action="{{ url_for('wishlist.delete_item', item_id=item.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700">Delete</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    <div id="edit-{{ item.id }}" class="hidden mt-4 border-t border-gray-700 pt-4" data-inline-edit="{{ item.id }}">
+                        {% set field = "w-full px-3 py-2 bg-gray-700 border border-gray-600 text-gray-100 rounded focus:ring-2 focus:ring-green-600" %}
+                        <div class="grid sm:grid-cols-2 gap-3">
+                            <label class="sm:col-span-2 text-sm font-semibold">Item name
+                                <input type="text" data-field="name" value="{{ item.name }}" required class="{{ field }} mt-1 font-normal">
+                            </label>
+                            <label class="sm:col-span-2 text-sm font-semibold">Product link
+                                <input type="url" data-field="url" value="{{ item.url or '' }}" class="{{ field }} mt-1 font-normal">
+                            </label>
+                            <label class="sm:col-span-2 text-sm font-semibold">Description
+                                <textarea data-field="description" rows="2" class="{{ field }} mt-1 font-normal">{{ item.description or '' }}</textarea>
+                            </label>
+                            <label class="text-sm font-semibold">Price
+                                <input type="number" data-field="price" step="0.01" min="0" value="{{ item.price if item.price is not none else '' }}" class="{{ field }} mt-1 font-normal">
+                            </label>
+                            <label class="text-sm font-semibold">Quantity
+                                <input type="number" data-field="quantity" min="1" value="{{ item.quantity }}" class="{{ field }} mt-1 font-normal">
+                            </label>
+                            <label class="text-sm font-semibold">Size
+                                <input type="text" data-field="size" value="{{ item.size or '' }}" maxlength="50" class="{{ field }} mt-1 font-normal">
+                            </label>
+                            <label class="text-sm font-semibold">Colour
+                                <input type="text" data-field="color" value="{{ item.color or '' }}" maxlength="50" class="{{ field }} mt-1 font-normal">
+                            </label>
+                        </div>
+                        <p class="text-sm text-yellow-300 mt-2" data-edit-error aria-live="polite"></p>
+                        <div class="flex flex-wrap gap-3 mt-3 text-sm">
+                            <button type="button" data-save="{{ item.id }}" class="px-4 py-2 rounded bg-green-600 text-white font-semibold hover:bg-green-700">Save changes</button>
+                            <button type="button" data-toggle-target="edit-{{ item.id }}" class="px-4 py-2 rounded bg-gray-600 text-white hover:bg-gray-500">Cancel</button>
+                            <a href="{{ url_for('wishlist.edit_item', item_id=item.id) }}" class="px-4 py-2 text-blue-400 hover:underline">Change the picture…</a>
+                        </div>
+                    </div>
+                </li>
             {% endfor %}
-        </div>
+        </ol>
     {% else %}
         <div class="bg-gray-800 rounded-lg shadow p-12 text-center">
             <div class="text-6xl mb-4">📝</div>
             <h2 class="text-2xl font-bold mb-4">Your wishlist is empty</h2>
-            <p class="text-gray-400 mb-6">Start adding items to let others know what you'd like!</p>
+            <p class="text-gray-400 mb-6">Paste a product link above, or add an item by hand.</p>
             <a href="{{ url_for('wishlist.add_item') }}" class="inline-block bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700">
-                Add Your First Item
+                Add your first item
             </a>
         </div>
     {% endif %}
 </div>
+
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/scraper.js') }}"></script>
+<script nonce="{{ csp_nonce() }}" src="{{ url_for('static', filename='js/my-list.js') }}"></script>
 {% endblock %}

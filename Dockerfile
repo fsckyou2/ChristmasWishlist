@@ -13,6 +13,29 @@ FROM deps AS dev-deps
 COPY requirements-dev.txt /tmp/requirements-dev.txt
 RUN pip install -r /tmp/requirements-dev.txt
 
+# --- stylesheet: Tailwind's standalone CLI (pinned, checksum-verified) scans the templates and builds app.css -------
+FROM python:${PYTHON_VERSION}-slim AS css
+ARG TARGETARCH
+ARG TAILWIND_VERSION=3.4.17
+ARG TAILWIND_SHA256_AMD64=7d24f7fa191d2193b78cd5f5a42a6093e14409521908529f42d80b11fde1f1d4
+ARG TAILWIND_SHA256_ARM64=69b1378b8133192d7d2feb12a116fa12d035594f58db3eff215879e4ad8cf39b
+RUN set -eu; \
+    case "${TARGETARCH:-amd64}" in \
+        amd64) asset=tailwindcss-linux-x64; sha="${TAILWIND_SHA256_AMD64}" ;; \
+        arm64) asset=tailwindcss-linux-arm64; sha="${TAILWIND_SHA256_ARM64}" ;; \
+        *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    python -c "import sys, urllib.request; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])" \
+        "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/${asset}" /usr/local/bin/tailwindcss; \
+    echo "${sha}  /usr/local/bin/tailwindcss" | sha256sum -c -; \
+    chmod 0755 /usr/local/bin/tailwindcss
+WORKDIR /build
+COPY tailwind.config.js ./
+COPY app/static/css/input.css app/static/css/input.css
+COPY app/templates app/templates
+COPY app/static/js app/static/js
+RUN tailwindcss -c tailwind.config.js -i app/static/css/input.css -o app/static/css/app.css --minify
+
 # --- application -----------------------------------------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim AS app-base
 # Runs as an unprivileged user. 568 is the "apps" user/group on TrueNAS SCALE; override with --build-arg if needed.
@@ -28,6 +51,7 @@ RUN groupadd --system --gid "${APP_GID}" app \
 WORKDIR /app
 # Code is owned by root and read-only to the app user; only instance/ (the database) is writable.
 COPY . .
+COPY --from=css /build/app/static/css/app.css app/static/css/app.css
 RUN chmod 0755 docker-entrypoint.sh \
     && mkdir -p instance \
     && chown app:app instance

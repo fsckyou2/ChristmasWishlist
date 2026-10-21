@@ -25,12 +25,12 @@ class TestWishlistRoutes:
         assert response.status_code == 200
         assert b"My Wishlist" in response.data
 
-    def test_my_list_table_loads(self, client, app, user):
-        """Test my list table view loads"""
+    def test_old_table_view_redirects_to_my_list(self, client, app, user):
+        """The table view was folded into My Wishlist (edit in place)"""
         self.login_user(client, app, user)
         response = client.get("/wishlist/my-list/table")
-        assert response.status_code == 200
-        assert b"Cards" in response.data
+        assert response.status_code == 301
+        assert response.headers["Location"].endswith("/wishlist/my-list")
 
     def test_add_item_page_loads(self, client, app, user):
         """Test add item page loads"""
@@ -133,7 +133,7 @@ class TestWishlistRoutes:
         response = client.post(f"/wishlist/delete/{wishlist_item.id}", follow_redirects=True)
 
         assert response.status_code == 200
-        assert b"Item deleted" in response.data
+        assert b"from My Wishlist" in response.data and b">Undo<" in response.data
 
         # Verify deletion
         with app.app_context():
@@ -219,16 +219,6 @@ class TestWishlistRoutes:
         response = client.get("/wishlist/all-users")
         assert response.status_code == 200
         assert b"Wishlist" in response.data
-
-    def test_add_empty_item(self, client, app, user):
-        """Test adding empty item via AJAX"""
-        self.login_user(client, app, user)
-        response = client.post("/wishlist/add-empty", content_type="application/json")
-
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data["success"] is True
-        assert "item_id" in data
 
     def test_update_item_quick(self, client, app, user, wishlist_item):
         """Test quick update item via AJAX"""
@@ -339,35 +329,6 @@ class TestPurchaseStatusPrivacy:
         assert b"1/2 Claimed" not in response.data
         # Should see the item name
         assert b"My Item" in response.data
-
-    def test_owner_cannot_see_purchase_status_table_view(self, client, app, user, admin_user):
-        """Test owner doesn't see purchase status on their own wishlist (table view)"""
-        # Create purchased item for user
-        with app.app_context():
-            item = WishlistItem(user_id=user.id, name="My Table Item", quantity=2)
-            db.session.add(item)
-            db.session.flush()
-
-            # Admin purchases the item
-            purchase = Claim(wishlist_item_id=item.id, claimed_by_id=admin_user.id, quantity=1)
-            db.session.add(purchase)
-            db.session.commit()
-
-        # Login as owner and view own wishlist table
-        self.login_user(client, app, user)
-        response = client.get("/wishlist/my-list/table")
-
-        assert response.status_code == 200
-        # Should NOT see "Status" column header (it was removed)
-        response_text = response.data.decode("utf-8")
-        # Count how many times "Status" appears - should not be a column header
-        # (It might appear in other contexts, but not as a table header)
-        assert b"<th" in response.data  # Table headers exist
-        # The specific Status column for purchase status should not exist
-        # We verify this by checking the item exists but status indicators don't
-        assert b"My Table Item" in response.data
-        assert b"Fully Purchased" not in response.data
-        assert b"1/2 Purchased" not in response.data
 
     def test_viewer_can_see_purchase_status(self, client, app, user, admin_user):
         """Test non-owner CAN see claim status when viewing someone else's wishlist"""
@@ -1496,7 +1457,7 @@ class TestCustomGiftEditing:
         response = client.post(f"/wishlist/delete/{item_id}", follow_redirects=True)
 
         assert response.status_code == 200
-        assert b"Surprise gift deleted" in response.data
+        assert b"Deleted surprise gift" in response.data
 
         # Verify deletion
         with app.app_context():

@@ -16,6 +16,7 @@ pip-audit -r requirements.txt
 # Local run
 APP_ENV=development flask --app run:app init-db
 APP_ENV=development flask --app run:app bootstrap-admin
+scripts/build_css.sh                     # Tailwind -> app/static/css/app.css (the Docker build does this itself)
 APP_ENV=development python run.py
 
 # Container
@@ -49,14 +50,20 @@ Always run black and flake8 after code changes; CI enforces both strictly.
 - `Claim`: Someone's claim on an item. The table is still called `purchases` and the column `purchased_by_id`, mapped to `Claim.claimed_by_id`. `purchased`/`received`/`wrapped` track gift status.
 - `ProxyWishlist` / `WishlistDelegate`: Lists for people without accounts, and who may manage them.
 - `Invite`: Single-use registration invites (only `sha256(token)` is stored).
-- `WishlistChange`: Digest log, always attributed to the list owner.
+- `WishlistChange`: Digest log, always attributed to the list owner. `User.digest_frequency` (daily/weekly/off) and
+  `last_digest_at` decide who gets what; every digest links to a signed preferences page (no login needed).
+- `WishlistItem.most_wanted` / `size` / `color` / `position`: always order lists with `models.list_order()`.
+- `ListVisit` ("new" badges on Browse Wishlists), `Reminder` (empty-list nudges, one per person per 3 days),
+  `DeletedItem` (30-minute undo snapshots; `services.delete_item(item, deleted_by=user)` / `services.undo_delete`).
 
 ## Rules that must not regress
 
 1. **Surprise protection.** A user never sees claims, claimers or others' custom gifts on their own list. That covers pages, JSON responses, emails, admin pages, and differences in responses. Hidden items return 404 to the owner. Proxy delegates don't see others' custom gifts. Impersonating admins see what the user sees. Add a test in `tests/test_security.py` for any new view of items.
 2. **Registration is invite-only.** Don't add registration paths that skip `_invite_from_session()`.
-3. **No inline JS.**
-   - Every `<script>` gets `nonce="{{ csp_nonce() }}"`.
+3. **No inline JS or CSS.**
+   - Every `<script>` gets `nonce="{{ csp_nonce() }}"`. No `style="..."` attributes or `<style>` blocks (the CSP is
+     `style-src 'self'`); use Tailwind classes, or set `element.style` from JS.
+   - Tailwind is built from the templates and JS, so write whole class names (never `"bg-" ~ colour ~ "-600"`).
    - Use `data-*` attributes plus listeners (`data-confirm="..."` on forms/buttons is handled by `static/js/app.js`).
    - Build DOM nodes, or wrap values in `escapeHtml()`, before using `innerHTML`.
 4. **CSRF.** POST forms need `{{ form.hidden_tag() }}` or `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">`. `fetch()` gets the header automatically from `app.js`. State changes never use GET.
