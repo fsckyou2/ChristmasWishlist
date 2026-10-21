@@ -39,6 +39,7 @@ RETIRED = [
     r"Table View",
     r"Wishlist Updates from Your Family",
     r"Gifts You've Received",
+    r"Gifts I've Received",
     r"Start a New Season",
     r"\bLogin\b",
     r"\bLogout\b",
@@ -120,7 +121,6 @@ def pages_for(w):
             "/wishlist/my-list",
             "/wishlist/my-list/table",
             "/wishlist/add",
-            "/wishlist/received",
             "/auth/settings",
             "/passkey/manage",
             "/wishlist/all-users",
@@ -199,6 +199,22 @@ def test_emails_use_only_glossary_words(app, world, monkeypatch):
     for subject, text, html_body in sent:
         assert_clean(f"email {subject!r}", f"{subject}\n{text}\n{html_body}")
     assert any(s == "What's new on the family wishlists" for s, _, _ in sent)
+
+
+def test_every_email_is_signed_by_santa(app, world, monkeypatch):
+    import app.email as email_mod
+
+    sent = []
+    monkeypatch.setattr(email_mod, "send_email", lambda subject, to, text, html_body: sent.append((text, html_body)))
+    email_mod.send_magic_link_email(world["kid"])
+    email_mod.send_welcome_email(world["kid"])
+    email_mod.send_daily_wishlist_digest()
+    email_mod.send_season_open_email()
+    assert len(sent) >= 4
+    for text, html_body in sent:
+        assert text.rstrip().endswith("- Santa 🎅")
+        assert "- Santa 🎅" in html_body
+        assert "Team" not in text and "Best regards" not in text
 
 
 def test_privacy_phrase_uses_cant(app, world):

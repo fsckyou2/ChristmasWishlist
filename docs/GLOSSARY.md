@@ -22,7 +22,7 @@ retired word shows up.
 | Admin viewing as a user | **Impersonate / Stop impersonating** (unchanged). | |
 | Sign-up links | **Invites**. Button: **"Create invite link"**. | Registration Invites |
 | Daily email | Subject: **"What's new on the family wishlists"**. | Wishlist Updates from Your Family |
-| New year | Admin: **"Start Christmas {next year}"**. The form still asks which Christmas is being closed. Each person's archive: **"Gifts I've Received"**. | Start a New Season, Gifts You've Received, Past gifts |
+| New year | Admin: **"Start Christmas {next year}"**. The form still asks which Christmas is being closed. Given gifts are archived silently (not shown on the site). | Start a New Season, Gifts You've Received, Past gifts |
 | Logging in and out | Verbs: **"Log in"** and **"Log out"**. Emailed link: **magic link** ("Email me a magic link"). Also **password** and **passkey**. Page title: **"Log in"**. | Login (as a word people read), Logout, Sign in, Sign out |
 | Layout of your own list | A toggle: **Cards \| List**. | Card View, Table View |
 

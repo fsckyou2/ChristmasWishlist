@@ -3,4 +3,4 @@
 <p><a href="{{ login_url }}">Log in</a></p>
 <p>This link works once and expires in {{ expiry_minutes }} minutes.</p>
 <p>If you did not request this magic link, please ignore this email.</p>
-<p>Best regards,<br>{{ app_name }} Team</p>
+{% include 'email/_signature.html' %}

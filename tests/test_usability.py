@@ -192,18 +192,21 @@ class TestNewSeason:
         client.post("/admin/season", data={"season": "2025", "confirm": "2025"})
         assert GiftHistory.query.count() == 0
 
-    def test_history_is_only_visible_to_the_recipient(self, client, app, family):
+    def test_archive_is_kept_but_never_shown_on_the_site(self, client, app, family):
         services.close_season("2025")
         db.session.commit()
+        assert GiftHistory.query.filter_by(recipient_user_id=family["kid"].id).count() == 3
 
         login(client, family["kid"])
-        assert "Gifts I've Received" in client.get("/wishlist/my-list").get_data(as_text=True)
-        html = client.get("/wishlist/received").get_data(as_text=True)
-        assert "Christmas 2025" in html and "LEGO" in html and "From Aunt Rebecca" in html
+        assert client.get("/wishlist/received").status_code == 404
+        html = client.get("/wishlist/my-list").get_data(as_text=True)
+        assert "Received" not in html and "Aunt Rebecca" not in html and "Uncle Fred" not in html
 
-        other = app.test_client()
-        login(other, family["aunt"])
-        assert "LEGO" not in other.get("/wishlist/received").get_data(as_text=True)
+        admin = app.test_client()
+        login(admin, family["admin"])
+        page = admin.get("/admin/season").get_data(as_text=True)
+        assert "Christmas 2025: 3 gift(s) archived" in page  # counts only, for the admin
+        assert "LEGO" not in page and "Aunt Rebecca" not in page
 
     def test_proxy_history_follows_the_person_when_they_join(self, client, family, invite):
         proxy = ProxyWishlist(name="Lynn", created_by_id=family["admin"].id)

@@ -8,5 +8,4 @@ This link works once and expires in {{ expiry_minutes }} minutes.
 
 If you did not request this magic link, please ignore this email.
 
-Best regards,
-{{ app_name }} Team
+{% include 'email/_signature.txt' %}

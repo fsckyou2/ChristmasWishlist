@@ -482,7 +482,7 @@ def new_season():
                 f"{len(email.season_open_recipients())} people would have received."
             )
         flash(
-            f"Christmas {season} is wrapped up: {stats['fully_claimed']} gift(s) moved to Gifts I've Received, "
+            f"Christmas {season} is wrapped up: {stats['fully_claimed']} gift(s) archived and cleared from lists, "
             f"{stats['partly_claimed']} partly claimed item(s) kept with what's left" + email_note,
             "success",
         )

@@ -3,7 +3,7 @@ from flask_login import current_user, login_required
 
 from app import db, policy, services
 from app.forms import ClaimForm, ProxyWishlistForm, WishlistItemForm
-from app.models import Claim, GiftHistory, ProxyWishlist, User, WishlistDelegate, WishlistItem
+from app.models import Claim, ProxyWishlist, User, WishlistDelegate, WishlistItem
 from app.validation import ValidationError
 
 bp = Blueprint("wishlist", __name__, url_prefix="/wishlist")
@@ -49,23 +49,7 @@ def _flash_form_errors(form):
 @login_required
 def my_list():
     """View current user's wishlist (custom gifts from others are hidden)"""
-    has_history = GiftHistory.query.filter_by(recipient_user_id=current_user.id).first() is not None
-    return render_template("wishlist/my_list.html", items=_own_items(), has_history=has_history)
-
-
-@bp.route("/received")
-@login_required
-def received():
-    """Gifts the current user received in past seasons (archived when an admin starts a new season)"""
-    gifts = (
-        GiftHistory.query.filter_by(recipient_user_id=current_user.id)
-        .order_by(GiftHistory.season.desc(), GiftHistory.id)
-        .all()
-    )
-    by_season = {}
-    for gift in gifts:
-        by_season.setdefault(gift.season, []).append(gift)
-    return render_template("wishlist/received.html", by_season=by_season)
+    return render_template("wishlist/my_list.html", items=_own_items())
 
 
 @bp.route("/my-list/table")

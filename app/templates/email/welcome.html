@@ -20,5 +20,5 @@
         This link works once and expires in {{ expiry_minutes }} minutes. You can always ask for a new magic link on the Log in page.
     </p>
     <p>Happy holidays!</p>
-    <p style="color: #666;">Best regards,<br>{{ app_name }} Team</p>
+    {% include 'email/_signature.html' %}
 </div>

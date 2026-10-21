@@ -17,5 +17,4 @@ This link works once and expires in {{ expiry_minutes }} minutes. You can always
 
 Happy holidays!
 
-Best regards,
-{{ app_name }} Team
+{% include 'email/_signature.txt' %}

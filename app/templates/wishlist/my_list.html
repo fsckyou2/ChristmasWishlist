@@ -7,11 +7,6 @@
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-4xl font-bold">My Wishlist</h1>
         <div class="flex flex-wrap gap-3">
-            {% if has_history %}
-            <a href="{{ url_for('wishlist.received') }}" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600">
-                🎁 Gifts I've Received
-            </a>
-            {% endif %}
             <div class="inline-flex rounded-lg border border-gray-600 overflow-hidden text-sm font-semibold" role="group" aria-label="Layout">
                 <a href="{{ url_for('wishlist.my_list') }}" aria-current="page" class="px-4 py-3 bg-gray-600 text-white">Cards</a>
                 <a href="{{ url_for('wishlist.my_list_table') }}" class="px-4 py-3 text-gray-300 hover:bg-gray-700">List</a>
