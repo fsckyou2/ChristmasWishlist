@@ -6,5 +6,4 @@ Last year's gifts have been cleared from everyone's lists. Now's a great time to
 
 {{ app_url }}
 
-Ho ho ho,
-Santa 🎅
+{% include 'email/_signature.txt' %}

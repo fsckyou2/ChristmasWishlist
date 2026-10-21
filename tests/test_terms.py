@@ -212,8 +212,8 @@ def test_every_email_is_signed_by_santa(app, world, monkeypatch):
     email_mod.send_season_open_email(2026)
     assert len(sent) >= 4
     for text, html_body in sent:
-        assert text.rstrip().endswith(("- Santa 🎅", "Ho ho ho,\nSanta 🎅"))  # the season email has its own sign-off
-        assert "Santa 🎅" in html_body
+        assert text.rstrip().endswith("Ho ho ho,\nSanta 🎅")
+        assert "Ho ho ho,<br>Santa 🎅" in html_body
         assert "Team" not in text and "Best regards" not in text
 
 
