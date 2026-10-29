@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Adding an item to your own list never combines it with something already on the list. The similarity
+  check compared only name and URL, so it couldn't tell two variants of one product apart, and combining
+  kept the *older* item — discarding the size, colour and most-wanted of the item just added, with no undo.
+  To combine two entries, use "Combine with…", which asks first and checks permissions.
+- Because nothing is folded in automatically, a surprise gift that matches an item the recipient then adds
+  themselves stays a separate entry. Nobody gets two of it because the next giver is warned instead (below).
+
+### Added
+- A duplicate warning on "I'll get this". If something already on the list looks like what you're about to
+  get and someone is already getting it, you're told who before you commit — one extra tap, and only when
+  two of the same present could actually turn up. The person the gifts are for never sees this, and helpers
+  on a list kept for someone never see another person's surprise gift through it.
+
 
 ## [4.0.0] - 2026-10-20
 

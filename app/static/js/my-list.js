@@ -45,7 +45,7 @@
         };
         try {
             const result = await postJson('/wishlist/add-item-from-scraped-data', body);
-            const id = result.merged ? result.merged_with_id : result.item_id;
+            const id = result.item_id;
             // Couldn't read the page: open the new item's editor so the details can be filled in
             reloadAt(scraped.success ? 'item-' + id : 'edit-' + id);
         } catch (error) {

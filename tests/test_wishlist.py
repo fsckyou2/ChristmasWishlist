@@ -76,6 +76,29 @@ class TestWishlistRoutes:
             assert item.url == "https://example.com"
             assert item.description == "Test description"
 
+    def test_adding_a_similar_item_never_combines_it(self, client, app, user):
+        """A new item is always a new item (regression).
+
+        Two sizes of one shoe have names close enough that the old similarity check combined them: the
+        second add was deleted into the first, discarding its size, colour and most-wanted along the way.
+        """
+        self.login_user(client, app, user)
+        shoe = {"name": "Nike Pegasus 40 Running Shoe", "quantity": "1", "submit": "Add to Wishlist"}
+        client.post("/wishlist/add", data={**shoe, "size": "8", "color": "Black"}, follow_redirects=True)
+        response = client.post(
+            "/wishlist/add",
+            data={**shoe, "size": "9", "color": "Pink", "most_wanted": "y"},
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+        assert b"Combined with" not in response.data
+        with app.app_context():
+            items = WishlistItem.query.filter_by(name=shoe["name"]).order_by(WishlistItem.id).all()
+            assert len(items) == 2, "both sizes should survive as separate items"
+            assert (items[0].size, items[0].color) == ("8", "Black")
+            assert (items[1].size, items[1].color, items[1].most_wanted) == ("9", "Pink", True)
+
     def test_edit_item(self, client, app, user, wishlist_item):
         """Test editing a wishlist item"""
         self.login_user(client, app, user)

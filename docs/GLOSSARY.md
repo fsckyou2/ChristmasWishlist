@@ -12,6 +12,7 @@ retired word shows up.
 | Reserving an item to give | Button **"I'll get this"**. If more than one is left: **"I'll get this ({n} left)"**, which opens a page titled **"I'll get this"** asking **"How many will you get?"**. | Claim Gift, Claim Item, Unclaim |
 | After you reserve | **"✓ You're getting this"**, or **"✓ You're getting {n} of these"**, with an **Undo** button. Flash: **You're getting "{item}".** Undo flash: **Undone: you're no longer getting "{item}".** | You Claimed, Unclaimed |
 | What other givers see | **"Claimed by {names}"** when everything is claimed. Partly claimed: **"{x} of {y} claimed"** plus "by {names}". | Fully Claimed, "x/y Claimed" |
+| Two people about to get the same thing | On "I'll get this": **"🎁 Someone may already be getting this"**, then **"{item}" is already on this wishlist and {Name} is getting it.** Helpers, who don't see who claimed what, read **"and someone is already getting it"**. | |
 | Your reserved gifts | **Gifts I'm Giving** (nav, page title, emails, tour). | My Gifts for Others, My Claims |
 | Progress on a gift | **Bought → Arrived → Wrapped**. | Purchased, Received (as a status), Acquired |
 | Hidden extra gift for someone | **surprise gift**. Button: **"Add a surprise gift"**. Form title: **"Add a surprise gift for {Name}"**. Badge for others: **"🎁 Surprise gift · hidden from {Name}"**. Badge for the person who added it: **"🎁 Your surprise gift · hidden from {Name}"**. | custom gift |

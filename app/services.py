@@ -8,7 +8,7 @@ import json
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 
-from app import db
+from app import db, policy
 from app.models import Claim, DeletedItem, GiftHistory, ProxyWishlist, User, WishlistChange, WishlistItem, utcnow
 from app.validation import clean_item_fields
 
@@ -67,6 +67,28 @@ def merge_items(existing_item, new_item):
     return existing_item
 
 
+def similar_claimed_items(item, viewer):
+    """Items on the same list that look like `item` and that somebody is already getting.
+
+    Warns a giver before they commit to a second copy. A surprise gift and the same thing added later by
+    the recipient are two separate items, and nothing else notices: adding never combines them, and the
+    recipient can't see claims on their own list, so without this nobody finds out until two arrive.
+
+    Only items `viewer` may see are considered, so this can never reveal a surprise that is hidden from
+    them (a helper on someone's list, for instance, doesn't see other people's surprise gifts).
+    """
+    if item.user_id is not None:
+        on_same_list = WishlistItem.user_id == item.user_id
+    else:
+        on_same_list = WishlistItem.proxy_wishlist_id == item.proxy_wishlist_id
+    others = WishlistItem.query.filter(on_same_list, WishlistItem.id != item.id).all()
+    return [
+        other
+        for other in others
+        if other.claims and not policy.is_hidden_from(viewer, other) and similar_items(item, other)
+    ]
+
+
 def _top_position(list_filter):
     """A position that puts a new item at the top of its list's chosen order."""
     lowest = db.session.query(db.func.min(WishlistItem.position)).filter(list_filter).scalar()
@@ -115,27 +137,17 @@ def update_item(item, data, partial=False):
 
 
 def add_own_item(user, data):
-    """The owner adds an item to their own list, merging with their own visible duplicates.
+    """The owner adds an item to their own list. It is never combined with anything already there.
 
-    A similar *hidden* custom gift is folded into the new item, so its giver's claim carries over (and nobody else
-    buys it twice). The owner gets the same response either way, so it doesn't reveal the surprise.
-
-    Returns (item, merged_into_existing_visible_item).
+    Deliberately does no duplicate matching. A name/URL likeness can't tell two variants of one product
+    apart (`similar_items` doesn't look at `size` or `color`), and `merge_items` is destructive with no
+    undo, so a wrong guess silently discarded what the owner had just typed. Combining two entries is a
+    thing people ask for on purpose: `wishlist.merge_items_manual`, which checks permissions first.
     """
     item = create_item(data, user_id=user.id)
     item.position = _top_position(WishlistItem.user_id == user.id)
-    others = WishlistItem.query.filter(WishlistItem.user_id == user.id, WishlistItem.id != item.id).all()
-    for existing in others:
-        if not similar_items(item, existing):
-            continue
-        if existing.added_by_id not in (None, user.id):
-            merge_items(item, existing)
-            break
-        merge_items(existing, item)
-        record_change(existing, "updated")
-        return existing, True
     record_change(item, "added")
-    return item, False
+    return item
 
 
 def add_custom_gift(giver, data, *, user_id=None, proxy_wishlist_id=None):

@@ -11,7 +11,7 @@ from datetime import timedelta
 import pytest
 from flask import g
 
-from app import create_app, db, policy
+from app import create_app, db, policy, services
 from app.models import Claim, Invite, ProxyWishlist, User, WishlistChange, WishlistDelegate, WishlistItem, utcnow
 
 
@@ -187,10 +187,76 @@ class TestSurpriseProtection:
         with_match = client.post("/wishlist/add-item-from-scraped-data", json={"name": "SECRET Nintendo Switch"})
         without_match = client.post("/wishlist/add-item-from-scraped-data", json={"name": "Totally different thing"})
         assert with_match.get_json().keys() == without_match.get_json().keys()
-        assert with_match.get_json()["merged"] is False
-        # The giver's claim carried over, so nobody else buys it twice
+
+        # Adding never combines, so the owner's item is its own item and carries no claim to leak
         item = db.session.get(WishlistItem, with_match.get_json()["item_id"])
-        assert [c.claimed_by_id for c in item.claims] == [family["aunt"].id]
+        assert item.id != family["surprise"].id
+        assert list(item.claims) == []
+
+        # ...and the surprise is left alone, still claimed by its giver
+        surprise = db.session.get(WishlistItem, family["surprise"].id)
+        assert surprise is not None
+        assert [c.claimed_by_id for c in surprise.claims] == [family["aunt"].id]
+
+    def test_second_giver_is_warned_before_duplicating_a_surprise(self, client, family):
+        """Adding never combines, so warning the next giver is the only thing standing between the
+        recipient and two of the same present. The recipient is never told; the giver is."""
+        westley_asked_for_it = WishlistItem(user_id=family["kid"].id, name="SECRET Nintendo Switch", quantity=1)
+        db.session.add(westley_asked_for_it)
+        db.session.commit()
+        login(client, family["admin"])
+
+        one_tap = client.post(f"/wishlist/claim/{westley_asked_for_it.id}", data={"quantity": "1"})
+        html = one_tap.get_data(as_text=True)
+        assert "Someone may already be getting this" in html
+        assert "Aunt Rebecca" in html
+        assert list(db.session.get(WishlistItem, westley_asked_for_it.id).claims) == [], "one tap must not claim yet"
+
+        confirmed = client.post(
+            f"/wishlist/claim/{westley_asked_for_it.id}",
+            data={"quantity": "1", "confirm_duplicate": "1"},
+            follow_redirects=True,
+        )
+        assert confirmed.status_code == 200
+        claims = db.session.get(WishlistItem, westley_asked_for_it.id).claims
+        assert [c.claimed_by_id for c in claims] == [family["admin"].id]
+
+    def test_duplicate_warning_never_reveals_a_surprise_hidden_from_a_helper(self, client, family):
+        """Helpers manage a list for someone, so other people's surprise gifts stay invisible to them -
+        the duplicate warning must not become a way around that."""
+        proxy = ProxyWishlist(name="Lynn", created_by_id=family["admin"].id)
+        db.session.add(proxy)
+        db.session.flush()
+        db.session.add(WishlistDelegate(proxy_wishlist_id=proxy.id, user_id=family["kid"].id))
+        # On a list kept for someone, an item is "asked for" only if a helper added it: anyone else's is a
+        # surprise gift, and so is one with no author at all (is_custom_gift tests helper membership).
+        asked_for = WishlistItem(
+            proxy_wishlist_id=proxy.id,
+            added_by_id=family["kid"].id,
+            name="Nintendo Switch Console",
+            quantity=1,
+        )
+        surprise = WishlistItem(
+            proxy_wishlist_id=proxy.id,
+            added_by_id=family["aunt"].id,
+            name="Nintendo Switch Console",
+            quantity=1,
+        )
+        db.session.add_all([asked_for, surprise])
+        db.session.flush()
+        db.session.add(Claim(wishlist_item_id=surprise.id, claimed_by_id=family["aunt"].id, quantity=1))
+        db.session.commit()
+
+        # The two really are a match, and the surprise really is taken...
+        assert services.similar_items(asked_for, surprise) is True
+        assert surprise.claims != []
+        # ...but it is hidden from the helper, so it is never a candidate for their warning
+        assert services.similar_claimed_items(asked_for, family["kid"]) == []
+
+        login(client, family["kid"])
+        response = client.post(f"/wishlist/claim/{asked_for.id}", data={"quantity": "1"})
+        assert "Aunt Rebecca" not in response.get_data(as_text=True)
+        assert response.status_code == 302, "nothing to warn a helper about, so the claim goes straight through"
 
     def test_digest_never_mentions_custom_gifts(self, client, family, monkeypatch):
         import app.email as email_mod

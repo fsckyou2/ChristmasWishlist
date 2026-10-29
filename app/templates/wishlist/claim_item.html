@@ -25,6 +25,20 @@
             </div>
         </div>
 
+        {% if duplicates %}
+            <div class="bg-yellow-900 p-4 rounded mb-6">
+                <p class="font-semibold text-gray-100 mb-2">🎁 Someone may already be getting this</p>
+                {% for duplicate in duplicates %}
+                    <p class="text-sm text-gray-200">
+                        &ldquo;{{ duplicate.name }}&rdquo; is already on this wishlist{% if duplicate.givers %} and {{ duplicate.givers|join(', ') }} {{ 'is' if duplicate.givers|length == 1 else 'are' }} getting it{% else %} and someone is already getting it{% endif %}.
+                    </p>
+                {% endfor %}
+                <p class="text-sm text-gray-300 mt-2">
+                    {{ item.user.name if item.user else item.proxy_wishlist.name }} can't see either one, so nobody will say anything. If it's the same thing, Cancel and leave it to them.
+                </p>
+            </div>
+        {% endif %}
+
         <div class="bg-blue-900 p-4 rounded mb-6">
             <p class="text-sm text-gray-200">
                 🔒 {{ item.user.name if item.user else item.proxy_wishlist.name }} can't see that you're getting this. It shows up in Gifts I'm Giving, where you can tick Bought, Arrived and Wrapped.
@@ -33,6 +47,8 @@
 
         <form method="POST" class="space-y-4">
             {{ form.hidden_tag() }}
+            {# Shown the warning above, so submitting this form is the answer to it #}
+            <input type="hidden" name="confirm_duplicate" value="1">
 
             <div>
                 {{ form.quantity.label(text="How many will you get?", class="block text-gray-200 font-semibold mb-2") }}

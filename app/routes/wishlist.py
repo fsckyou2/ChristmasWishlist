@@ -36,6 +36,13 @@ def _list_url(item, anchor=False):
     return f"{url}#item-{item.id}" if anchor else url
 
 
+def _claimer_names(viewer, item):
+    """Who is getting `item`, when the viewer is allowed to know. Helpers see that it's taken, not by whom."""
+    if not policy.can_view_claimers(viewer, item):
+        return []
+    return sorted({giver.name for giver in item.claimers})
+
+
 def _int_or_none(value):
     try:
         return int(value)
@@ -102,15 +109,12 @@ def add_item():
     form = WishlistItemForm()
     if form.validate_on_submit():
         try:
-            item, merged = services.add_own_item(current_user, services.item_form_data(form, request.form))
+            services.add_own_item(current_user, services.item_form_data(form, request.form))
         except ValidationError as exc:
             flash(str(exc), "danger")
             return render_template("wishlist/add_item.html", form=form)
         db.session.commit()
-        if merged:
-            flash(f'Combined with "{item.name}", which was already on your list.', "info")
-        else:
-            flash("Item added to My Wishlist.", "success")
+        flash("Item added to My Wishlist.", "success")
         return redirect(url_for("wishlist.my_list"))
     return render_template("wishlist/add_item.html", form=form)
 
@@ -240,7 +244,11 @@ def claim_item(item_id):
         return redirect(_list_url(item))
 
     form = ClaimForm()
-    if form.validate_on_submit():
+    # Something similar on this list may already be taken. "I'll get this" posts straight here from the
+    # list page, so that has to stop and ask once before a second person commits to the same present.
+    duplicates = services.similar_claimed_items(item, current_user)
+    needs_confirmation = bool(duplicates) and not request.form.get("confirm_duplicate")
+    if form.validate_on_submit() and not needs_confirmation:
         quantity = form.quantity.data
         if quantity > remaining:
             flash(f"Only {remaining} left.", "warning")
@@ -254,8 +262,15 @@ def claim_item(item_id):
             )
             return redirect(_list_url(item, anchor=True))
 
-    form.quantity.data = remaining
-    return render_template("wishlist/claim_item.html", form=form, item=item, remaining=remaining)
+    if not (needs_confirmation and form.quantity.data):
+        form.quantity.data = remaining
+    return render_template(
+        "wishlist/claim_item.html",
+        form=form,
+        item=item,
+        remaining=remaining,
+        duplicates=[{"name": other.name, "givers": _claimer_names(current_user, other)} for other in duplicates],
+    )
 
 
 @bp.route("/unclaim/<int:claim_id>", methods=["POST"])
@@ -308,23 +323,13 @@ def add_item_from_scraped_data():
         fields["available_images"] = data["images"]
 
     try:
-        item, merged = services.add_own_item(current_user, fields)
+        item = services.add_own_item(current_user, fields)
     except ValidationError as exc:
         db.session.rollback()
         return jsonify({"error": str(exc)}), 400
     db.session.commit()
-
-    if merged:
-        return jsonify(
-            {
-                "success": True,
-                "merged": True,
-                "merged_with_id": item.id,
-                "message": f'Combined with "{item.name}".',
-            }
-        )
-    # Same response whether or not a hidden surprise was folded into this item
-    return jsonify({"success": True, "item_id": item.id, "merged": False})
+    # One shape always, so the response can't hint that a hidden surprise matched
+    return jsonify({"success": True, "item_id": item.id})
 
 
 def _browse_summary(items, visit, owner_id=None):
