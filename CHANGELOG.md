@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [4.3.0] - 2026-10-29
+
+
 ### Changed
 - Adding an item to your own list never combines it with something already on the list. The similarity
   check compared only name and URL, so it couldn't tell two variants of one product apart, and combining
@@ -20,8 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   get and someone is already getting it, you're told who before you commit — one extra tap, and only when
   two of the same present could actually turn up. The person the gifts are for never sees this, and helpers
   on a list kept for someone never see another person's surprise gift through it.
-
-
 ## [4.0.0] - 2026-10-20
 
 
