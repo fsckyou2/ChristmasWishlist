@@ -27,6 +27,12 @@ BOT_WALL_STATUSES = frozenset({403, 429, 503})
 # Hostnames that never work unproxied, so we don't spend a direct round trip finding out.
 ALWAYS_PROXIED = ("amazon.", "etsy.")
 
+# ScraperAPI modes to try, cheapest first. Standard costs 1 credit and clears plenty of walls on its own
+# (measured: it fetches eBay, which a direct request cannot); premium costs ~10 and ultra_premium ~30. A mode the
+# account's plan does not include is refused instantly and is never billed, so leaving ultra_premium here costs
+# nothing today and starts working by itself if the plan is ever upgraded.
+SCRAPER_API_MODES = (None, "premium", "ultra_premium")
+
 # Markers of an interstitial challenge page, which some walls serve with a 200. requests cannot run the JavaScript
 # that clears it, so the HTML we get back is the challenge rather than the product.
 CHALLENGE_MARKERS = ("just a moment", "challenge-platform", "cf_chl", "enable javascript and cookies")
@@ -79,13 +85,11 @@ def _fetch_product_html(url, hostname, api_key, max_bytes):
     """Fetch a product page, escalating through ScraperAPI when the site blocks us.
 
     Retailers increasingly answer a plain fetch with a Cloudflare/Akamai JavaScript challenge, which we can never
-    solve ourselves. ScraperAPI's paid modes do get through, so each one is tried **once**: a blocked page costs a
-    bounded number of credits rather than looping through the balance. Raises BotWall when nothing got through.
+    solve ourselves. ScraperAPI does get through, so its modes are tried in SCRAPER_API_MODES order, each one
+    **once**: a blocked page costs a bounded and cheapest-first number of credits rather than looping through the
+    balance. Raises BotWall when nothing got through.
     """
-    if api_key and any(fragment in hostname for fragment in ALWAYS_PROXIED):
-        modes = [None, "premium", "ultra_premium"]
-    else:
-        modes = ["premium", "ultra_premium"]
+    if not (api_key and any(fragment in hostname for fragment in ALWAYS_PROXIED)):
         try:
             html = fetch_text(url, headers=BROWSER_HEADERS, timeout=DIRECT_TIMEOUT, max_bytes=max_bytes)
         except requests.HTTPError as exc:
@@ -100,7 +104,7 @@ def _fetch_product_html(url, hostname, api_key, max_bytes):
         if not api_key:
             raise BotWall(f"{hostname} turned us away and no ScraperAPI key is configured")
 
-    for mode in modes:
+    for mode in SCRAPER_API_MODES:
         try:
             html = _via_scraper_api(url, api_key, mode, max_bytes)
         except requests.RequestException as exc:
