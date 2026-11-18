@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [4.4.1] - 2026-11-18
+
+
 ### Fixed
 - **Auto-fill now tries the cheap lookup before the expensive one.** Measured against the live account:
   ScraperAPI's standard mode (~1 credit) fetches pages a direct request cannot, eBay among them, while the
@@ -14,8 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and premium only when standard is still blocked, so a typical rescue costs a tenth of what it did.
   `ultra_premium` stays last: this plan does not include it and ScraperAPI refuses it instantly without
   billing, so it costs nothing today and starts working on its own if the plan is upgraded.
-
-
 ## [4.4.0] - 2026-11-18
 
 
