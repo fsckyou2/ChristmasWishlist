@@ -292,7 +292,7 @@ def _fake_fetcher(responses):
 
 class TestBotWallEscalation:
     """Retailers answering with a Cloudflare/Akamai challenge is what broke link auto-fill. These pin the
-    fallback that gets through, and - just as important - pin that it cannot burn through ScraperAPI credits."""
+    fallback that gets through, the cheapest-first order it tries, and that it cannot burn ScraperAPI credits."""
 
     def login(self, client, user):
         with client.session_transaction() as sess:
@@ -312,32 +312,54 @@ class TestBotWallEscalation:
     def scrape(self, client, url="https://shop.example/item"):
         return client.post("/scraper/scrape", json={"url": url})
 
-    def test_403_escalates_to_premium_and_succeeds(self, app, client, user, monkeypatch):
-        calls = self.setup(app, client, user, monkeypatch, {"direct": _http_error(403), "premium": GOOD_HTML})
+    def test_a_403_falls_back_to_scraperapi_and_succeeds(self, app, client, user, monkeypatch):
+        calls = self.setup(app, client, user, monkeypatch, {"direct": _http_error(403), "standard": GOOD_HTML})
         response = self.scrape(client)
         assert response.status_code == 200
         assert response.get_json()["data"]["name"] == "Thing"
-        assert calls == ["direct", "premium"]
+        assert calls == ["direct", "standard"]
+
+    def test_the_cheap_mode_is_tried_before_the_expensive_one(self, app, client, user, monkeypatch):
+        """Standard costs ~1 credit and premium ~10, so a page standard can fetch must never reach premium."""
+        calls = self.setup(app, client, user, monkeypatch, {"direct": _http_error(403), "standard": GOOD_HTML})
+        assert self.scrape(client).status_code == 200
+        assert "premium" not in calls
+
+    def test_premium_is_used_when_standard_is_still_blocked(self, app, client, user, monkeypatch):
+        calls = self.setup(
+            app,
+            client,
+            user,
+            monkeypatch,
+            {"direct": _http_error(403), "standard": CHALLENGE_HTML, "premium": GOOD_HTML},
+        )
+        assert self.scrape(client).status_code == 200
+        assert calls == ["direct", "standard", "premium"]
 
     def test_challenge_page_served_with_200_also_escalates(self, app, client, user, monkeypatch):
         """Some walls return the challenge with a 200, so the status code alone is not enough to notice."""
-        calls = self.setup(app, client, user, monkeypatch, {"direct": CHALLENGE_HTML, "premium": GOOD_HTML})
+        calls = self.setup(app, client, user, monkeypatch, {"direct": CHALLENGE_HTML, "standard": GOOD_HTML})
         assert self.scrape(client).status_code == 200
-        assert calls == ["direct", "premium"]
+        assert calls == ["direct", "standard"]
 
-    def test_each_paid_mode_is_tried_at_most_once(self, app, client, user, monkeypatch):
+    def test_each_mode_is_tried_at_most_once(self, app, client, user, monkeypatch):
         """The credit balance is the thing to protect: a blocked page must cost a bounded number of requests."""
         calls = self.setup(
             app,
             client,
             user,
             monkeypatch,
-            {"direct": _http_error(403), "premium": CHALLENGE_HTML, "ultra_premium": CHALLENGE_HTML},
+            {
+                "direct": _http_error(403),
+                "standard": CHALLENGE_HTML,
+                "premium": CHALLENGE_HTML,
+                "ultra_premium": CHALLENGE_HTML,
+            },
         )
         response = self.scrape(client)
         assert response.status_code == 400
         assert "blocking automated lookups" in response.get_json()["error"]
-        assert calls == ["direct", "premium", "ultra_premium"]
+        assert calls == ["direct", "standard", "premium", "ultra_premium"]
 
     def test_ultra_premium_is_the_last_resort(self, app, client, user, monkeypatch):
         calls = self.setup(
@@ -345,10 +367,28 @@ class TestBotWallEscalation:
             client,
             user,
             monkeypatch,
-            {"direct": _http_error(403), "premium": _http_error(500), "ultra_premium": GOOD_HTML},
+            {
+                "direct": _http_error(403),
+                "standard": _http_error(500),
+                "premium": _http_error(500),
+                "ultra_premium": GOOD_HTML,
+            },
         )
         assert self.scrape(client).status_code == 200
-        assert calls == ["direct", "premium", "ultra_premium"]
+        assert calls == ["direct", "standard", "premium", "ultra_premium"]
+
+    def test_a_mode_the_plan_forbids_is_just_another_failure(self, app, client, user, monkeypatch):
+        """ScraperAPI refuses a mode outside the plan with an instant, unbilled 403. It must not derail the rest
+        or be retried - it is simply the attempt that did not work."""
+        calls = self.setup(
+            app,
+            client,
+            user,
+            monkeypatch,
+            {"direct": _http_error(403), "standard": CHALLENGE_HTML, "premium": GOOD_HTML},
+        )
+        assert self.scrape(client).status_code == 200
+        assert calls.count("premium") == 1
 
     def test_without_a_key_nothing_is_sent_to_scraperapi(self, app, client, user, monkeypatch):
         calls = self.setup(app, client, user, monkeypatch, {"direct": _http_error(403)}, api_key=None)
@@ -363,7 +403,7 @@ class TestBotWallEscalation:
         assert self.scrape(client).status_code == 400
         assert calls == ["direct"]
 
-    def test_amazon_still_goes_straight_through_scraperapi(self, app, client, user, monkeypatch):
+    def test_amazon_skips_the_pointless_direct_attempt(self, app, client, user, monkeypatch):
         calls = self.setup(app, client, user, monkeypatch, {"standard": GOOD_HTML})
         assert self.scrape(client, "https://www.amazon.com/dp/B000").status_code == 200
         assert calls == ["standard"]
