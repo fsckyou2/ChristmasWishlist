@@ -17,6 +17,19 @@ from app.validation import ValidationError, clean_available_images, clean_http_u
 bp = Blueprint("scraper", __name__, url_prefix="/scraper")
 
 SCRAPER_API_ENDPOINT = "https://api.scraperapi.com/"
+SCRAPER_API_TIMEOUT = 75  # ScraperAPI retries the upstream site itself, so its own replies are slow
+DIRECT_TIMEOUT = 10
+
+# How a bot wall turns us away. Cloudflare and Akamai both serve their challenge as 403; 429 and 503 show up when
+# the wall is rate-limiting instead.
+BOT_WALL_STATUSES = frozenset({403, 429, 503})
+
+# Hostnames that never work unproxied, so we don't spend a direct round trip finding out.
+ALWAYS_PROXIED = ("amazon.", "etsy.")
+
+# Markers of an interstitial challenge page, which some walls serve with a 200. requests cannot run the JavaScript
+# that clears it, so the HTML we get back is the challenge rather than the product.
+CHALLENGE_MARKERS = ("just a moment", "challenge-platform", "cf_chl", "enable javascript and cookies")
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -35,6 +48,68 @@ BROWSER_HEADERS = {
 }
 
 SITE_SCRAPERS = {}  # filled in below the scraper definitions
+
+
+class BotWall(requests.RequestException):
+    """Every fetch path was turned away by the site's bot protection."""
+
+
+def _describe(exc):
+    """Exception class plus the HTTP status - the status is the part that says whether a bot wall turned us away."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return f"{exc.__class__.__name__}({status})" if status else exc.__class__.__name__
+
+
+def _looks_like_challenge(html):
+    head = html[:4000].lower()
+    return any(marker in head for marker in CHALLENGE_MARKERS)
+
+
+def _via_scraper_api(url, api_key, mode, max_bytes):
+    """Fetch `url` from ScraperAPI's network. `mode` is None (standard), "premium" or "ultra_premium"; each step up
+    costs more credits, so callers try a mode at most once."""
+    params = {"api_key": api_key, "url": url}
+    if mode:
+        params[mode] = "true"
+    # The key travels over HTTPS as a query param, which is how ScraperAPI's API works
+    return fetch_text(SCRAPER_API_ENDPOINT, params=params, timeout=SCRAPER_API_TIMEOUT, max_bytes=max_bytes)
+
+
+def _fetch_product_html(url, hostname, api_key, max_bytes):
+    """Fetch a product page, escalating through ScraperAPI when the site blocks us.
+
+    Retailers increasingly answer a plain fetch with a Cloudflare/Akamai JavaScript challenge, which we can never
+    solve ourselves. ScraperAPI's paid modes do get through, so each one is tried **once**: a blocked page costs a
+    bounded number of credits rather than looping through the balance. Raises BotWall when nothing got through.
+    """
+    if api_key and any(fragment in hostname for fragment in ALWAYS_PROXIED):
+        modes = [None, "premium", "ultra_premium"]
+    else:
+        modes = ["premium", "ultra_premium"]
+        try:
+            html = fetch_text(url, headers=BROWSER_HEADERS, timeout=DIRECT_TIMEOUT, max_bytes=max_bytes)
+        except requests.HTTPError as exc:
+            status = getattr(exc.response, "status_code", None)
+            if status not in BOT_WALL_STATUSES:
+                raise
+            current_app.logger.info("Direct fetch for %s returned %s (bot wall)", hostname, status)
+        else:
+            if not _looks_like_challenge(html):
+                return html
+            current_app.logger.info("Direct fetch for %s returned a challenge page", hostname)
+        if not api_key:
+            raise BotWall(f"{hostname} turned us away and no ScraperAPI key is configured")
+
+    for mode in modes:
+        try:
+            html = _via_scraper_api(url, api_key, mode, max_bytes)
+        except requests.RequestException as exc:
+            current_app.logger.info("ScraperAPI (%s) failed for %s: %s", mode or "standard", hostname, _describe(exc))
+            continue
+        if not _looks_like_challenge(html):
+            return html
+        current_app.logger.info("ScraperAPI (%s) still hit a challenge for %s", mode or "standard", hostname)
+    raise BotWall(f"every fetch path for {hostname} was blocked")
 
 
 def _scraper_rate_key():
@@ -83,22 +158,19 @@ def scrape_url():
     scraper_api_key = current_app.config.get("SCRAPER_API_KEY")
 
     try:
-        if scraper_api_key and ("amazon." in hostname or "etsy." in hostname):
-            # ScraperAPI fetches the page from its own network; the key travels over HTTPS as a query param
-            html = fetch_text(
-                SCRAPER_API_ENDPOINT,
-                params={"api_key": scraper_api_key, "url": url},
-                timeout=60,
-                max_bytes=max_bytes,
-            )
-        else:
-            html = fetch_text(url, headers=BROWSER_HEADERS, timeout=10, max_bytes=max_bytes)
+        html = _fetch_product_html(url, hostname, scraper_api_key, max_bytes)
     except BlockedDestination as exc:
         return jsonify({"error": f"Invalid URL: {exc}"}), 400
     except ResponseTooLarge as exc:
         return jsonify({"error": str(exc)}), 400
+    except BotWall as exc:
+        current_app.logger.warning("Scrape blocked by bot protection for %s: %s", hostname, exc)
+        return (
+            jsonify({"error": "That shop is blocking automated lookups. You can enter the details manually."}),
+            400,
+        )
     except requests.RequestException as exc:
-        current_app.logger.warning("Scrape fetch failed for %s: %s", hostname, exc.__class__.__name__)
+        current_app.logger.warning("Scrape fetch failed for %s: %s", hostname, _describe(exc))
         return jsonify({"error": "Could not fetch that page. You can enter the details manually."}), 400
 
     if "api-services-support@amazon" in html or "Robot Check" in html:

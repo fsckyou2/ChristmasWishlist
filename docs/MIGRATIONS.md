@@ -37,6 +37,9 @@ CI fails if the migrations and the models disagree (`flask db check` and
 |---|---|
 | `0001_baseline` | Schema of v3.5.2 (the last release that used hand-written migration scripts) |
 | `0002_invites_logins` | `invites` table, `users.last_login_at` (single-use magic links), one-owner CHECK on `wishlist_items`, index names normalised |
+| `0003_gift_history` | Gifts archived when an admin starts a new season |
+| `0004_usability` | Item priority/size/colour/order, digest preferences, list visits, reminders, undo snapshots |
+| `0005_claim_price` | `purchases.price` - what a giver is spending, private to them; NULL falls back to the item's price |
 
 Note: the `purchases` table and its `purchased_by_id` column keep their historical names; in code they are the
 `Claim` model and `Claim.claimed_by_id`.

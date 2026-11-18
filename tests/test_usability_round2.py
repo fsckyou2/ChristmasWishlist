@@ -272,7 +272,7 @@ def test_giving_totals_and_progress(app, client, user, other_user):
     page = " ".join(client.get("/wishlist/my-claims").get_data(as_text=True).split())
     assert "3 gifts for 1 person" in page
     assert "$45.50" in page  # 20 x 2 + 5.50
-    assert "1 without a price not counted" in page
+    assert "<span data-unpriced>1</span> without a price not counted" in page
     assert (
         "<span data-to-buy>1</span> to buy · <span data-to-wrap>1</span> to wrap · <span data-done>1</span> done"
         in page

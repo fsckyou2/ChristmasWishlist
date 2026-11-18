@@ -26,6 +26,7 @@ retired word shows up.
 | Browse Wishlists rows | **"{x} of {y} still available"**, a **"{n} new"** badge (added since your last visit), **"Nothing on the list yet"** with **"Send a reminder"** / **"Reminder sent {date}"**. | |
 | Deleting | No "are you sure?". Flash: **Deleted "{item}" from My Wishlist.** with **Undo**; then **"{item}" is back.** | "This cannot be undone" |
 | Gifts I'm Giving totals | **"{n} gifts for {p} people"**, the total spend, and **"{a} to buy · {b} to wrap · {c} done"**. | |
+| What a giver is spending on one gift | **"My price"**, a field on each gift in Gifts I'm Giving; the list's own price is the input's hint, and the field is private to the giver. Totals stay **the total spend**. | "What I paid", "Actual price", "Cost" |
 | Phone navigation | Tab bar: **My Wishlist**, **Browse Wishlists**, **Gifts I'm Giving**, **More**. | Menu |
 | New year | Admin: **"Start Christmas {next year}"**. The form still asks which Christmas is being closed. Given gifts are archived silently (not shown on the site). | Start a New Season, Gifts You've Received, Past gifts |
 | Logging in and out | Verbs: **"Log in"** and **"Log out"**. Emailed link: **magic link** ("Email me a magic link"). Also **password** and **passkey**. Page title: **"Log in"**. | Login (as a word people read), Logout, Sign in, Sign out |

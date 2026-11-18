@@ -206,6 +206,9 @@ class Claim(db.Model):
     wishlist_item_id = db.Column(db.Integer, db.ForeignKey("wishlist_items.id"), nullable=False)
     claimed_by_id = db.Column("purchased_by_id", db.Integer, db.ForeignKey("users.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
+    # What this giver is spending, per unit. Private to them: see policy.owns_claim. None means "not said", in
+    # which case Gifts I'm Giving falls back to the price on the item itself.
+    price = db.Column(db.Float)
     purchased = db.Column(db.Boolean, default=False)  # Has the gift been bought/ordered?
     received = db.Column(db.Boolean, default=False)  # Has the gift been received (for online orders)?
     wrapped = db.Column(db.Boolean, default=False)  # Has the gift been wrapped?
@@ -214,6 +217,14 @@ class Claim(db.Model):
 
     item = db.relationship("WishlistItem", back_populates="claims")
     claimed_by = db.relationship("User", back_populates="claims")
+
+    @property
+    def effective_price(self):
+        """What this giver is spending per unit: their own figure if they gave one, else the item's own price.
+
+        Zero is a real answer ("it cost me nothing"), so only None means unsaid.
+        """
+        return self.price if self.price is not None else self.item.price
 
     def __repr__(self):
         return f"<Claim item={self.wishlist_item_id} by={self.claimed_by_id} qty={self.quantity}>"
