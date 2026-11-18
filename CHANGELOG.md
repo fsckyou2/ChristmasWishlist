@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [4.4.0] - 2026-11-18
+
+
 ### Added
 - **"My price" on each gift in Gifts I'm Giving.** Record what you are actually spending, which is often not
   what the list says a thing costs. The spend totals prefer your figure and fall back to the list's price
@@ -22,8 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the behaviour is unchanged.
 - Scrape failures are logged with the HTTP status, not just the exception class, which is what made the
   above invisible in the first place.
-
-
 ## [4.3.0] - 2026-10-29
 
 
