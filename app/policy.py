@@ -50,6 +50,16 @@ def can_view_claimers(user, item):
     return not (item.proxy_wishlist_id is not None and item.proxy_wishlist.is_delegate(user))
 
 
+def owns_claim(user, claim):
+    """True if this is the user's own claim.
+
+    A claim's own details - above all the price the giver entered - belong to that giver and to nobody else. Not
+    the recipient (who must not learn any of it), not other givers, and not admins: an admin browsing claims is
+    still a different person doing their own shopping.
+    """
+    return user is not None and claim.claimed_by_id == user.id
+
+
 def can_view_user_list(viewer, list_owner):
     """The 'browse' view of a user's list shows claims, so it is for everyone except the owner."""
     return viewer.id != list_owner.id

@@ -14,7 +14,7 @@
 
     <div class="bg-blue-900 p-4 rounded-lg mb-6">
         <p class="text-sm text-gray-200">
-            Tick <strong>Bought</strong> when you order a gift, <strong>Arrived</strong> when it's in your hands, and <strong>Wrapped</strong> when it's ready to give. 🔒 The people you're giving to can't see any of this.
+            Tick <strong>Bought</strong> when you order a gift, <strong>Arrived</strong> when it's in your hands, and <strong>Wrapped</strong> when it's ready to give. Fill in <strong>My price</strong> to track what you're spending. 🔒 The people you're giving to can't see any of this.
         </p>
     </div>
 
@@ -24,9 +24,9 @@
                 <h2 class="text-xl font-bold">
                     {{ overall.gifts }} gift{{ "s" if overall.gifts != 1 }} for {{ claims_by_recipient|length }} {{ "people" if claims_by_recipient|length != 1 else "person" }}
                 </h2>
-                <p class="text-2xl font-bold text-green-500">${{ "%.2f"|format(overall.spend) }}</p>
+                <p class="text-2xl font-bold text-green-500" data-spend>${{ "%.2f"|format(overall.spend) }}</p>
             </div>
-            {% if overall.unpriced %}<p class="text-xs text-gray-400">{{ overall.unpriced }} without a price not counted</p>{% endif %}
+            <p class="text-xs text-gray-400 {% if not overall.unpriced %}hidden{% endif %}" data-unpriced-note><span data-unpriced>{{ overall.unpriced }}</span> without a price not counted</p>
             <div class="w-full bg-gray-700 rounded-full h-3 mt-3" role="progressbar" aria-label="Wrapped" aria-valuemin="0" aria-valuemax="{{ overall.gifts }}" aria-valuenow="{{ overall.done }}">
                 <div class="bg-green-500 h-3 rounded-full w-0" data-progress-bar></div>
             </div>
@@ -48,13 +48,14 @@
                             <span class="bg-yellow-600 text-white text-sm px-3 py-1 rounded-full">No account yet</span>
                         {% endif %}
                     </h2>
-                    <span class="text-lg font-semibold text-green-500">${{ "%.2f"|format(data.spend) }}</span>
+                    <span class="text-lg font-semibold text-green-500" data-spend>${{ "%.2f"|format(data.spend) }}</span>
                 </div>
 
                 <div class="space-y-4">
                     {% for claim in data.claims %}
                         {% set item = claim.item %}
-                        <div class="bg-gray-750 rounded-lg p-4 border border-gray-700" data-claim>
+                        {% set effective = claim.effective_price %}
+                        <div class="bg-gray-750 rounded-lg p-4 border border-gray-700" data-claim data-quantity="{{ claim.quantity }}" data-item-price="{{ item.price if item.price is not none else "" }}">
                             <div class="flex gap-4">
                                 {# Item Image #}
                                 {% if item.image_url %}
@@ -72,12 +73,21 @@
                                         {% endif %}
                                     </h3>
                                     {{ item_details(item) }}
-                                    <div class="flex gap-4 text-sm text-gray-400 mb-2">
-                                        {% if item.price %}
-                                            <span class="text-green-600 font-semibold">${{ "%.2f"|format(item.price * claim.quantity) }}</span>
-                                        {% endif %}
+                                    <div class="flex flex-wrap gap-4 text-sm text-gray-400 mb-2">
+                                        <span class="text-green-600 font-semibold {% if effective is none %}hidden{% endif %}" data-line-total>${{ "%.2f"|format((effective or 0) * claim.quantity) }}</span>
                                         <span>Quantity: {{ claim.quantity }}</span>
                                         <span class="text-gray-500">Claimed {{ claim.created_at.strftime('%b %d, %Y') }}</span>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2 mb-2">
+                                        <label class="text-sm text-gray-300" for="claim-price-{{ claim.id }}">My price</label>
+                                        <span class="text-sm text-gray-400">$</span>
+                                        <input type="number" step="0.01" min="0" inputmode="decimal"
+                                               id="claim-price-{{ claim.id }}"
+                                               class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-2 focus:ring-green-600"
+                                               data-claim-price="{{ claim.id }}"
+                                               value="{{ "%.2f"|format(claim.price) if claim.price is not none else "" }}"
+                                               placeholder="{{ "%.2f"|format(item.price) if item.price else "0.00" }}">
+                                        <span class="text-xs text-gray-500" data-price-state role="status"></span>
                                     </div>
                                     {% if item.url|safe_href %}
                                         <a href="{{ item.url|safe_href }}" rel="noopener noreferrer" target="_blank" class="text-blue-400 text-sm hover:underline">View Product →</a>

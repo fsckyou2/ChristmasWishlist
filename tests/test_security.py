@@ -709,3 +709,79 @@ def test_migrations_build_the_model_schema(tmp_path, monkeypatch):
         with db.engine.connect() as conn:
             diff = compare_metadata(MigrationContext.configure(conn), db.metadata)
         assert diff == []
+
+
+# --- A giver's own price ---------------------------------------------------------------------------------------------
+
+
+class TestClaimPricePrivacy:
+    """What a giver is spending is theirs alone. Not the recipient's (who must learn nothing), not another giver's,
+    and not an admin's - an admin doing their own shopping is just another giver."""
+
+    PRICE = "42.50"
+
+    def claim_id(self, family):
+        return Claim.query.filter_by(claimed_by_id=family["aunt"].id, wishlist_item_id=family["lego"].id).one().id
+
+    def set_price(self, app, family, price=PRICE):
+        """Aunt Rebecca records what she is spending on the LEGO, and we hand back the claim id."""
+        claim_id = self.claim_id(family)
+        client = app.test_client()
+        login(client, family["aunt"])
+        response = client.post(f"/wishlist/update-claim-price/{claim_id}", json={"price": price})
+        assert response.status_code == 200, response.get_data(as_text=True)
+        return claim_id
+
+    def stored(self, claim_id):
+        db.session.expire_all()
+        return db.session.get(Claim, claim_id).price
+
+    def test_the_giver_sees_their_own_figure(self, app, family):
+        claim_id = self.set_price(app, family)
+        assert self.stored(claim_id) == 42.50
+        client = app.test_client()
+        login(client, family["aunt"])
+        assert self.PRICE in client.get("/wishlist/my-claims").get_data(as_text=True)
+
+    def test_the_recipient_never_sees_it(self, app, family):
+        self.set_price(app, family)
+        client = app.test_client()
+        login(client, family["kid"])
+        for path in ("/wishlist/my-list", "/wishlist/my-claims", "/wishlist/all-users"):
+            assert self.PRICE not in client.get(path).get_data(as_text=True), path
+
+    def test_another_giver_can_neither_read_nor_write_it(self, app, family):
+        claim_id = self.set_price(app, family)
+        cousin = make_user("Cousin Fred", "cousin@example.com")
+        client = app.test_client()
+        login(client, cousin)
+        assert client.post(f"/wishlist/update-claim-price/{claim_id}", json={"price": "1"}).status_code == 403
+        assert self.PRICE not in client.get("/wishlist/my-claims").get_data(as_text=True)
+        assert self.PRICE not in client.get(f"/wishlist/view/{family['kid'].id}").get_data(as_text=True)
+        assert self.stored(claim_id) == 42.50
+
+    def test_an_admin_cannot_write_it(self, app, family):
+        claim_id = self.set_price(app, family)
+        client = app.test_client()
+        login(client, family["admin"])
+        assert client.post(f"/wishlist/update-claim-price/{claim_id}", json={"price": "9"}).status_code == 403
+        assert self.stored(claim_id) == 42.50
+
+    def test_the_admin_claims_page_does_not_show_it(self, app, family):
+        self.set_price(app, family)
+        client = app.test_client()
+        login(client, family["admin"])
+        assert self.PRICE not in client.get("/admin/claims").get_data(as_text=True)
+
+    def test_a_logged_out_visitor_is_refused(self, app, family):
+        claim_id = self.set_price(app, family)
+        response = app.test_client().post(f"/wishlist/update-claim-price/{claim_id}", json={"price": "1"})
+        assert response.status_code in (302, 401)
+        assert self.stored(claim_id) == 42.50
+
+    def test_policy_rule(self, family):
+        claim = db.session.get(Claim, self.claim_id(family))
+        assert policy.owns_claim(family["aunt"], claim)
+        assert not policy.owns_claim(family["kid"], claim)
+        assert not policy.owns_claim(family["admin"], claim)
+        assert not policy.owns_claim(None, claim)

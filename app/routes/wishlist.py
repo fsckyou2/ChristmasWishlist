@@ -17,7 +17,7 @@ from app.models import (
     list_order,
     utcnow,
 )
-from app.validation import ValidationError
+from app.validation import ValidationError, clean_price
 
 bp = Blueprint("wishlist", __name__, url_prefix="/wishlist")
 
@@ -429,10 +429,11 @@ def my_claims():
 
 def _giving_summary(claims):
     """Spend (price x quantity) and progress: to buy (not bought yet), to wrap (bought, not wrapped), done (wrapped)."""
+    priced = [(c, c.effective_price) for c in claims]
     return {
         "gifts": len(claims),
-        "spend": sum(c.item.price * c.quantity for c in claims if c.item.price),
-        "unpriced": sum(1 for c in claims if not c.item.price),
+        "spend": sum(price * c.quantity for c, price in priced if price is not None),
+        "unpriced": sum(1 for _, price in priced if price is None),
         "to_buy": sum(1 for c in claims if not c.wrapped and not c.purchased),
         "to_wrap": sum(1 for c in claims if not c.wrapped and c.purchased),
         "done": sum(1 for c in claims if c.wrapped),
@@ -444,7 +445,7 @@ def _giving_summary(claims):
 def update_claim_status(claim_id):
     """Update purchased/received/wrapped status of a claim"""
     claim = db.get_or_404(Claim, claim_id)
-    if claim.claimed_by_id != current_user.id:
+    if not policy.owns_claim(current_user, claim):
         return jsonify({"error": "Unauthorized"}), 403
 
     data = _json_body()
@@ -455,6 +456,25 @@ def update_claim_status(claim_id):
     return jsonify(
         {"success": True, "purchased": claim.purchased, "received": claim.received, "wrapped": claim.wrapped}
     )
+
+
+@bp.route("/update-claim-price/<int:claim_id>", methods=["POST"])
+@login_required
+def update_claim_price(claim_id):
+    """Set what I'm spending on one of my own gifts. Nobody else can read or write it (policy.owns_claim)."""
+    claim = db.get_or_404(Claim, claim_id)
+    if not policy.owns_claim(current_user, claim):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = _json_body()
+    if "price" not in data:
+        return jsonify({"error": "Price is required"}), 400
+    try:
+        claim.price = clean_price(data["price"])
+    except ValidationError as exc:
+        return jsonify({"error": str(exc)}), 400
+    db.session.commit()
+    return jsonify({"success": True, "price": claim.price})
 
 
 @bp.route("/create-proxy-wishlist", methods=["GET", "POST"])

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **"My price" on each gift in Gifts I'm Giving.** Record what you are actually spending, which is often not
+  what the list says a thing costs. The spend totals prefer your figure and fall back to the list's price
+  when you haven't given one, so nothing changes until you start filling it in. 🔒 It is private to you: the
+  person the gift is for can't see it, and neither can other givers or an admin.
+
+### Fixed
+- **Auto-fill from a link works again on shops behind a bot wall.** Retailers increasingly answer with a
+  Cloudflare or Akamai JavaScript challenge, which the scraper can never solve itself, so details stopped
+  coming back from eBay and many smaller shops. Those pages are now retried through ScraperAPI's paid modes,
+  each tried at most once so a blocked page cannot burn through the credit balance, and a shop that still
+  refuses says so plainly instead of failing with a generic message. Needs `SCRAPER_API_KEY`; without one
+  the behaviour is unchanged.
+- Scrape failures are logged with the HTTP status, not just the exception class, which is what made the
+  above invisible in the first place.
+
 
 ## [4.3.0] - 2026-10-29
 
