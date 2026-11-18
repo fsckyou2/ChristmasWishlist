@@ -251,3 +251,124 @@ class TestScraperFunctionality:
         data = response.get_json()
         assert data is not None
         assert response.content_type == "application/json"
+
+
+GOOD_HTML = "<html><head><meta property='og:title' content='Thing'></head></html>"
+CHALLENGE_HTML = "<html><head><title>Just a moment...</title></head><body>challenge-platform</body></html>"
+
+
+def _http_error(status):
+    """A requests.HTTPError carrying a real status code, as raise_for_status() produces."""
+    import requests
+
+    response = requests.Response()
+    response.status_code = status
+    return requests.HTTPError(f"{status} error", response=response)
+
+
+def _fake_fetcher(responses):
+    """Stand in for fetch_text. `responses` maps "direct"/"standard"/"premium"/"ultra_premium" to HTML or an
+    exception to raise. Returns (fn, calls) so a test can assert which modes were tried, and in what order."""
+    calls = []
+
+    def fetch(url, **kwargs):
+        params = kwargs.get("params") or {}
+        if url.startswith("https://api.scraperapi.com"):
+            mode = (
+                "premium" if params.get("premium") else "ultra_premium" if params.get("ultra_premium") else "standard"
+            )
+        else:
+            mode = "direct"
+        calls.append(mode)
+        if mode not in responses:
+            raise AssertionError(f"unexpected fetch in mode {mode!r}")
+        outcome = responses[mode]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    return fetch, calls
+
+
+class TestBotWallEscalation:
+    """Retailers answering with a Cloudflare/Akamai challenge is what broke link auto-fill. These pin the
+    fallback that gets through, and - just as important - pin that it cannot burn through ScraperAPI credits."""
+
+    def login(self, client, user):
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user.id)
+            sess["_fresh"] = True
+
+    def setup(self, app, client, user, monkeypatch, responses, api_key="k3y"):
+        import app.routes.scraper as scraper_mod
+
+        app.config["SCRAPER_API_KEY"] = api_key
+        fetch, calls = _fake_fetcher(responses)
+        monkeypatch.setattr(scraper_mod, "fetch_text", fetch)
+        monkeypatch.setattr(scraper_mod, "check_url", lambda url: None)
+        self.login(client, user)
+        return calls
+
+    def scrape(self, client, url="https://shop.example/item"):
+        return client.post("/scraper/scrape", json={"url": url})
+
+    def test_403_escalates_to_premium_and_succeeds(self, app, client, user, monkeypatch):
+        calls = self.setup(app, client, user, monkeypatch, {"direct": _http_error(403), "premium": GOOD_HTML})
+        response = self.scrape(client)
+        assert response.status_code == 200
+        assert response.get_json()["data"]["name"] == "Thing"
+        assert calls == ["direct", "premium"]
+
+    def test_challenge_page_served_with_200_also_escalates(self, app, client, user, monkeypatch):
+        """Some walls return the challenge with a 200, so the status code alone is not enough to notice."""
+        calls = self.setup(app, client, user, monkeypatch, {"direct": CHALLENGE_HTML, "premium": GOOD_HTML})
+        assert self.scrape(client).status_code == 200
+        assert calls == ["direct", "premium"]
+
+    def test_each_paid_mode_is_tried_at_most_once(self, app, client, user, monkeypatch):
+        """The credit balance is the thing to protect: a blocked page must cost a bounded number of requests."""
+        calls = self.setup(
+            app,
+            client,
+            user,
+            monkeypatch,
+            {"direct": _http_error(403), "premium": CHALLENGE_HTML, "ultra_premium": CHALLENGE_HTML},
+        )
+        response = self.scrape(client)
+        assert response.status_code == 400
+        assert "blocking automated lookups" in response.get_json()["error"]
+        assert calls == ["direct", "premium", "ultra_premium"]
+
+    def test_ultra_premium_is_the_last_resort(self, app, client, user, monkeypatch):
+        calls = self.setup(
+            app,
+            client,
+            user,
+            monkeypatch,
+            {"direct": _http_error(403), "premium": _http_error(500), "ultra_premium": GOOD_HTML},
+        )
+        assert self.scrape(client).status_code == 200
+        assert calls == ["direct", "premium", "ultra_premium"]
+
+    def test_without_a_key_nothing_is_sent_to_scraperapi(self, app, client, user, monkeypatch):
+        calls = self.setup(app, client, user, monkeypatch, {"direct": _http_error(403)}, api_key=None)
+        response = self.scrape(client)
+        assert response.status_code == 400
+        assert "blocking automated lookups" in response.get_json()["error"]
+        assert calls == ["direct"]
+
+    def test_an_ordinary_server_error_does_not_spend_credits(self, app, client, user, monkeypatch):
+        """A broken shop is not a bot wall; paying ScraperAPI would not help, so we don't."""
+        calls = self.setup(app, client, user, monkeypatch, {"direct": _http_error(500)})
+        assert self.scrape(client).status_code == 400
+        assert calls == ["direct"]
+
+    def test_amazon_still_goes_straight_through_scraperapi(self, app, client, user, monkeypatch):
+        calls = self.setup(app, client, user, monkeypatch, {"standard": GOOD_HTML})
+        assert self.scrape(client, "https://www.amazon.com/dp/B000").status_code == 200
+        assert calls == ["standard"]
+
+    def test_amazon_escalates_when_standard_mode_is_blocked(self, app, client, user, monkeypatch):
+        calls = self.setup(app, client, user, monkeypatch, {"standard": CHALLENGE_HTML, "premium": GOOD_HTML})
+        assert self.scrape(client, "https://www.amazon.com/dp/B000").status_code == 200
+        assert calls == ["standard", "premium"]
